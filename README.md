@@ -1,6 +1,6 @@
 # 🦁 Simba Intel
 
-**Simba Intel** is an AI-powered virtual assistant built with **Django, Python, and Groq AI**. It provides real-time conversational AI capabilities, chat session management, file analysis, and system monitoring through a modern web interface.
+**Simba Intel** is an AI-powered virtual assistant built with **Django, Python, and Groq AI**. It provides real-time conversational AI capabilities, chat session management, and system monitoring through a modern web interface.
 
 ## ✨ Features
 
