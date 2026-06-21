@@ -23,6 +23,17 @@
             --text: #d1d5db;
         }
 
+        /* Global box-sizing (safe for all layouts) */
+        * {
+            box-sizing: border-box;
+        }
+
+        /* Prevent global horizontal scroll */
+        html,
+        body {
+            overflow-x: hidden;
+        }
+
         body {
             font-family: 'Outfit', sans-serif;
             background-color: var(--bg);
@@ -1112,6 +1123,360 @@
             color: rgba(255, 68, 68, 0.5);
             font-size: 16px;
         }
+
+        /* ================= RESPONSIVE STYLES ================= */
+        /* Mobile menu button - HIDDEN BY DEFAULT for desktop */
+        .mobile-menu-btn {
+            display: none;
+            position: fixed;
+            top: 16px;
+            left: 16px;
+            z-index: 1001;
+            background: rgba(18, 22, 28, 0.95);
+            border: 1px solid rgba(0, 229, 255, 0.3);
+            color: #00e5ff;
+            width: 44px;
+            height: 44px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 20px;
+            transition: all 0.3s ease;
+        }
+
+        .mobile-menu-btn:hover {
+            background: rgba(0, 229, 255, 0.1);
+        }
+
+        /* Mobile close button */
+        .mobile-close-btn {
+            display: none;
+            position: absolute;
+            top: 16px;
+            right: 16px;
+            background: transparent;
+            border: none;
+            color: #00e5ff;
+            font-size: 24px;
+            cursor: pointer;
+            padding: 4px;
+        }
+
+        /* Mobile overlay */
+        .mobile-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            z-index: 998;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .mobile-overlay.show {
+            display: block;
+            opacity: 1;
+        }
+
+        /* Ensure menu button is HIDDEN on 768px and above */
+        @media (min-width: 768px) {
+            .mobile-menu-btn {
+                display: none !important;
+            }
+        }
+
+        /* Tablet (768px - 991px) */
+        @media (max-width: 991px) {
+            #sidebar {
+                width: 240px;
+            }
+
+            #chat-flow {
+                padding: 30px 6% 40px 6%;
+            }
+
+            .cyber-select-wrapper,
+            .cyber-select {
+                width: 150px;
+                min-width: 150px;
+            }
+
+            .circle-wrapper {
+                flex-direction: column;
+                gap: 20px;
+                align-items: center;
+            }
+        }
+
+        /* Mobile (below 768px) - COMPLETE REBUILD */
+        @media (max-width: 767px) {
+            /* Body reset for mobile */
+            body {
+                display: block;
+                height: 100vh;
+                width: 100vw;
+            }
+
+            /* Mobile menu button visible */
+            .mobile-menu-btn {
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                transition: opacity 0.3s ease;
+            }
+
+            /* Mobile close button visible */
+            .mobile-close-btn {
+                display: block;
+            }
+
+            /* Sidebar - fixed hidden drawer */
+            #sidebar {
+                position: fixed;
+                top: 0;
+                left: -280px;
+                width: 280px;
+                height: 100vh;
+                z-index: 999;
+                transition: left 0.3s ease;
+                margin: 0;
+                flex-shrink: 0;
+            }
+
+            #sidebar.mobile-open {
+                left: 0;
+            }
+
+            /* System metrics - side-by-side, smaller circles, reduced spacing */
+            .system-monitor {
+                padding: 6px !important;
+                margin-top: 6px !important;
+            }
+
+            .system-monitor .msg-label {
+                margin-bottom: 4px !important;
+                font-size: 10px !important;
+            }
+
+            .circle-wrapper {
+                flex-direction: row !important;
+                justify-content: center;
+                gap: 8px;
+                padding: 4px 0;
+                margin-top: 0 !important;
+            }
+
+            .circle-card {
+                width: auto;
+                transform: scale(0.6);
+                transform-origin: center;
+            }
+
+            .circle-card svg {
+                width: 120px;
+                height: 120px;
+            }
+
+            /* Reduce ENV_INTEL section size */
+            .system-monitor .system-monitor {
+                margin-top: 8px !important;
+                padding-top: 8px !important;
+            }
+
+            .system-monitor .system-monitor .msg-label {
+                margin-bottom: 6px !important;
+            }
+
+            .system-monitor .system-monitor div[style*="font-family: 'JetBrains Mono'"] {
+                font-size: 10px !important;
+                line-height: 1.5 !important;
+            }
+
+            .system-monitor .system-monitor div[style*="display: flex"] {
+                margin-bottom: 2px !important;
+            }
+
+            /* Reduce ARCHIVE_LOG height slightly */
+            .history-section {
+                margin-top: 16px !important;
+            }
+
+            .history-section .label {
+                margin-bottom: 8px !important;
+            }
+
+            .chat-item-container .chat-link {
+                padding: 8px 10px !important;
+            }
+
+            /* Workspace - full width no sidebar space */
+            #workspace {
+                width: 100vw;
+                height: 100vh;
+                margin-left: 0;
+                flex-shrink: 0;
+            }
+
+            /* Chat flow - fill entire width */
+            #chat-flow {
+                padding: 70px 16px 120px 16px;
+                gap: 24px;
+                width: 100%;
+                max-width: 100%;
+            }
+
+            /* Chat messages */
+            .chat-block {
+                width: 100%;
+                max-width: 100%;
+            }
+
+            .content {
+                max-width: 100%;
+                width: 100%;
+                font-size: 14px;
+                padding: 12px 14px;
+                word-wrap: break-word;
+                overflow-wrap: break-word;
+            }
+
+            .markdown-content {
+                word-wrap: break-word;
+                overflow-wrap: break-word;
+                width: 100%;
+            }
+
+            .markdown-content a {
+                word-wrap: break-word;
+                overflow-wrap: break-word;
+            }
+
+            /* Code blocks */
+            pre {
+                max-width: 100%;
+                overflow-x: auto;
+            }
+
+            /* Input wrapper - fixed bottom */
+            #input-wrapper {
+                position: fixed;
+                bottom: 0;
+                left: 0;
+                right: 0;
+                padding: 16px 0;
+                padding-bottom: calc(16px + env(safe-area-inset-bottom));
+                z-index: 100;
+            }
+
+            /* Command box */
+            .command-box {
+                width: calc(100% - 32px);
+                max-width: 100%;
+                margin: 0 16px;
+                padding: 8px 12px;
+                flex-wrap: wrap;
+                gap: 8px;
+            }
+
+            /* Cyber select */
+            .cyber-select-wrapper,
+            .cyber-select {
+                width: 120px;
+                min-width: 120px;
+                padding: 8px 10px;
+            }
+
+            /* User input */
+            #user-input {
+                min-width: 120px;
+                flex: 1;
+            }
+
+            /* Buttons - 44px touch targets */
+            .voice-btn,
+            .send-btn {
+                width: 44px;
+                height: 44px;
+            }
+
+            /* Welcome screen - perfectly centered */
+            .welcome-container {
+                width: 100%;
+                max-width: 100%;
+                padding: 0 16px;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+            }
+
+            .welcome-container i {
+                display: block;
+                text-align: center;
+            }
+
+            .welcome-container h1 {
+                font-size: 20px;
+                text-align: center;
+            }
+
+            .welcome-container p {
+                text-align: center;
+                max-width: 100%;
+            }
+
+            /* Suggestion cards - responsive grid */
+            .welcome-container > div[style*="grid-template-columns"] {
+                grid-template-columns: repeat(2, 1fr) !important;
+                max-width: 100%;
+                width: 100%;
+                padding: 0 16px;
+            }
+
+            /* Images responsive */
+            img {
+                max-width: 100%;
+                height: auto;
+            }
+
+            /* Tables responsive */
+            table {
+                display: block;
+                overflow-x: auto;
+            }
+        }
+
+        /* Small mobile (below 400px) - 1 column cards */
+        @media (max-width: 399px) {
+            .cyber-select-wrapper,
+            .cyber-select {
+                width: 100px;
+                min-width: 100px;
+                padding: 6px 8px;
+                font-size: 11px;
+            }
+
+            #selectedText {
+                font-size: 11px;
+            }
+
+            .voice-btn,
+            .send-btn {
+                width: 40px;
+                height: 40px;
+            }
+
+            .brand {
+                font-size: 16px;
+            }
+
+            /* Suggestion cards - 1 column */
+            .welcome-container > div[style*="grid-template-columns"] {
+                grid-template-columns: 1fr !important;
+            }
+        }
     </style>
 
 
@@ -1149,10 +1514,22 @@
     </div>
 
     <input type="hidden" id="csrf-token" value="{{ csrf_token }}">
+    <!-- Mobile menu button -->
+    <button id="mobile-menu-btn" class="mobile-menu-btn">
+        <i class="fa-solid fa-bars"></i>
+    </button>
+
+    <!-- Mobile overlay -->
+    <div id="mobile-overlay" class="mobile-overlay"></div>
+
     <div id="sidebar">
         <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
         <div class="brand">
             <i class="fa-solid fa-terminal"></i> SIMBA_INTEL
+            <!-- Mobile close button -->
+            <button id="mobile-close-btn" class="mobile-close-btn">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
             <div class="ai-status status-online" id="aiStatus">
                 <span class="dot"></span>
                 <span class="status-text">CORE ONLINE</span>
@@ -1409,6 +1786,35 @@
     <script>
 
 
+        // ================= MOBILE MENU TOGGLE =================
+        const mobileMenuBtn = document.getElementById("mobile-menu-btn");
+        const mobileOverlay = document.getElementById("mobile-overlay");
+        const sidebar = document.getElementById("sidebar");
+
+        function toggleMobileMenu() {
+            sidebar.classList.toggle("mobile-open");
+            mobileOverlay.classList.toggle("show");
+        }
+
+        if (mobileMenuBtn) {
+            mobileMenuBtn.addEventListener("click", toggleMobileMenu);
+        }
+
+        if (mobileOverlay) {
+            mobileOverlay.addEventListener("click", toggleMobileMenu);
+        }
+
+        // Close menu when a chat item is clicked
+        const chatLinks = document.querySelectorAll(".chat-link");
+        chatLinks.forEach(link => {
+            link.addEventListener("click", () => {
+                if (window.innerWidth <= 767) {
+                    toggleMobileMenu();
+                }
+            });
+        });
+
+
         // ================= AUDIO ENGINE (SYNTHESIZED) =================
         const AudioContext = window.AudioContext || window.webkitAudioContext;
         const audioCtx = new AudioContext();
@@ -1449,7 +1855,7 @@
             // ૩. 🚀 મેઈન ફિક્સ: જો યુઝરે ખાલી ચેટ બદલી હોય, તો બૂટ સ્ક્રીન તરત ગાયબ! 🚀
             if (!isFirstBoot && !isReload) {
                 bootScreen.style.display = 'none';
-                return; // અહીંથી જ અટકી જાવ, કોઈ એનિમેશન પ્લે નહીં થાય
+                // Don't return, continue to set up mobile menu
             }
 
             let bootLines = [];
@@ -1512,7 +1918,67 @@
                 }
             }
 
-            setTimeout(typeLine, 500);
+            if (isFirstBoot || isReload) {
+                setTimeout(typeLine, 500);
+            }
+
+            // ================= MOBILE MENU TOGGLE =================
+            const mobileMenuBtn = document.getElementById("mobile-menu-btn");
+            const mobileCloseBtn = document.getElementById("mobile-close-btn");
+            const mobileOverlay = document.getElementById("mobile-overlay");
+            const sidebar = document.getElementById("sidebar");
+
+            function openMobileMenu() {
+                sidebar.classList.add("mobile-open");
+                mobileOverlay.classList.add("show");
+                mobileMenuBtn.style.display = "none";
+            }
+
+            function closeMobileMenu() {
+                sidebar.classList.remove("mobile-open");
+                mobileOverlay.classList.remove("show");
+                mobileMenuBtn.style.display = "flex";
+            }
+
+            function toggleMobileMenu() {
+                if (sidebar.classList.contains("mobile-open")) {
+                    closeMobileMenu();
+                } else {
+                    openMobileMenu();
+                }
+            }
+
+            // Hamburger button to open
+            if (mobileMenuBtn) {
+                mobileMenuBtn.addEventListener("click", openMobileMenu);
+            }
+
+            // Close button to close
+            if (mobileCloseBtn) {
+                mobileCloseBtn.addEventListener("click", closeMobileMenu);
+            }
+
+            // Overlay click to close
+            if (mobileOverlay) {
+                mobileOverlay.addEventListener("click", closeMobileMenu);
+            }
+
+            // ESC key to close
+            document.addEventListener("keydown", (e) => {
+                if (e.key === "Escape" && sidebar.classList.contains("mobile-open")) {
+                    closeMobileMenu();
+                }
+            });
+
+            // Close menu when a chat item is clicked
+            const chatLinks = document.querySelectorAll(".chat-link");
+            chatLinks.forEach(link => {
+                link.addEventListener("click", () => {
+                    if (window.innerWidth <= 767) {
+                        closeMobileMenu();
+                    }
+                });
+            });
         });
 
 
@@ -2258,7 +2724,7 @@
         }
 
 
-        
+
 
     </script>
 
