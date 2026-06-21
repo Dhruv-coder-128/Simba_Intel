@@ -1390,12 +1390,23 @@
             }
 
             /* Cyber select - TINY DROPDOWN ONLY on mobile */
-            .cyber-select-wrapper,
+            .cyber-select-wrapper {
+                width: 44px !important;
+                min-width: 44px !important;
+                max-width: 44px !important;
+                flex: 0 0 44px !important;
+                padding: 0 !important;
+                margin: 0 !important;
+            }
+
             .cyber-select {
-                width: 40px;
-                min-width: 40px;
-                height: 40px;
-                padding: 0;
+                width: 44px !important;
+                min-width: 44px !important;
+                max-width: 44px !important;
+                flex: 0 0 44px !important;
+                height: 44px;
+                padding: 0 !important;
+                margin: 0 !important;
                 justify-content: center;
                 align-items: center;
             }
@@ -1426,8 +1437,8 @@
 
             /* User input - CONSUME ALL REMAINING SPACE */
             #user-input {
-                flex: 1;
-                min-width: 0;
+                flex: 1 1 auto !important;
+                min-width: 0 !important;
             }
 
             /* Buttons - FIXED SIZE */
