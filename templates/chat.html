@@ -1185,6 +1185,13 @@
             .mobile-menu-btn {
                 display: none !important;
             }
+            /* On desktop, show text, hide icon */
+            .cyber-select #selectedText {
+                display: inline;
+            }
+            .cyber-select #selectedIcon {
+                display: none !important;
+            }
         }
 
         /* Tablet (768px - 991px) */
@@ -1370,33 +1377,57 @@
                 z-index: 100;
             }
 
-            /* Command box */
+            /* Command box - SINGLE ROW, NO WRAP */
             .command-box {
                 width: calc(100% - 32px);
                 max-width: 100%;
                 margin: 0 16px;
-                padding: 8px 12px;
-                flex-wrap: wrap;
+                padding: 6px 10px;
+                display: flex;
+                flex-wrap: nowrap !important;
+                align-items: center;
                 gap: 8px;
             }
 
-            /* Cyber select */
+            /* Cyber select - COMPACT ICON ONLY on mobile */
             .cyber-select-wrapper,
             .cyber-select {
-                width: 120px;
-                min-width: 120px;
-                padding: 8px 10px;
+                width: 44px;
+                min-width: 44px;
+                padding: 8px 6px;
+                justify-content: center;
             }
 
-            /* User input */
+            .cyber-select #selectedText {
+                display: none;
+            }
+
+            .cyber-select #selectedIcon {
+                display: inline !important;
+                font-size: 16px;
+            }
+
+            /* Dropdown menu on mobile - FIXED WIDTH, NO WRAP */
+            .cyber-select-wrapper .cyber-options {
+                min-width: 160px;
+                width: max-content;
+                left: 0;
+            }
+
+            .cyber-option {
+                white-space: nowrap;
+            }
+
+            /* User input - CONSUME REMAINING SPACE */
             #user-input {
-                min-width: 120px;
                 flex: 1;
+                min-width: 0;
             }
 
-            /* Buttons - 44px touch targets */
+            /* Buttons - FIXED WIDTH, SAME HEIGHT */
             .voice-btn,
             .send-btn {
+                flex-shrink: 0;
                 width: 44px;
                 height: 44px;
             }
@@ -1724,6 +1755,7 @@
                             {% elif selected_model == 'groq2' %}SKY_NET
                             {% else %}CORE_LOCAL{% endif %}
                         </span>
+                        <span id="selectedIcon" style="display:none;">⇄</span>
                         <span class="arrow">▴</span>
                     </div>
 
@@ -2110,6 +2142,7 @@
         const optionsBox = document.getElementById("cyberOptions");
         const hiddenInput = document.getElementById("model-selector");
         const selectedText = document.getElementById("selectedText");
+        const selectedIcon = document.getElementById("selectedIcon");
 
         select.addEventListener("click", (e) => {
             e.stopPropagation();
@@ -2126,6 +2159,14 @@
 
                 hiddenInput.value = value;
                 selectedText.innerText = text;
+
+                // Set icon based on model
+                let icon = "⇄"; // Default
+                if (value === "offline") icon = "⇄";
+                if (value === "groq") icon = "⚡";
+                if (value === "groq2") icon = "☁️";
+                selectedIcon.innerText = icon;
+
                 localStorage.setItem("selected_simba_model", value); // કી ફિક્સ કરી [cite: 2026-03-01]
 
                 document.querySelectorAll(".cyber-option").forEach(o => o.classList.remove("active"));
@@ -2423,10 +2464,25 @@
                     if (option.getAttribute("data-value") === savedModel) {
                         option.classList.add("active");
                         selectedText.innerText = option.innerText;
+
+                        // Set initial icon
+                        let icon = "⇄"; // Default
+                        if (savedModel === "offline") icon = "⇄";
+                        if (savedModel === "groq") icon = "⚡";
+                        if (savedModel === "groq2") icon = "☁️";
+                        selectedIcon.innerText = icon;
                     } else {
                         option.classList.remove("active");
                     }
                 });
+            } else {
+                // Set initial icon based on server-rendered value
+                const initialValue = hiddenInput.value;
+                let icon = "⇄"; // Default
+                if (initialValue === "offline") icon = "⇄";
+                if (initialValue === "groq") icon = "⚡";
+                if (initialValue === "groq2") icon = "☁️";
+                selectedIcon.innerText = icon;
             }
             formatAllMessages(); // જૂની ચેટને પ્રોપર બતાવવા માટે [cite: 2026-03-01]
             const cf = document.getElementById("chat-flow");
