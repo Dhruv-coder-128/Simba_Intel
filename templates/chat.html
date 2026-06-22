@@ -230,6 +230,11 @@
             gap: 10px;
         }
 
+        /* On desktop, make text-wrapper behave normally */
+        .brand .text-wrapper {
+            display: contents;
+        }
+
         .ai-status {
             font-size: 12px;
             display: flex;
@@ -1235,8 +1240,45 @@
             }
 
             /* Mobile close button visible */
+            /* Sidebar width on mobile */
+            #sidebar {
+                min-width: 280px;
+                max-width: 320px;
+            }
+
+            /* Sidebar header - flex layout */
+            .brand {
+                display: flex;
+                align-items: flex-start;
+                justify-content: space-between;
+                gap: 10px;
+            }
+
+            /* Header text container */
+            .brand .text-wrapper {
+                flex: 1;
+                min-width: 0;
+                display: flex;
+                flex-direction: column;
+                gap: 4px;
+            }
+
+            /* Mobile close button */
             .mobile-close-btn {
                 display: block;
+                position: static;
+                flex-shrink: 0;
+                width: 40px;
+                height: 40px;
+                padding: 0;
+                margin: 0;
+                top: auto;
+                right: auto;
+            }
+
+            /* AI status */
+            .ai-status {
+                font-size: 12px;
             }
 
             /* Sidebar - fixed hidden drawer */
@@ -1573,15 +1615,17 @@
     <div id="sidebar">
         <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
         <div class="brand">
-            <i class="fa-solid fa-terminal"></i> SIMBA_INTEL
+            <div class="text-wrapper">
+                <span><i class="fa-solid fa-terminal"></i> SIMBA_INTEL</span>
+                <div class="ai-status status-online" id="aiStatus">
+                    <span class="dot"></span>
+                    <span class="status-text">CORE ONLINE</span>
+                </div>
+            </div>
             <!-- Mobile close button -->
             <button id="mobile-close-btn" class="mobile-close-btn">
                 <i class="fa-solid fa-xmark"></i>
             </button>
-            <div class="ai-status status-online" id="aiStatus">
-                <span class="dot"></span>
-                <span class="status-text">CORE ONLINE</span>
-            </div>
         </div>
         <a href="/" class="new-chat">/initialize_new_intel</a>
 
