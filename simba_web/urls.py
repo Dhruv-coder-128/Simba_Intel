@@ -1,9 +1,10 @@
 from django.contrib import admin
-from django.urls import path
+from django.urls import path, include
 from chat import views
 
 urlpatterns = [
     path('admin/', admin.site.urls),
+    path('accounts/', include('allauth.urls')),
     path('', views.chat_home, name='home'),
     path('ask/', views.ask_ai, name='ask'),
     path('pin_session/<int:session_id>/', views.pin_session, name='pin_session'),

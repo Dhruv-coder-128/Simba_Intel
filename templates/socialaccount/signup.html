@@ -1,0 +1,57 @@
+{% extends "account/base.html" %}
+{% load i18n %}
+{% load account socialaccount %}
+
+{% block title %}{% trans "Sign Up" %}{% endblock %}
+
+{% block content %}
+    <div class="auth-header">
+        <div class="auth-logo">
+            <i class="fa-solid fa-terminal"></i>
+            <h1>SIMBA_INTEL</h1>
+        </div>
+        <p class="auth-subtitle">COMPLETE SIGNUP</p>
+    </div>
+
+    {% if form.non_field_errors %}
+        <div class="error-message">
+            <i class="fa-solid fa-exclamation-triangle"></i>
+            {% for error in form.non_field_errors %}
+                {{ error }}
+            {% endfor %}
+        </div>
+    {% endif %}
+
+    <p style="margin-bottom:20px; color: rgba(255,255,255,0.6); font-size: 13px; line-height: 1.5;">
+        {% blocktrans with provider_name=account.get_provider.name %}
+            You are about to use your {{ provider_name }} account to log in to SIMBA_INTEL. As a final step, please complete the following form:
+        {% endblocktrans %}
+    </p>
+
+    <form method="post" action="{% url 'socialaccount_signup' %}">
+        {% csrf_token %}
+
+        {% for field in form %}
+            <div class="form-group">
+                <label for="id_{{ field.name }}" class="form-label">{{ field.label|upper }}</label>
+                {{ field }}
+                {% if field.errors %}
+                    <div class="error-message" style="margin-top: 8px; margin-bottom: 0;">
+                        {% for error in field.errors %}
+                            {{ error }}
+                        {% endfor %}
+                    </div>
+                {% endif %}
+            </div>
+        {% endfor %}
+
+        {% if redirect_field_value %}
+            <input type="hidden" name="{{ redirect_field_name }}" value="{{ redirect_field_value }}" />
+        {% endif %}
+
+        <button type="submit" class="btn btn-primary btn-block">
+            <i class="fa-solid fa-user-check"></i>
+            {% trans "CONTINUE" %}
+        </button>
+    </form>
+{% endblock %}

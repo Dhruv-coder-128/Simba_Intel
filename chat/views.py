@@ -15,8 +15,9 @@ import pandas as pd
 import pdfplumber
 
 from django.http import StreamingHttpResponse, JsonResponse
-from django.shortcuts import render, get_object_or_404
+from django.shortcuts import render, get_object_or_404, redirect
 from django.conf import settings
+from django.contrib.auth.decorators import login_required
 from groq import Groq
 
 from chat.file_analyzer import analyze_file
@@ -188,16 +189,17 @@ def update_model_session(request):
     return JsonResponse({"status": "failed"}, status=400)
 
 
+@login_required
 def chat_home(request):
     """Render chat home page with session and message history."""
-    sessions = ChatSession.objects.all().order_by('-is_pinned', '-id')
+    sessions = ChatSession.objects.filter(user=request.user).order_by('-is_pinned', '-id')
     session_id = request.GET.get('session')
     messages = []
     current_session = None
     
     if session_id and session_id not in ["null", "None", ""]:
         try:
-            current_session = get_object_or_404(ChatSession, id=session_id)
+            current_session = get_object_or_404(ChatSession, id=session_id, user=request.user)
             messages = ChatMessage.objects.filter(
                 session=current_session
             ).order_by('timestamp')
@@ -216,6 +218,7 @@ def chat_home(request):
 
 # ---------------- ASK AI ----------------
 
+@login_required
 def ask_ai(request):
     """Process AI chat request with model selection and streaming response."""
     if request.method == "POST":
@@ -232,9 +235,9 @@ def ask_ai(request):
         try:
             # Create or get chat session
             if not session_id or session_id in ["null", "None", ""]:
-                session = ChatSession.objects.create(title=user_query[:30])
+                session = ChatSession.objects.create(user=request.user, title=user_query[:30])
             else:
-                session = ChatSession.objects.get(id=session_id)
+                session = ChatSession.objects.get(id=session_id, user=request.user)
 
             memory = get_memory_context(session)
             prompt = f"{SYSTEM_PROMPT}\n\nConversation Memory:\n{memory}\n\nUser: {user_query}\nSimba:"
@@ -309,26 +312,29 @@ def ask_ai(request):
 # SESSION MANAGEMENT ENDPOINTS
 # =============================================================================
 
+@login_required
 def delete_session(request, session_id):
     """Delete a chat session."""
     if request.method == "POST":
-        get_object_or_404(ChatSession, id=session_id).delete()
+        get_object_or_404(ChatSession, id=session_id, user=request.user).delete()
         return JsonResponse({"status": "success"})
 
 
+@login_required
 def rename_session(request, session_id):
     """Rename a chat session."""
     if request.method == "POST":
-        session = get_object_or_404(ChatSession, id=session_id)
+        session = get_object_or_404(ChatSession, id=session_id, user=request.user)
         session.title = request.POST.get('title')
         session.save()
         return JsonResponse({"status": "success"})
 
 
+@login_required
 def pin_session(request, session_id):
     """Toggle pin status of a chat session."""
     if request.method == "POST":
-        session = get_object_or_404(ChatSession, id=session_id)
+        session = get_object_or_404(ChatSession, id=session_id, user=request.user)
         session.is_pinned = not session.is_pinned
         session.save()
         return JsonResponse({"status": "success"})

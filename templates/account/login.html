@@ -1,0 +1,88 @@
+{% extends "account/base.html" %}
+{% load i18n %}
+{% load account socialaccount %}
+
+{% block title %}{% trans "Login" %}{% endblock %}
+
+{% block content %}
+    <div class="auth-header">
+        <div class="auth-logo">
+            <i class="fa-solid fa-terminal"></i>
+            <h1>SIMBA_INTEL</h1>
+        </div>
+        <p class="auth-subtitle">SYSTEM ACCESS REQUIRED</p>
+    </div>
+
+    {% if form.non_field_errors %}
+        <div class="error-message">
+            <i class="fa-solid fa-exclamation-triangle"></i>
+            {% for error in form.non_field_errors %}
+                {{ error }}
+            {% endfor %}
+        </div>
+    {% endif %}
+
+    {% get_providers as socialaccount_providers %}
+
+    {% if socialaccount_providers %}
+        {% for provider in socialaccount_providers %}
+            {% if provider.id == "google" %}
+                <a href="{% provider_login_url 'google' process='login' %}" class="btn btn-block">
+                    <i class="fa-brands fa-google"></i>
+                    {% trans "CONTINUE WITH GOOGLE" %}
+                </a>
+            {% endif %}
+        {% endfor %}
+
+        <div class="auth-divider">
+            <span>OR</span>
+        </div>
+    {% endif %}
+
+    <form method="post" action="{% url 'account_login' %}" class="login-form">
+        {% csrf_token %}
+        {% if redirect_field_value %}
+            <input type="hidden" name="{{ redirect_field_name }}" value="{{ redirect_field_value }}">
+        {% endif %}
+
+        <div class="form-group">
+            <label for="id_login" class="form-label">{% trans "EMAIL" %}</label>
+            {{ form.login }}
+            {% if form.login.errors %}
+                <div class="error-message" style="margin-top: 8px; margin-bottom: 0;">
+                    {% for error in form.login.errors %}
+                        {{ error }}
+                    {% endfor %}
+                </div>
+            {% endif %}
+        </div>
+
+        <div class="form-group">
+            <label for="id_password" class="form-label">{% trans "PASSWORD" %}</label>
+            {{ form.password }}
+            {% if form.password.errors %}
+                <div class="error-message" style="margin-top: 8px; margin-bottom: 0;">
+                    {% for error in form.password.errors %}
+                        {{ error }}
+                    {% endfor %}
+                </div>
+            {% endif %}
+        </div>
+
+        <div class="auth-links" style="margin-bottom: 18px; text-align: right;">
+            <a href="{% url 'account_reset_password' %}" style="color: var(--accent); text-decoration: none; font-family: 'JetBrains Mono', monospace; font-size: 12px; transition: all 0.3s ease;">
+                Forgot Password?
+            </a>
+        </div>
+
+        <button type="submit" class="btn btn-primary btn-block">
+            <i class="fa-solid fa-sign-in-alt"></i>
+            {% trans "LOGIN" %}
+        </button>
+    </form>
+
+    <div class="auth-footer">
+        {% trans "Don't have an account?" %}
+        <a href="{% url 'account_signup' %}">{% trans "CREATE ONE HERE" %}</a>
+    </div>
+{% endblock %}

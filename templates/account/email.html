@@ -1,0 +1,69 @@
+{% extends "account/base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "Email Addresses" %}{% endblock %}
+
+{% block content %}
+    <div class="auth-header">
+        <div class="auth-logo">
+            <i class="fa-solid fa-terminal"></i>
+            <h1>SIMBA_INTEL</h1>
+        </div>
+        <p class="auth-subtitle">EMAIL MANAGEMENT</p>
+    </div>
+
+    {% if user.emailaddress_set.all %}
+        <h3 style="font-family: 'JetBrains Mono', monospace; font-size:14px; margin-bottom:15px; color: rgba(255,255,255,0.8);">{% trans 'VERIFIED EMAILS' %}</h3>
+        <form action="{% url 'account_email' %}" method="post">
+            {% csrf_token %}
+            {% for emailaddress in user.emailaddress_set.all %}
+                <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; padding:12px; background: rgba(0,0,0,0.2); border: 1px solid var(--border); border-radius:8px;">
+                    <div>
+                        <span style="font-family: 'JetBrains Mono', monospace; font-size:13px;">
+                            {{ emailaddress.email }}
+                        </span>
+                        {% if emailaddress.verified %}
+                            <span style="color:#00ff99; font-size:11px; margin-left:8px; font-family: 'JetBrains Mono', monospace;">✓ {% trans "VERIFIED" %}</span>
+                        {% endif %}
+                        {% if emailaddress.primary %}
+                            <span style="color:#bf9b30; font-size:11px; margin-left:8px; font-family: 'JetBrains Mono', monospace;">★ {% trans "PRIMARY" %}</span>
+                        {% endif %}
+                    </div>
+                    <div style="display:flex; gap:8px;">
+                        {% if not emailaddress.primary %}
+                            <button type="submit" name="action_primary" value="{{ emailaddress.email }}" class="btn" style="width:auto; padding:6px 12px; font-size:12px;">
+                                {% trans "MAKE PRIMARY" %}
+                            </button>
+                        {% endif %}
+                        {% if not emailaddress.verified %}
+                            <button type="submit" name="action_send" value="{{ emailaddress.email }}" class="btn" style="width:auto; padding:6px 12px; font-size:12px;">
+                                {% trans "RE-SEND VERIFICATION" %}
+                            </button>
+                        {% endif %}
+                        {% if not emailaddress.primary %}
+                            <button type="submit" name="action_remove" value="{{ emailaddress.email }}" class="btn" style="width:auto; padding:6px 12px; font-size:12px; color:#ff4b2b;">
+                                {% trans "REMOVE" %}
+                            </button>
+                        {% endif %}
+                    </div>
+                </div>
+            {% endfor %}
+        </form>
+
+        <div class="auth-divider"><span>{% trans "ADD NEW EMAIL" %}</span></div>
+    {% endif %}
+
+    <form method="post" action="{% url 'account_email' %}">
+        {% csrf_token %}
+
+        <div class="form-group">
+            <label for="id_email" class="form-label">{% trans "EMAIL" %}</label>
+            {{ form.email }}
+        </div>
+
+        <button type="submit" name="action_add" class="btn btn-primary btn-block">
+            <i class="fa-solid fa-plus"></i>
+            {% trans "ADD EMAIL" %}
+        </button>
+    </form>
+{% endblock %}

@@ -1,0 +1,29 @@
+{% extends "account/base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "Sign Out" %}{% endblock %}
+
+{% block content %}
+    <div class="auth-header">
+        <div class="auth-logo">
+            <i class="fa-solid fa-terminal"></i>
+            <h1>SIMBA_INTEL</h1>
+        </div>
+        <p class="auth-subtitle">{% trans "CONFIRM LOGOUT" %}</p>
+    </div>
+
+    <p class="auth-footer" style="margin-bottom:20px; color: rgba(255,255,255,0.6);">
+        {% trans 'Are you sure you want to sign out?' %}
+    </p>
+
+    <form method="post" action="{% url 'account_logout' %}">
+        {% csrf_token %}
+        {% if redirect_field_value %}
+            <input type="hidden" name="{{ redirect_field_name }}" value="{{ redirect_field_value }}"/>
+        {% endif %}
+        <button type="submit" class="btn btn-block">
+            <i class="fa-solid fa-sign-out-alt"></i>
+            {% trans "SIGN OUT" %}
+        </button>
+    </form>
+{% endblock %}

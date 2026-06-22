@@ -1,0 +1,40 @@
+{% extends "account/base.html" %}
+{% load i18n %}
+{% load account %}
+
+{% block title %}{% trans "Confirm Email Address" %}{% endblock %}
+
+{% block content %}
+    <div class="auth-header">
+        <div class="auth-logo">
+            <i class="fa-solid fa-terminal"></i>
+            <h1>SIMBA_INTEL</h1>
+        </div>
+        <p class="auth-subtitle">CONFIRM EMAIL</p>
+    </div>
+
+    {% if confirmation %}
+        {% user_display confirmation.email_address.user as user_display %}
+        <p class="auth-footer" style="margin-bottom:20px; color: rgba(255,255,255,0.6);">
+            {% blocktrans with confirmation.email_address.email as email %}
+                Please confirm that <span style="color: var(--accent); font-family: 'JetBrains Mono', monospace;">{{ email }}</span> is an e‑mail address for user <span style="color: var(--accent); font-family: 'JetBrains Mono', monospace;">{{ user_display }}</span>.
+            {% endblocktrans %}
+        </p>
+
+        <form method="post" action="{% url 'account_confirm_email' confirmation.key %}">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-primary btn-block">
+                <i class="fa-solid fa-check-circle"></i>
+                {% trans "CONFIRM" %}
+            </button>
+        </form>
+    {% else %}
+        {% url 'account_email' as email_url %}
+        <p class="auth-footer" style="margin-bottom:20px; color: rgba(255,255,255,0.6);">
+            {% blocktrans %}
+                This e‑mail confirmation link expired or is invalid. Please
+                <a href="{{ email_url }}">issue a new e‑mail confirmation request</a>.
+            {% endblocktrans %}
+        </p>
+    {% endif %}
+{% endblock %}

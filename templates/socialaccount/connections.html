@@ -1,0 +1,61 @@
+{% extends "account/base.html" %}
+{% load i18n %}
+{% load socialaccount %}
+
+{% block title %}{% trans "Account Connections" %}{% endblock %}
+
+{% block content %}
+    <div class="auth-header">
+        <div class="auth-logo">
+            <i class="fa-solid fa-terminal"></i>
+            <h1>SIMBA_INTEL</h1>
+        </div>
+        <p class="auth-subtitle">CONNECTED ACCOUNTS</p>
+    </div>
+
+    {% if form.accounts %}
+        <h3 style="font-family: 'JetBrains Mono', monospace; font-size:14px; margin-bottom:15px; color: rgba(255,255,255,0.8);">
+            {% trans 'You can sign in to your SIMBA_INTEL account using any of the following connected accounts:' %}
+        </h3>
+
+        <form method="post" action="{% url 'socialaccount_connections' %}">
+            {% csrf_token %}
+
+            {% for base_account in form.accounts %}
+                {% with base_account.get_provider_account as account %}
+                    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; padding:12px; background: rgba(0,0,0,0.2); border: 1px solid var(--border); border-radius:8px;">
+                        <div style="display:flex; align-items:center; gap:10px;">
+                            {% if account.get_brand.id == 'google' %}
+                                <i class="fa-brands fa-google" style="color:#4285F4; font-size:20px;"></i>
+                            {% endif %}
+                            <span style="font-family: 'JetBrains Mono', monospace; font-size:13px;">
+                                {{ account.name }}
+                            </span>
+                        </div>
+                        <button type="submit" name="account" value="{{ base_account.id }}" class="btn" style="width:auto; padding:6px 12px; font-size:12px; color:#ff4b2b;">
+                            {% trans "DISCONNECT" %}
+                        </button>
+                    </div>
+                {% endwith %}
+            {% endfor %}
+        </form>
+
+        <div class="auth-divider"><span>{% trans "CONNECT NEW" %}</span></div>
+    {% endif %}
+
+    {% get_providers as socialaccount_providers %}
+
+    {% if socialaccount_providers %}
+        {% for provider in socialaccount_providers %}
+            {% if provider.id == "google" %}
+                <form method="post" action="{% provider_login_url provider.id process='connect' %}">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-block">
+                        <i class="fa-brands fa-google"></i>
+                        {% trans "CONNECT GOOGLE ACCOUNT" %}
+                    </button>
+                </form>
+            {% endif %}
+        {% endfor %}
+    {% endif %}
+{% endblock %}

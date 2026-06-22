@@ -1567,6 +1567,76 @@
                 grid-template-columns: 1fr !important;
             }
         }
+
+        /* Authentication UI */
+        .auth-section {
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 1px solid var(--border);
+        }
+
+        .auth-btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            width: 100%;
+            padding: 10px 14px;
+            border: 1px solid var(--accent-dim);
+            border-radius: 8px;
+            background: rgba(18, 22, 28, 0.8);
+            color: var(--accent);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 13px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+        }
+
+        .auth-btn:hover {
+            background: rgba(0, 229, 255, 0.08);
+            border-color: var(--accent);
+        }
+
+        .profile-card {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+
+        .profile-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            border: 2px solid var(--accent);
+            flex-shrink: 0;
+        }
+
+        .profile-info {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .profile-name {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 13px;
+            color: #fff;
+            margin: 0;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .profile-email {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 11px;
+            color: #a0aabf;
+            margin: 0;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
     </style>
 
 
@@ -1739,6 +1809,35 @@
                 {% endfor %}
             </div>
         </div>
+
+        <div class="auth-section">
+            {% if user.is_authenticated %}
+                <div class="profile-card">
+                    {% if user.socialaccount_set.all.0.get_avatar_url %}
+                        <img src="{{ user.socialaccount_set.all.0.get_avatar_url }}" alt="Profile" class="profile-avatar">
+                    {% else %}
+                        <img src="https://ui-avatars.com/api/?name={{ user.first_name|default:'User' }}+{{ user.last_name|default:'' }}&background=12161c&color=00e5ff&size=80" alt="Profile" class="profile-avatar">
+                    {% endif %}
+                    <div class="profile-info">
+                        <p class="profile-name">{{ user.get_full_name|default:user.username }}</p>
+                        <p class="profile-email">{{ user.email }}</p>
+                    </div>
+                </div>
+                <form method="post" action="{% url 'account_logout' %}">
+                    {% csrf_token %}
+                    <button type="submit" class="auth-btn">
+                        <i class="fa-solid fa-sign-out-alt"></i>
+                        LOGOUT
+                    </button>
+                </form>
+            {% else %}
+                <a href="{% url 'google_login' %}" class="auth-btn">
+                    <i class="fa-brands fa-google"></i>
+                    CONTINUE WITH GOOGLE
+                </a>
+            {% endif %}
+        </div>
+
     </div>
 
     <div id="workspace">
