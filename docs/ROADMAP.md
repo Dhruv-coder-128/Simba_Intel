@@ -62,19 +62,25 @@ constraints, infra decisions) that need action from the project owner, not just 
 - **Camera AI**: `getUserMedia` capture -> canvas -> blob -> same upload+vision flow as Vision AI above. No new
   backend code beyond the vision branch.
 
-### Phase 2 - Themes, profile/settings, more providers
+### Phase 2 - Themes, profile/settings, more providers — DONE (July 2026, providers deferred by choice)
 
-- Externalize `chat.html`'s inline `<style>`/`<script>` into `static/simba/{css,js}/` (a commented-out link
-  at the top of the file shows this was the original intent) - the natural point to do this before more pages
-  exist.
-- Theme presets via the existing CSS custom-property scheme (`--bg`, `--accent`, etc. in `:root`) - swapping a
-  `data-theme` attribute reskins everything with no other changes needed.
-- New `UserProfile` model (display name, avatar, default model, theme, `memory_enabled`, notifications) -
-  additive only, auto-created per user, zero risk to existing data.
-- New providers (OpenAI, Gemini, DeepSeek, OpenRouter) via the existing `BaseProvider` pattern - register in
-  `chat/services/provider_manager.py` and `chat/services/model_registry.py`. DeepSeek/OpenRouter can likely
-  share one `OpenAICompatibleProvider` base class with Mistral's shape. Needs real API keys to verify; mock in
-  tests.
+- ~~Theme presets~~ DONE: 4 themes (cyberpunk / midnight-purple / matrix-green / light) via
+  `html[data-theme]` + a tokenized `--accent-rgb` scheme. Also removed the old CPU-load-based
+  `--accent` inline override in `updateSystemStats` that force-reset the accent to cyan every second
+  (it would have permanently stomped any theme).
+- ~~`UserProfile` model~~ DONE: `chat/models.py` (display_name, avatar_url, default_model, theme,
+  memory_enabled, notifications_enabled), migration `0008_userprofile`, lazily auto-created,
+  registered in admin. `memory_enabled` is stored but dormant until Phase 7.
+- ~~Settings page~~ DONE: `/settings/` (`profile_settings` view + `templates/profile.html`), linked
+  from the sidebar. Live theme preview on selection; server-side validation of model/theme values.
+  `notifications_enabled` gates the completion sound (`playBlip`).
+- CSS/JS externalization into `static/simba/{css,js}/`: NOT done - deferred to whenever the next
+  full page beyond profile.html gets built (analytics/knowledge base), to avoid churning the
+  4000-line template twice.
+- New providers: SKIPPED by owner choice for now (no API keys committed to). The `BaseProvider`
+  pattern + `provider_manager.PROVIDER_REGISTRY` remain the single wiring point when wanted -
+  OpenAI/DeepSeek/OpenRouter can share one OpenAI-compatible adapter class; Gemini needs the
+  `google-genai` SDK.
 
 ### Phase 3 - Message schema evolution
 

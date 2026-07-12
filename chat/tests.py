@@ -5,7 +5,7 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase
 from django.urls import reverse
 
-from chat.models import ChatMessage, ChatSession
+from chat.models import ChatMessage, ChatSession, UserProfile
 from chat.providers.pollinations_image_provider import PollinationsImageProvider
 from chat.services.memory import get_conversation_history
 from chat.services.model_registry import get_model_config, list_available_models
@@ -242,3 +242,71 @@ class AttachmentTests(TestCase):
         })
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["type"], "vision")
+
+
+class UserProfileTests(TestCase):
+    """Phase 2: per-user settings (theme, default model, toggles)."""
+
+    def setUp(self):
+        self.user = User.objects.create_user(username="dhruv", password="testpass123")
+        self.client.force_login(self.user)
+
+    def test_profile_auto_created_on_chat_home(self):
+        self.assertFalse(UserProfile.objects.filter(user=self.user).exists())
+        response = self.client.get(reverse("home"))
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(UserProfile.objects.filter(user=self.user).exists())
+
+    def test_settings_page_requires_login(self):
+        self.client.logout()
+        response = self.client.get(reverse("profile_settings"))
+        self.assertEqual(response.status_code, 302)
+
+    def test_settings_page_renders(self):
+        response = self.client.get(reverse("profile_settings"))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "SETTINGS")
+
+    def test_settings_post_updates_profile(self):
+        response = self.client.post(reverse("profile_settings"), {
+            "display_name": "Dhruv S",
+            "default_model": "sky-net",
+            "theme": "matrix-green",
+            "memory_enabled": "on",
+        })
+        self.assertEqual(response.status_code, 302)
+        profile = UserProfile.objects.get(user=self.user)
+        self.assertEqual(profile.display_name, "Dhruv S")
+        self.assertEqual(profile.default_model, "sky-net")
+        self.assertEqual(profile.theme, "matrix-green")
+        self.assertTrue(profile.memory_enabled)
+        self.assertFalse(profile.notifications_enabled)  # unchecked checkbox
+
+    def test_settings_post_rejects_invalid_model_and_theme(self):
+        UserProfile.objects.create(user=self.user, default_model="cyber-max", theme="cyberpunk")
+        self.client.post(reverse("profile_settings"), {
+            "display_name": "",
+            "default_model": "not-a-real-model",
+            "theme": "not-a-theme",
+        })
+        profile = UserProfile.objects.get(user=self.user)
+        self.assertEqual(profile.default_model, "cyber-max")
+        self.assertEqual(profile.theme, "cyberpunk")
+
+    def test_chat_home_uses_profile_default_model(self):
+        UserProfile.objects.create(user=self.user, default_model="sky-net")
+        response = self.client.get(reverse("home"))
+        self.assertEqual(response.context["selected_model"], "sky-net")
+
+    def test_session_selection_still_overrides_profile_default(self):
+        UserProfile.objects.create(user=self.user, default_model="sky-net")
+        session = self.client.session
+        session["selected_model"] = "nova-mind"
+        session.save()
+        response = self.client.get(reverse("home"))
+        self.assertEqual(response.context["selected_model"], "nova-mind")
+
+    def test_theme_rendered_on_html_tag(self):
+        UserProfile.objects.create(user=self.user, theme="midnight-purple")
+        response = self.client.get(reverse("home"))
+        self.assertContains(response, 'data-theme="midnight-purple"')

@@ -1,6 +1,6 @@
 {% load static %}
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="{{ profile.theme|default:'cyberpunk' }}" data-notifications="{{ profile.notifications_enabled|yesno:'on,off' }}">
 
 <head>
     <meta charset="UTF-8">
@@ -17,12 +17,20 @@
             --bg: #0b0c10;
             --sidebar: #101217;
             --accent: #00e5ff;
-            --accent-soft: rgba(0, 229, 255, 0.55);
-            --accent-dim: rgba(0, 229, 255, 0.08);
+            --accent-rgb: 0, 229, 255;
+            --bg-rgb: 11, 12, 16;
+            --accent-soft: rgba(var(--accent-rgb), 0.55);
+            --accent-dim: rgba(var(--accent-rgb), 0.08);
             --border: #1c1f26;
             --border-soft: rgba(255, 255, 255, 0.06);
             --user-bubble: #16181f;
             --card: rgba(255, 255, 255, 0.02);
+            --surface: #0f141a;
+            --composer-bg: rgba(18, 22, 28, 0.95);
+            --workspace-bg: #0c0e12;
+            --grid-line-1: rgba(3, 82, 82, 0.341);
+            --grid-line-2: rgba(0, 63, 63, 0.427);
+            --ring-track: rgba(255, 255, 255, 0.1);
             --text: #d8dbe1;
             --text-dim: #8b93a3;
 
@@ -43,7 +51,54 @@
             --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
             --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.45);
             --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.55);
-            --shadow-glow: 0 0 0 1px rgba(0, 229, 255, 0.12), 0 8px 24px rgba(0, 0, 0, 0.5);
+            --shadow-glow: 0 0 0 1px rgba(var(--accent-rgb), 0.12), 0 8px 24px rgba(0, 0, 0, 0.5);
+        }
+
+        /* ================= THEME PRESETS =================
+           "cyberpunk" (cyan) is the default, defined in :root above.
+           Every rule in this file consumes these custom properties, so
+           switching html[data-theme] reskins the whole app with no other
+           changes needed. */
+        html[data-theme="midnight-purple"] {
+            --accent: #b084f5;
+            --accent-rgb: 176, 132, 245;
+            --accent-soft: rgba(176, 132, 245, 0.55);
+            --accent-dim: rgba(176, 132, 245, 0.08);
+            --shadow-glow: 0 0 0 1px rgba(176, 132, 245, 0.12), 0 8px 24px rgba(0, 0, 0, 0.5);
+        }
+
+        html[data-theme="matrix-green"] {
+            --accent: #39ff88;
+            --accent-rgb: 57, 255, 136;
+            --accent-soft: rgba(57, 255, 136, 0.55);
+            --accent-dim: rgba(57, 255, 136, 0.08);
+            --shadow-glow: 0 0 0 1px rgba(57, 255, 136, 0.12), 0 8px 24px rgba(0, 0, 0, 0.5);
+        }
+
+        html[data-theme="light"] {
+            --bg: #f4f5f7;
+            --sidebar: #ffffff;
+            --accent: #0091a8;
+            --accent-rgb: 0, 145, 168;
+            --bg-rgb: 244, 245, 247;
+            --accent-soft: rgba(0, 145, 168, 0.6);
+            --accent-dim: rgba(0, 145, 168, 0.08);
+            --border: #dfe3e8;
+            --border-soft: rgba(0, 0, 0, 0.08);
+            --user-bubble: #eef1f5;
+            --card: rgba(0, 0, 0, 0.02);
+            --surface: #ffffff;
+            --composer-bg: rgba(255, 255, 255, 0.95);
+            --workspace-bg: #f8f9fb;
+            --grid-line-1: rgba(0, 0, 0, 0.035);
+            --grid-line-2: rgba(0, 0, 0, 0.03);
+            --ring-track: rgba(0, 0, 0, 0.1);
+            --text: #1c1f26;
+            --text-dim: #5b6472;
+            --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.08);
+            --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.08);
+            --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.12);
+            --shadow-glow: 0 0 0 1px rgba(0, 145, 168, 0.15), 0 8px 24px rgba(0, 0, 0, 0.1);
         }
 
         /* Global box-sizing (safe for all layouts) */
@@ -72,8 +127,8 @@
             position: fixed;
             inset: 0;
             background:
-                linear-gradient(rgba(3, 82, 82, 0.341) 1px, transparent 1px),
-                linear-gradient(90deg, rgba(0, 63, 63, 0.427) 1px, transparent 1px);
+                linear-gradient(var(--grid-line-1) 1px, transparent 1px),
+                linear-gradient(90deg, var(--grid-line-2) 1px, transparent 1px);
             background-size: 40px 40px;
             pointer-events: none;
             opacity: 0.6;
@@ -81,13 +136,13 @@
 
         /* Smooth custom text selection */
         ::selection {
-            background: rgba(0, 229, 255, 0.22);
+            background: rgba(var(--accent-rgb), 0.22);
             color: #ffffff;
-            text-shadow: 0 0 6px rgba(0, 229, 255, 0.6);
+            text-shadow: 0 0 6px rgba(var(--accent-rgb), 0.6);
         }
 
         ::-moz-selection {
-            background: rgba(0, 229, 255, 0.25);
+            background: rgba(var(--accent-rgb), 0.25);
             color: #ffffff;
         }
 
@@ -180,7 +235,7 @@
         }
 
         #user-input:focus {
-            text-shadow: 0 0 6px rgba(0, 229, 255, 0.4);
+            text-shadow: 0 0 6px rgba(var(--accent-rgb), 0.4);
         }
 
 
@@ -203,12 +258,12 @@
         }
 
         ::-webkit-scrollbar-thumb {
-            background: rgba(0, 229, 255, 0.2);
+            background: rgba(var(--accent-rgb), 0.2);
             border-radius: 4px;
         }
 
         ::-webkit-scrollbar-thumb:hover {
-            background: rgba(0, 229, 255, 0.5);
+            background: rgba(var(--accent-rgb), 0.5);
         }
 
         #sidebar::-webkit-scrollbar {
@@ -297,7 +352,7 @@
 
         .new-chat {
             background: var(--accent-dim);
-            border: 1px solid rgba(0, 229, 255, 0.3);
+            border: 1px solid rgba(var(--accent-rgb), 0.3);
             color: var(--accent);
             padding: 10px 12px;
             border-radius: var(--radius-md);
@@ -338,7 +393,7 @@
         }
 
         .sidebar-search:focus-within {
-            border-color: rgba(0, 229, 255, 0.3);
+            border-color: rgba(var(--accent-rgb), 0.3);
         }
 
         .sidebar-search input {
@@ -418,7 +473,7 @@
 
         .active-chat {
             color: var(--accent) !important;
-            background: rgba(0, 229, 255, 0.08) !important;
+            background: rgba(var(--accent-rgb), 0.08) !important;
             font-weight: 600;
         }
 
@@ -480,7 +535,7 @@
             display: flex;
             flex-direction: column;
             position: relative;
-            background: #0c0e12;
+            background: var(--workspace-bg);
             overflow: hidden;
         }
 
@@ -589,9 +644,9 @@
             align-items: center;
 
             background: linear-gradient(to bottom,
-                    rgba(10, 11, 14, 0) 0%,
-                    rgba(10, 11, 14, 0.85) 60%,
-                    rgba(10, 11, 14, 1) 100%);
+                    rgba(var(--bg-rgb), 0) 0%,
+                    rgba(var(--bg-rgb), 0.85) 60%,
+                    rgba(var(--bg-rgb), 1) 100%);
         }
 
         .command-box {
@@ -601,7 +656,7 @@
             margin: 0 auto;
             /* true center */
 
-            background: rgba(20, 23, 29, 0.95);
+            background: var(--composer-bg);
             backdrop-filter: blur(12px);
             border: 1px solid var(--border-soft);
             border-radius: 18px;
@@ -617,7 +672,7 @@
 
         .command-box.drag-active {
             border-color: var(--accent);
-            box-shadow: 0 0 0 2px rgba(0, 229, 255, 0.25), 0 8px 25px rgba(0, 0, 0, 0.6);
+            box-shadow: 0 0 0 2px rgba(var(--accent-rgb), 0.25), 0 8px 25px rgba(0, 0, 0, 0.6);
         }
 
         /* Shared positioning context for the composer + its floating attachment
@@ -647,9 +702,9 @@
             gap: 8px;
             padding: 6px 10px;
             max-width: 220px;
-            background: rgba(20, 23, 29, 0.95);
+            background: var(--composer-bg);
             backdrop-filter: blur(8px);
-            border: 1px solid rgba(0, 229, 255, 0.2);
+            border: 1px solid rgba(var(--accent-rgb), 0.2);
             border-radius: var(--radius-md);
             box-shadow: var(--shadow-md);
             font-family: 'JetBrains Mono', monospace;
@@ -660,7 +715,7 @@
         }
 
         .attachment-chip:hover {
-            border-color: rgba(0, 229, 255, 0.4);
+            border-color: rgba(var(--accent-rgb), 0.4);
             transform: translateY(-1px);
         }
 
@@ -674,7 +729,7 @@
         }
 
         .attachment-chip-placeholder {
-            background: rgba(0, 229, 255, 0.15);
+            background: rgba(var(--accent-rgb), 0.15);
         }
 
         .attachment-chip-meta {
@@ -706,8 +761,8 @@
         }
 
         .command-box:focus-within {
-            border-color: rgba(0, 229, 255, 0.35);
-            box-shadow: 0 0 15px rgba(0, 229, 255, 0.15);
+            border-color: rgba(var(--accent-rgb), 0.35);
+            box-shadow: 0 0 15px rgba(var(--accent-rgb), 0.15);
         }
 
         .cyber-select-wrapper {
@@ -728,7 +783,7 @@
 
         /* Selected Box */
         .cyber-select {
-            background: rgba(0, 229, 255, 0.05);
+            background: rgba(var(--accent-rgb), 0.05);
             border: 1px solid var(--border-soft);
             border-radius: var(--radius-md);
             padding: 8px 12px;
@@ -746,7 +801,7 @@
         }
 
         .cyber-select:hover {
-            border-color: rgba(0, 229, 255, 0.35);
+            border-color: rgba(var(--accent-rgb), 0.35);
             color: var(--accent);
         }
 
@@ -758,8 +813,8 @@
             left: 0;
             width: 100%;
 
-            background: #0f141a;
-            border: 1px solid rgba(0, 229, 255, 0.25);
+            background: var(--surface);
+            border: 1px solid rgba(var(--accent-rgb), 0.25);
             border-radius: 12px;
 
             padding: 6px;
@@ -778,14 +833,14 @@
         }
 
         .cyber-option:hover {
-            background: rgba(0, 229, 255, 0.08);
-            color: #00f0ff;
+            background: rgba(var(--accent-rgb), 0.08);
+            color: var(--accent);
             padding-left: 18px;
         }
 
         .cyber-option.active {
-            background: rgba(0, 229, 255, 0.15);
-            color: #00f0ff;
+            background: rgba(var(--accent-rgb), 0.15);
+            color: var(--accent);
         }
 
         /* Arrow animation */
@@ -813,7 +868,7 @@
 
         /* Cyber Link Style */
         .markdown-content a {
-            color: #00f0ff;
+            color: var(--accent);
             text-decoration: none;
             font-weight: 500;
             border-bottom: 1px solid rgba(0, 240, 255, 0.4);
@@ -939,7 +994,7 @@
         }
 
         p code {
-            background-color: rgba(0, 229, 255, 0.1) !important;
+            background-color: rgba(var(--accent-rgb), 0.1) !important;
             color: var(--accent) !important;
             padding: 2px 5px;
             border-radius: 4px;
@@ -1019,7 +1074,7 @@
 
         .progress-bg {
             fill: none;
-            stroke: rgba(255, 255, 255, 0.1);
+            stroke: var(--ring-track);
             stroke-width: 8;
         }
 
@@ -1049,7 +1104,7 @@
 
         .circle-text strong {
             font-size: 16px;
-            color: #ffffff;
+            color: var(--text);
         }
 
         @keyframes typing-bounce {
@@ -1144,7 +1199,7 @@
         }
 
         .voice-btn:hover {
-            border-color: rgba(0, 229, 255, 0.35);
+            border-color: rgba(var(--accent-rgb), 0.35);
             color: var(--accent);
         }
 
@@ -1165,8 +1220,8 @@
             bottom: calc(100% + 8px);
             left: 0;
             min-width: 168px;
-            background: #0f141a;
-            border: 1px solid rgba(0, 229, 255, 0.2);
+            background: var(--surface);
+            border: 1px solid rgba(var(--accent-rgb), 0.2);
             border-radius: var(--radius-md);
             padding: 6px;
             box-shadow: var(--shadow-lg);
@@ -1197,7 +1252,7 @@
         }
 
         .plus-menu button:hover {
-            background: rgba(0, 229, 255, 0.08);
+            background: rgba(var(--accent-rgb), 0.08);
             color: var(--accent);
         }
 
@@ -1410,9 +1465,9 @@
             top: 16px;
             left: 16px;
             z-index: 1001;
-            background: rgba(18, 22, 28, 0.95);
-            border: 1px solid rgba(0, 229, 255, 0.3);
-            color: #00e5ff;
+            background: var(--composer-bg);
+            border: 1px solid rgba(var(--accent-rgb), 0.3);
+            color: var(--accent);
             width: 44px;
             height: 44px;
             border-radius: 8px;
@@ -1422,7 +1477,7 @@
         }
 
         .mobile-menu-btn:hover {
-            background: rgba(0, 229, 255, 0.1);
+            background: rgba(var(--accent-rgb), 0.1);
         }
 
         /* Mobile close button */
@@ -1433,7 +1488,7 @@
             right: 16px;
             background: transparent;
             border: none;
-            color: #00e5ff;
+            color: var(--accent);
             font-size: 24px;
             cursor: pointer;
             padding: 4px;
@@ -1871,7 +1926,7 @@
             padding: 10px 14px;
             border: 1px solid var(--accent-dim);
             border-radius: 8px;
-            background: rgba(18, 22, 28, 0.8);
+            background: var(--composer-bg);
             color: var(--accent);
             font-family: 'JetBrains Mono', monospace;
             font-size: 13px;
@@ -1881,7 +1936,7 @@
         }
 
         .auth-btn:hover {
-            background: rgba(0, 229, 255, 0.08);
+            background: rgba(var(--accent-rgb), 0.08);
             border-color: var(--accent);
         }
 
@@ -1908,7 +1963,7 @@
         .profile-name {
             font-family: 'JetBrains Mono', monospace;
             font-size: 13px;
-            color: #fff;
+            color: var(--text);
             margin: 0;
             white-space: nowrap;
             overflow: hidden;
@@ -1956,7 +2011,7 @@
     </div>
 
     <div id="camera-modal" style="display:none; position:fixed; inset:0; background:rgba(3,4,5,0.9); backdrop-filter:blur(15px); z-index:100000; flex-direction:column; align-items:center; justify-content:center; font-family:'JetBrains Mono',monospace;">
-        <div style="padding:24px; background:rgba(10,15,20,0.95); border:1px solid rgba(0,229,255,0.4); border-radius:8px; box-shadow:0 0 30px rgba(0,229,255,0.2); text-align:center; display:flex; flex-direction:column; align-items:center; gap:16px; max-width:90vw;">
+        <div style="padding:24px; background:rgba(10,15,20,0.95); border:1px solid rgba(var(--accent-rgb),0.4); border-radius:8px; box-shadow:0 0 30px rgba(var(--accent-rgb),0.2); text-align:center; display:flex; flex-direction:column; align-items:center; gap:16px; max-width:90vw;">
             <video id="camera-video" autoplay playsinline style="max-width:80vw; max-height:60vh; border-radius:6px; background:#000;"></video>
             <canvas id="camera-canvas" style="display:none;"></canvas>
             <div style="display:flex; gap:12px;">
@@ -2138,10 +2193,14 @@
                     alt="Profile" class="profile-avatar">
                 {% endif %}
                 <div class="profile-info">
-                    <p class="profile-name">{{ user.get_full_name|default:user.username }}</p>
+                    <p class="profile-name">{% if profile.display_name %}{{ profile.display_name }}{% else %}{{ user.get_full_name|default:user.username }}{% endif %}</p>
                     <p class="profile-email">{{ user.email }}</p>
                 </div>
             </div>
+            <a href="{% url 'profile_settings' %}" class="auth-btn" style="margin-bottom: 8px;">
+                <i class="fa-solid fa-gear"></i>
+                SETTINGS
+            </a>
             <form method="post" action="{% url 'account_logout' %}">
                 {% csrf_token %}
                 <button type="submit" class="auth-btn">
@@ -2209,8 +2268,8 @@
                     SIMBA_IMAGE
                 </span>
                 <div class="content">
-                    <div class="image-card" style="display:flex;flex-direction:column;gap:15px;align-items:center;padding:20px;background:rgba(15,21,28,0.5);border:1px solid rgba(0,229,255,0.2);border-radius:12px;">
-                        <img class="generated-image" crossorigin="anonymous" src="{{ m.extra_data.image_url }}" style="max-width:100%;border-radius:8px;box-shadow:0 0 30px rgba(0,229,255,0.1);" alt="Generated image">
+                    <div class="image-card" style="display:flex;flex-direction:column;gap:15px;align-items:center;padding:20px;background:rgba(15,21,28,0.5);border:1px solid rgba(var(--accent-rgb),0.2);border-radius:12px;">
+                        <img class="generated-image" crossorigin="anonymous" src="{{ m.extra_data.image_url }}" style="max-width:100%;border-radius:8px;box-shadow:0 0 30px rgba(var(--accent-rgb),0.1);" alt="Generated image">
                         <div style="display:flex;flex-direction:column;gap:8px;width:100%;max-width:600px;">
                             <div style="display:flex;justify-content:space-between;color:#a0aabf;font-size:14px;">
                                 <span>Resolution: {{ m.extra_data.width }}x{{ m.extra_data.height }}</span>
@@ -2224,9 +2283,9 @@
                             <button class="copy-btn" onclick="downloadImage('{{ m.extra_data.image_url }}', 'simba-intel-image.jpg')">
                                 <i class="fa-solid fa-download"></i> Download
                             </button>
-                            <button class="copy-btn" onclick="openImage('{{ m.extra_data.image_url }}')">
+                            <!-- <button class="copy-btn" onclick="openImage('{{ m.extra_data.image_url }}')">
                                 <i class="fa-solid fa-up-right-from-square"></i> Open
-                            </button>
+                            </button> -->
                             <button class="copy-btn" onclick="copyToClipboard('{{ m.extra_data.prompt|escapejs }}', this)">
                                 <i class="fa-solid fa-copy"></i> Copy Prompt
                             </button>
@@ -2393,8 +2452,10 @@
         // ================= AUDIO ENGINE (SYNTHESIZED) =================
         const AudioContext = window.AudioContext || window.webkitAudioContext;
         const audioCtx = new AudioContext();
+        const NOTIFICATIONS_ENABLED = document.documentElement.dataset.notifications !== "off";
 
         function playBlip() {
+            if (!NOTIFICATIONS_ENABLED) return;
             if (audioCtx.state === 'suspended') audioCtx.resume();
             const osc = audioCtx.createOscillator();
             const gainNode = audioCtx.createGain();
@@ -3124,7 +3185,7 @@
                     <div style="font-size:24px; margin-bottom:10px;">🎨 Creating Image</div>
                     <div id="model-name-${loaderId}" style="color:#0edb2a; margin-bottom:10px;">Loading model...</div>
                     <div id="eta-${loaderId}" style="color:#a0aabf; margin-bottom:15px;">Estimating time...</div>
-                    <div id="status-msg-${loaderId}" style="color:#00e5ff;">Preparing prompt...</div>
+                    <div id="status-msg-${loaderId}" style="color:var(--accent);">Preparing prompt...</div>
                     <div class="typing-loader" style="margin-top:20px;">
                         <div class="typing-dot"></div>
                         <div class="typing-dot"></div>
@@ -3224,8 +3285,8 @@
 
                     if (contentDiv) {
                         contentDiv.innerHTML = `
-                            <div class="image-card" style="display:flex;flex-direction:column;gap:15px;align-items:center;padding:20px;background:rgba(15,21,28,0.5);border:1px solid rgba(0,229,255,0.2);border-radius:12px;">
-                                <img class="generated-image" crossorigin="anonymous" src="${data.url}" style="max-width:100%;border-radius:8px;box-shadow:0 0 30px rgba(0,229,255,0.1);" alt="Generated image">
+                            <div class="image-card" style="display:flex;flex-direction:column;gap:15px;align-items:center;padding:20px;background:rgba(15,21,28,0.5);border:1px solid rgba(var(--accent-rgb),0.2);border-radius:12px;">
+                                <img class="generated-image" crossorigin="anonymous" src="${data.url}" style="max-width:100%;border-radius:8px;box-shadow:0 0 30px rgba(var(--accent-rgb),0.1);" alt="Generated image">
                                 <div style="display:flex;flex-direction:column;gap:8px;width:100%;max-width:600px;">
                                     <div style="display:flex;justify-content:space-between;color:#a0aabf;font-size:14px;">
                                         <span>Resolution: ${data.width}x${data.height}</span>
@@ -3971,18 +4032,10 @@
                         ramCircle.style.stroke = data.ram > 85 ? "#ff4444" : "#bf9b30";
                     }
 
-                    // ---- Accent Color Optimization ----
-                    let currentAccent = getComputedStyle(document.documentElement)
-                        .getPropertyValue('--accent').trim();
-
-                    if (data.cpu > 65 && currentAccent !== '#ff4444') {
-                        document.documentElement.style.setProperty('--accent', '#ff4444');
-                    }
-
-                    if (data.cpu <= 65 && currentAccent !== '#00e5ff') {
-                        document.documentElement.style.setProperty('--accent', '#00e5ff');
-                    }
-
+                    // (Removed the old CPU-based --accent override: it force-set an
+                    // inline accent color every second, which permanently stomped the
+                    // user's selected theme. Load state is already visible via the
+                    // ring colors above.)
                 })
                 .catch(() => console.log("Re-establishing metrics link..."));
         }

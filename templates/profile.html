@@ -1,0 +1,310 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en" data-theme="{{ profile.theme|default:'cyberpunk' }}">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Settings - Simba Intel</title>
+    <link rel="icon" type="image/png" href="{% static 'favicon2.png' %}">
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500&family=Outfit:wght@300;400;600&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <style>
+        :root {
+            --bg: #0b0c10;
+            --sidebar: #101217;
+            --accent: #00e5ff;
+            --accent-soft: rgba(0, 229, 255, 0.55);
+            --accent-dim: rgba(0, 229, 255, 0.08);
+            --border: #1c1f26;
+            --border-soft: rgba(255, 255, 255, 0.06);
+            --card: #12151b;
+            --text: #d8dbe1;
+            --text-dim: #8b93a3;
+            --radius-sm: 6px;
+            --radius-md: 10px;
+            --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.45);
+        }
+
+        html[data-theme="midnight-purple"] {
+            --accent: #b084f5;
+            --accent-soft: rgba(176, 132, 245, 0.55);
+            --accent-dim: rgba(176, 132, 245, 0.08);
+        }
+
+        html[data-theme="matrix-green"] {
+            --accent: #39ff88;
+            --accent-soft: rgba(57, 255, 136, 0.55);
+            --accent-dim: rgba(57, 255, 136, 0.08);
+        }
+
+        html[data-theme="light"] {
+            --bg: #f4f5f7;
+            --sidebar: #ffffff;
+            --accent: #0091a8;
+            --accent-soft: rgba(0, 145, 168, 0.6);
+            --accent-dim: rgba(0, 145, 168, 0.08);
+            --border: #dfe3e8;
+            --border-soft: rgba(0, 0, 0, 0.08);
+            --card: #ffffff;
+            --text: #1c1f26;
+            --text-dim: #5b6472;
+            --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.08);
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Outfit', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            margin: 0;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            padding: 40px 16px;
+        }
+
+        .settings-card {
+            width: 100%;
+            max-width: 560px;
+            background: var(--card);
+            border: 1px solid var(--border-soft);
+            border-radius: var(--radius-md);
+            box-shadow: var(--shadow-md);
+            padding: 28px;
+            height: fit-content;
+        }
+
+        .settings-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 24px;
+        }
+
+        .settings-header h1 {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 18px;
+            letter-spacing: 1.5px;
+            color: var(--accent);
+            margin: 0;
+        }
+
+        .back-link {
+            color: var(--text-dim);
+            text-decoration: none;
+            font-size: 13px;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            transition: color 0.15s ease;
+        }
+
+        .back-link:hover {
+            color: var(--accent);
+        }
+
+        .field {
+            margin-bottom: 20px;
+        }
+
+        .field label {
+            display: block;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 11px;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            color: var(--text-dim);
+            margin-bottom: 8px;
+        }
+
+        .field input[type="text"],
+        .field select {
+            width: 100%;
+            height: 40px;
+            padding: 0 12px;
+            background: var(--bg);
+            border: 1px solid var(--border-soft);
+            border-radius: var(--radius-sm);
+            color: var(--text);
+            font-family: 'Outfit', sans-serif;
+            font-size: 14px;
+            outline: none;
+            transition: border-color 0.15s ease;
+        }
+
+        .field input[type="text"]:focus,
+        .field select:focus {
+            border-color: var(--accent-soft);
+        }
+
+        .toggle-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 0;
+            border-bottom: 1px solid var(--border-soft);
+        }
+
+        .toggle-row:last-of-type {
+            border-bottom: none;
+        }
+
+        .toggle-row .toggle-label {
+            font-size: 14px;
+        }
+
+        .toggle-row .toggle-hint {
+            font-size: 12px;
+            color: var(--text-dim);
+            margin-top: 2px;
+        }
+
+        .toggle-row input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            accent-color: var(--accent);
+            cursor: pointer;
+        }
+
+        .theme-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+        }
+
+        .theme-option {
+            position: relative;
+            cursor: pointer;
+        }
+
+        .theme-option input {
+            position: absolute;
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .theme-swatch {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 12px;
+            border: 1px solid var(--border-soft);
+            border-radius: var(--radius-sm);
+            transition: border-color 0.15s ease, background 0.15s ease;
+            font-size: 13px;
+        }
+
+        .theme-option input:checked+.theme-swatch {
+            border-color: var(--accent);
+            background: var(--accent-dim);
+        }
+
+        .swatch-dot {
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+
+        .save-btn {
+            width: 100%;
+            margin-top: 24px;
+            padding: 12px;
+            background: var(--accent-dim);
+            border: 1px solid var(--accent);
+            border-radius: var(--radius-sm);
+            color: var(--accent);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 13px;
+            letter-spacing: 1px;
+            cursor: pointer;
+            transition: background 0.2s ease, color 0.2s ease;
+        }
+
+        .save-btn:hover {
+            background: var(--accent);
+            color: var(--bg);
+        }
+    </style>
+</head>
+
+<body>
+    <div class="settings-card">
+        <div class="settings-header">
+            <h1><i class="fa-solid fa-gear"></i> SETTINGS</h1>
+            <a href="/" class="back-link"><i class="fa-solid fa-arrow-left"></i> Back to chat</a>
+        </div>
+
+        <form method="post">
+            {% csrf_token %}
+
+            <div class="field">
+                <label for="display_name">Display name</label>
+                <input type="text" id="display_name" name="display_name" maxlength="100"
+                    value="{{ profile.display_name }}" placeholder="{{ request.user.username }}">
+            </div>
+
+            <div class="field">
+                <label for="default_model">Default model</label>
+                <select id="default_model" name="default_model">
+                    {% for m in models %}
+                    <option value="{{ m.id }}" {% if profile.default_model == m.id %}selected{% endif %}>
+                        {{ m.display_name }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="field">
+                <label>Theme</label>
+                <div class="theme-grid">
+                    {% for value, name in theme_choices %}
+                    <label class="theme-option">
+                        <input type="radio" name="theme" value="{{ value }}"
+                            {% if profile.theme == value %}checked{% endif %}
+                            onchange="document.documentElement.setAttribute('data-theme', this.value)">
+                        <span class="theme-swatch">
+                            <span class="swatch-dot" style="background:
+                                {% if value == 'cyberpunk' %}#00e5ff
+                                {% elif value == 'midnight-purple' %}#b084f5
+                                {% elif value == 'matrix-green' %}#39ff88
+                                {% else %}#f4f5f7; border: 1px solid #999
+                                {% endif %};"></span>
+                            {{ name }}
+                        </span>
+                    </label>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <div class="field">
+                <label>Preferences</label>
+                <div class="toggle-row">
+                    <div>
+                        <div class="toggle-label">Memory</div>
+                        <div class="toggle-hint">Cross-chat recall (activates in a later update)</div>
+                    </div>
+                    <input type="checkbox" name="memory_enabled" {% if profile.memory_enabled %}checked{% endif %}>
+                </div>
+                <div class="toggle-row">
+                    <div>
+                        <div class="toggle-label">Notifications</div>
+                        <div class="toggle-hint">Sound on response complete</div>
+                    </div>
+                    <input type="checkbox" name="notifications_enabled"
+                        {% if profile.notifications_enabled %}checked{% endif %}>
+                </div>
+            </div>
+
+            <button type="submit" class="save-btn"><i class="fa-solid fa-check"></i> SAVE SETTINGS</button>
+        </form>
+    </div>
+</body>
+
+</html>

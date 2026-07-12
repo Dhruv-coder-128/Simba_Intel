@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from chat.models import ChatSession, ChatMessage
+from chat.models import ChatSession, ChatMessage, UserProfile
 
 
 class ChatMessageInline(admin.TabularInline):
@@ -24,3 +24,10 @@ class ChatMessageAdmin(admin.ModelAdmin):
     list_filter = ("timestamp",)
     search_fields = ("user_query", "ai_response")
     readonly_fields = ("timestamp",)
+
+
+@admin.register(UserProfile)
+class UserProfileAdmin(admin.ModelAdmin):
+    list_display = ("user", "display_name", "default_model", "theme", "memory_enabled", "updated_at")
+    list_filter = ("theme", "memory_enabled", "notifications_enabled")
+    search_fields = ("user__username", "user__email", "display_name")

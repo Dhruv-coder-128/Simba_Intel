@@ -4,7 +4,7 @@ import os
 import time
 import uuid
 from django.http import StreamingHttpResponse, JsonResponse
-from django.shortcuts import render, get_object_or_404
+from django.shortcuts import render, redirect, get_object_or_404
 from django.conf import settings
 from django.contrib.auth.decorators import login_required
 import psutil
@@ -15,7 +15,7 @@ try:
 except ImportError:
     GPUtil_AVAILABLE = False
 
-from chat.models import ChatSession, ChatMessage
+from chat.models import ChatSession, ChatMessage, UserProfile
 from chat.services.ai_router import chat_stream, vision as ai_vision
 from chat.services.image_router import generate_image
 from chat.services.memory import get_conversation_history, build_messages, SYSTEM_PROMPT
@@ -98,6 +98,7 @@ def _is_search_query(query: str) -> bool:
 
 @login_required
 def chat_home(request):
+    profile = UserProfile.get_or_create_for(request.user)
     sessions = ChatSession.objects.filter(user=request.user).order_by('-is_pinned', '-id')
     session_id = request.GET.get('session')
     messages = []
@@ -108,14 +109,43 @@ def chat_home(request):
             messages = ChatMessage.objects.filter(session=current_session).order_by('timestamp')
         except Exception:
             current_session = None
-    selected_model = request.session.get("selected_model", "cyber-max")
+    selected_model = request.session.get("selected_model", profile.default_model)
     models = list_available_models()
     return render(request, 'chat.html', {
         'sessions': sessions,
         'messages': messages,
         'current_session': current_session,
         'selected_model': selected_model,
-        'models': models
+        'models': models,
+        'profile': profile,
+    })
+
+
+@login_required
+def profile_settings(request):
+    profile = UserProfile.get_or_create_for(request.user)
+    valid_model_ids = {m['id'] for m in list_available_models()}
+    valid_themes = {choice[0] for choice in UserProfile.THEME_CHOICES}
+
+    if request.method == "POST":
+        display_name = request.POST.get('display_name', '').strip()[:100]
+        default_model = request.POST.get('default_model', '').strip()
+        theme = request.POST.get('theme', '').strip()
+
+        profile.display_name = display_name
+        if default_model in valid_model_ids:
+            profile.default_model = default_model
+        if theme in valid_themes:
+            profile.theme = theme
+        profile.memory_enabled = request.POST.get('memory_enabled') == 'on'
+        profile.notifications_enabled = request.POST.get('notifications_enabled') == 'on'
+        profile.save()
+        return redirect('profile_settings')
+
+    return render(request, 'profile.html', {
+        'profile': profile,
+        'models': list_available_models(),
+        'theme_choices': UserProfile.THEME_CHOICES,
     })
 
 

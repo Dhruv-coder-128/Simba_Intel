@@ -16,4 +16,5 @@ urlpatterns = [
     path('update_model/', views.update_model_session, name='update_model'),
     path('system_stats/', views.system_stats, name='system_stats'),
     path("upload/", views.upload_file),
+    path('settings/', views.profile_settings, name='profile_settings'),
 ]
