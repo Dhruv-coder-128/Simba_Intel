@@ -43,7 +43,7 @@ Preview:
         return text[:2000]
 
 
-    elif filepath.endswith(".jpg") or filepath.endswith(".png"):
+    elif filepath.lower().endswith((".jpg", ".jpeg", ".png", ".webp", ".gif", ".bmp")):
 
         img = Image.open(filepath)
 

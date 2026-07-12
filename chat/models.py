@@ -18,3 +18,5 @@ class ChatMessage(models.Model):
     ai_response = models.TextField()
     timestamp = models.DateTimeField(auto_now_add=True)
     latency = models.FloatField(null=True, blank=True)
+    # New field for image/extra data (JSON)
+    extra_data = models.JSONField(null=True, blank=True)

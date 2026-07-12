@@ -25,10 +25,17 @@ load_dotenv(os.path.join(BASE_DIR, ".env"))
 # See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = os.getenv('DJANGO_SECRET_KEY', 'django-insecure-0dxud_bzn1-j5*+avl*c7ossn*qcsin#*36(l#y04xzyv$nur8')
+_INSECURE_DEFAULT_SECRET_KEY = 'django-insecure-0dxud_bzn1-j5*+avl*c7ossn*qcsin#*36(l#y04xzyv$nur8'
+SECRET_KEY = os.getenv('DJANGO_SECRET_KEY', _INSECURE_DEFAULT_SECRET_KEY)
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.getenv('DEBUG', 'True') == 'True'
+
+if not DEBUG and SECRET_KEY == _INSECURE_DEFAULT_SECRET_KEY:
+    raise RuntimeError(
+        "DJANGO_SECRET_KEY is not set. Refusing to run with the publicly "
+        "known default secret key while DEBUG=False."
+    )
 
 ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', 'localhost,127.0.0.1,simba-intel.onrender.com').split(',')
 

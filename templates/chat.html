@@ -14,13 +14,36 @@
 
     <style>
         :root {
-            --bg: #0a0b0e;
-            --sidebar: #0f1116;
+            --bg: #0b0c10;
+            --sidebar: #101217;
             --accent: #00e5ff;
-            --accent-dim: rgba(0, 229, 255, 0.1);
-            --border: #1e2229;
-            --user-bubble: #1a1d24;
-            --text: #d1d5db;
+            --accent-soft: rgba(0, 229, 255, 0.55);
+            --accent-dim: rgba(0, 229, 255, 0.08);
+            --border: #1c1f26;
+            --border-soft: rgba(255, 255, 255, 0.06);
+            --user-bubble: #16181f;
+            --card: rgba(255, 255, 255, 0.02);
+            --text: #d8dbe1;
+            --text-dim: #8b93a3;
+
+            /* Spacing scale */
+            --space-1: 4px;
+            --space-2: 8px;
+            --space-3: 12px;
+            --space-4: 16px;
+            --space-5: 24px;
+            --space-6: 32px;
+
+            /* Radius scale */
+            --radius-sm: 6px;
+            --radius-md: 10px;
+            --radius-lg: 16px;
+
+            /* Elevation - soft shadows instead of thick neon borders */
+            --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+            --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.45);
+            --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.55);
+            --shadow-glow: 0 0 0 1px rgba(0, 229, 255, 0.12), 0 8px 24px rgba(0, 0, 0, 0.5);
         }
 
         /* Global box-sizing (safe for all layouts) */
@@ -81,24 +104,14 @@
         }
 
         .simba-block .content {
-            /* box-shadow:
-        0 0 0 1px rgba(0, 229, 255, 0.12),
-        0 10px 35px rgba(0, 0, 0, 0.7); */
-            box-shadow: 0 0 15px rgba(0, 229, 255, 0.1);
-            transition: all 0.3s ease;
+            box-shadow: var(--shadow-sm);
+            transition: box-shadow 0.2s ease, transform 0.2s ease;
         }
 
         .simba-block .content:hover {
-            box-shadow:
-                0 0 0 1px rgba(0, 229, 255, 0.25),
-                0 15px 45px rgba(0, 0, 0, 0.9);
+            box-shadow: var(--shadow-md);
         }
 
-        .msg-label {
-            opacity: 0.6;
-            font-size: 9px;
-            letter-spacing: 2px;
-        }
 
 
         /* ===== OPTION 2: Ambient Glow ===== */
@@ -132,6 +145,10 @@
 
             /* cursor: pointer; */
             flex: 1;
+            /* Flex items default to min-width:auto, which can force the textarea
+               to refuse to shrink and push the model/aspect selectors out of the
+               visible toolbar row when more fixed-width buttons are present. */
+            min-width: 0;
 
             background: transparent;
             border: none;
@@ -167,18 +184,6 @@
         }
 
 
-        .command-box {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-
-
-        .command-box:focus-within {
-            box-shadow: 0 0 25px rgba(0, 229, 255, 0.15);
-            border-color: rgba(0, 229, 255, 0.4);
-        }
-
         @keyframes gridMove {
             from {
                 background-position: 0 0;
@@ -211,19 +216,20 @@
         }
 
         #sidebar {
-            width: 270px;
+            width: 240px;
             background: var(--sidebar);
-            border-right: 1px solid var(--border);
+            border-right: 1px solid var(--border-soft);
             display: flex;
             flex-direction: column;
-            padding: 20px;
-            transition: 0.3s;
+            padding: var(--space-4);
+            transition: width 0.3s ease;
         }
 
         .brand {
             font-family: 'JetBrains Mono', monospace;
-            font-size: 18px;
-            margin-bottom: 35px;
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: var(--space-5);
             color: var(--accent);
             display: flex;
             align-items: center;
@@ -291,16 +297,16 @@
 
         .new-chat {
             background: var(--accent-dim);
-            border: 1px solid var(--accent);
+            border: 1px solid rgba(0, 229, 255, 0.3);
             color: var(--accent);
-            padding: 12px;
-            border-radius: 6px;
+            padding: 10px 12px;
+            border-radius: var(--radius-md);
             text-align: center;
             text-decoration: none;
-            font-size: 13px;
-            font-family: 'JetBrains Mono';
-            transition: 0.3s;
-            margin-bottom: 10px;
+            font-size: 12.5px;
+            font-family: 'JetBrains Mono', monospace;
+            transition: background 0.2s ease, transform 0.15s ease;
+            margin-bottom: var(--space-2);
         }
 
         .new-chat:hover {
@@ -311,7 +317,43 @@
         .history-section {
             flex: 1;
             overflow-y: auto;
-            margin-top: 30px;
+            margin-top: var(--space-5);
+        }
+
+        .sidebar-search {
+            display: flex;
+            align-items: center;
+            gap: var(--space-2);
+            height: 36px;
+            box-sizing: border-box;
+            padding: 0 10px;
+            margin-bottom: var(--space-2);
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid var(--border-soft);
+            border-radius: var(--radius-sm);
+            color: var(--text-dim);
+            font-size: 12px;
+            line-height: 1;
+            transition: border-color 0.2s ease;
+        }
+
+        .sidebar-search:focus-within {
+            border-color: rgba(0, 229, 255, 0.3);
+        }
+
+        .sidebar-search input {
+            flex: 1;
+            min-width: 0;
+            background: transparent;
+            border: none;
+            outline: none;
+            color: var(--text);
+            font-family: 'Outfit', sans-serif;
+            font-size: 12px;
+        }
+
+        .sidebar-search input::placeholder {
+            color: var(--text-dim);
         }
 
         .label {
@@ -335,6 +377,7 @@
             justify-content: space-between;
             align-items: center;
             position: relative;
+            margin-bottom: 2px;
         }
 
         /* .chat-item-container::before {
@@ -356,27 +399,26 @@
         .chat-link {
             flex: 1;
             display: block;
-            padding: 12px;
-            font-family: 'JetBrains Mono';
+            padding: 9px 10px;
+            font-family: 'JetBrains Mono', monospace;
             font-size: 12px;
             text-decoration: none;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.02);
-            transition: 0.2s;
-            color: #6b7280;
+            border-radius: var(--radius-sm);
+            transition: background 0.15s ease, color 0.15s ease;
+            color: var(--text-dim);
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
         }
 
         .chat-link:hover {
-            color: #0edb2a;
-            background: rgba(0, 229, 255, 0.03);
+            color: var(--text);
+            background: rgba(255, 255, 255, 0.04);
         }
 
         .active-chat {
-            color: #0edb2a !important;
-            background: #033309 !important;
-            border-left: 2px solid var(--accent);
+            color: var(--accent) !important;
+            background: rgba(0, 229, 255, 0.08) !important;
             font-weight: 600;
         }
 
@@ -445,10 +487,13 @@
         #chat-flow {
             flex: 1;
             overflow-y: auto;
-            padding: 40px 10% 50px 10%;
+            width: 100%;
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: var(--space-6) var(--space-5) 50px var(--space-5);
             display: flex;
             flex-direction: column;
-            gap: 35px;
+            gap: var(--space-5);
         }
 
         /* .chat-block {
@@ -475,12 +520,28 @@
             }
         }
 
+        @keyframes dropdownFade {
+            from {
+                opacity: 0;
+                transform: translateY(4px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
         .msg-label {
-            font-family: 'JetBrains Mono';
+            display: block;
+            font-family: 'JetBrains Mono', monospace;
             font-size: 10px;
-            margin-bottom: 8px;
-            color: #0edb2a;
-            letter-spacing: 2px;
+            font-weight: 600;
+            margin-bottom: var(--space-2);
+            color: var(--text-dim);
+            letter-spacing: 1.2px;
+            text-transform: uppercase;
+            opacity: 0.85;
         }
 
         .user-block {
@@ -495,25 +556,24 @@
 
         .content {
             font-size: 15px;
-            line-height: 1.6;
-            padding: 15px 20px;
-            border-radius: 4px;
+            line-height: 1.65;
+            padding: var(--space-4) var(--space-5);
+            border-radius: var(--radius-md);
             max-width: 85%;
         }
 
         .user-block .content {
             white-space: pre-wrap;
             font-family: 'JetBrains Mono', monospace;
+            font-size: 14px;
             background: var(--user-bubble);
-            color: white;
-            border-left: 3px solid;
-            border-color: #0edb2a;
+            color: var(--text);
+            border: 1px solid var(--border-soft);
         }
 
         .simba-block .content {
-            background: rgba(0, 0, 0, 0.174);
-            border: 1px solid var(--border);
-            border-left: 3px solid #4b5563;
+            background: var(--card);
+            border: 1px solid var(--border-soft);
         }
 
         #input-wrapper {
@@ -536,21 +596,113 @@
 
         .command-box {
             width: 100%;
-            max-width: 780px;
+            max-width: 900px;
             /* fixed max width */
             margin: 0 auto;
             /* true center */
 
-            background: rgba(18, 22, 28, 0.95);
-            border: 1px solid rgba(0, 229, 255, 0.18);
-            border-radius: 14px;
+            background: rgba(20, 23, 29, 0.95);
+            backdrop-filter: blur(12px);
+            border: 1px solid var(--border-soft);
+            border-radius: 18px;
 
-            padding: 6px 16px;
+            padding: 6px 10px;
             display: flex;
             align-items: center;
+            gap: 6px;
 
-            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.6);
-            transition: all 0.25s ease;
+            box-shadow: var(--shadow-lg);
+            transition: border-color 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .command-box.drag-active {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 2px rgba(0, 229, 255, 0.25), 0 8px 25px rgba(0, 0, 0, 0.6);
+        }
+
+        /* Shared positioning context for the composer + its floating attachment
+           tray, so the tray can be anchored top-right WITHOUT taking up space in
+           the command-box's own flex layout - it can never shift the textbox. */
+        .composer-shell {
+            position: relative;
+            width: 100%;
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        #attachment-preview {
+            position: absolute;
+            bottom: 100%;
+            right: 0;
+            margin-bottom: 8px;
+            flex-wrap: wrap;
+            justify-content: flex-end;
+            max-width: 100%;
+            z-index: 5;
+        }
+
+        .attachment-chip {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 10px;
+            max-width: 220px;
+            background: rgba(20, 23, 29, 0.95);
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(0, 229, 255, 0.2);
+            border-radius: var(--radius-md);
+            box-shadow: var(--shadow-md);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 11px;
+            color: var(--accent);
+            cursor: pointer;
+            transition: border-color 0.15s ease, transform 0.15s ease;
+        }
+
+        .attachment-chip:hover {
+            border-color: rgba(0, 229, 255, 0.4);
+            transform: translateY(-1px);
+        }
+
+        .attachment-chip img,
+        .attachment-chip-placeholder {
+            width: 28px;
+            height: 28px;
+            border-radius: 4px;
+            object-fit: cover;
+            flex-shrink: 0;
+        }
+
+        .attachment-chip-placeholder {
+            background: rgba(0, 229, 255, 0.15);
+        }
+
+        .attachment-chip-meta {
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            min-width: 0;
+        }
+
+        .attachment-chip-name {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .attachment-chip-size {
+            opacity: 0.6;
+            font-size: 10px;
+        }
+
+        .attachment-chip button {
+            background: none;
+            border: none;
+            color: #ff4444;
+            cursor: pointer;
+            font-size: 13px;
+            flex-shrink: 0;
+            padding: 2px;
         }
 
         .command-box:focus-within {
@@ -561,30 +713,41 @@
         .cyber-select-wrapper {
             flex-shrink: 0;
             position: relative;
-            width: 190px;
-            font-family: 'Courier New', monospace;
+            width: 152px;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        /* Aspect ratio values ("1:1", "16:9") are short - no need for the full
+           model-selector width. ID specificity guarantees this wins over the
+           tablet/mobile .cyber-select-wrapper width overrides below. */
+        #aspectRatioWrapper,
+        #aspectRatioWrapper .cyber-select {
+            width: 92px;
+            min-width: 92px;
         }
 
         /* Selected Box */
         .cyber-select {
-            background: rgba(0, 255, 255, 0.05);
-            border: 1px solid #00f0ff;
-            border-radius: 12px;
-            padding: 10px 14px;
-            color: #00f0ff;
+            background: rgba(0, 229, 255, 0.05);
+            border: 1px solid var(--border-soft);
+            border-radius: var(--radius-md);
+            padding: 8px 12px;
+            color: var(--accent-soft);
+            font-size: 12.5px;
             display: flex;
             justify-content: space-between;
             align-items: center;
             cursor: pointer;
-            transition: 0.3s ease;
-            width: 190px;
-            min-width: 190px;
+            transition: border-color 0.2s ease, color 0.2s ease;
+            width: 152px;
+            min-width: 152px;
             box-sizing: border-box;
-            line-height: 1;
+            line-height: 1.3;
         }
 
         .cyber-select:hover {
-            box-shadow: 0 0 5px #00f0ff;
+            border-color: rgba(0, 229, 255, 0.35);
+            color: var(--accent);
         }
 
         /* Options Container (OPEN UPWARD) */
@@ -673,38 +836,38 @@
             outline: none;
         }
 
-        /* .send-btn {
-            background: transparent;
-            color: var(--accent);
-            border: 1px solid var(--accent);
-            width: 40px;
-            height: 40px;
-            border-radius: 4px;
-            cursor: pointer;
-        } */
-
-
         .send-btn {
             flex-shrink: 0;
             background: transparent;
             color: #0edb2a;
             border: 1px solid var(--accent);
-            width: 40px;
-            height: 40px;
-            border-radius: 4px;
+            width: 36px;
+            height: 36px;
+            border-radius: var(--radius-sm);
             cursor: pointer;
             transition: all 0.2s ease;
         }
 
         .send-btn:hover {
             background: var(--accent);
-            box-shadow: 0 0 15px var(--accent-dim);
+            box-shadow: 0 0 12px var(--accent-dim);
             transform: scale(1.05);
             color: #000;
         }
 
         .send-btn:active {
             transform: scale(0.95);
+        }
+
+        .send-btn.stop-mode {
+            color: #ff6b6b;
+            border-color: #ff6b6b;
+        }
+
+        .send-btn.stop-mode:hover {
+            background: #ff6b6b;
+            box-shadow: 0 0 12px rgba(255, 107, 107, 0.3);
+            color: #000;
         }
 
         .typing-loader {
@@ -839,13 +1002,14 @@
 
         .circle-wrapper {
             display: flex;
-            justify-content: space-between;
+            justify-content: center;
+            gap: var(--space-3);
             margin-top: 5px;
         }
 
         .circle-card {
             position: relative;
-            width: 120px;
+            width: 96px;
             text-align: center;
         }
 
@@ -970,23 +1134,77 @@
         .voice-btn {
             flex-shrink: 0;
             background: transparent;
-            border: 1px solid #00e5ff;
-            color: #00e5ff;
-            width: 40px;
-            height: 40px;
-            border-radius: 6px;
+            border: 1px solid var(--border-soft);
+            color: var(--accent-soft);
+            width: 36px;
+            height: 36px;
+            border-radius: var(--radius-sm);
             cursor: pointer;
-            margin-right: 8px;
+            transition: border-color 0.2s ease, color 0.2s ease, background 0.2s ease;
         }
 
         .voice-btn:hover {
-            background: #00e5ff;
-            color: black;
+            border-color: rgba(0, 229, 255, 0.35);
+            color: var(--accent);
         }
 
         .voice-btn.active {
             color: #ff4444;
             border-color: #ff4444;
+        }
+
+        /* ================= Plus button + attachment popover menu ================= */
+        .plus-menu-wrapper {
+            position: relative;
+            flex-shrink: 0;
+        }
+
+        .plus-menu {
+            display: none;
+            position: absolute;
+            bottom: calc(100% + 8px);
+            left: 0;
+            min-width: 168px;
+            background: #0f141a;
+            border: 1px solid rgba(0, 229, 255, 0.2);
+            border-radius: var(--radius-md);
+            padding: 6px;
+            box-shadow: var(--shadow-lg);
+            z-index: 20;
+            animation: dropdownFade 0.15s ease-out;
+        }
+
+        .plus-menu.show {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+
+        .plus-menu button {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 9px 10px;
+            background: transparent;
+            border: none;
+            border-radius: var(--radius-sm);
+            color: var(--text);
+            font-family: 'Outfit', sans-serif;
+            font-size: 13px;
+            text-align: left;
+            cursor: pointer;
+            transition: background 0.15s ease;
+        }
+
+        .plus-menu button:hover {
+            background: rgba(0, 229, 255, 0.08);
+            color: var(--accent);
+        }
+
+        .plus-menu button i {
+            width: 16px;
+            text-align: center;
+            color: var(--accent-soft);
         }
 
 
@@ -1035,6 +1253,61 @@
             }
         }
 
+
+        .generated-image {
+            cursor: zoom-in;
+            transition: opacity 0.15s ease;
+        }
+
+        .generated-image:hover {
+            opacity: 0.92;
+        }
+
+        /* ================= IMAGE LIGHTBOX (fullscreen zoom) ================= */
+        #image-lightbox {
+            display: none;
+            position: fixed;
+            inset: 0;
+            z-index: 100000;
+            background: rgba(6, 7, 9, 0.92);
+            backdrop-filter: blur(6px);
+            align-items: center;
+            justify-content: center;
+            cursor: zoom-out;
+            animation: fadeIn 0.15s ease;
+        }
+
+        #image-lightbox.show {
+            display: flex;
+        }
+
+        #image-lightbox img {
+            max-width: 90vw;
+            max-height: 90vh;
+            border-radius: var(--radius-md);
+            box-shadow: var(--shadow-lg);
+            cursor: default;
+        }
+
+        .lightbox-close {
+            position: absolute;
+            top: 24px;
+            right: 28px;
+            background: rgba(255, 255, 255, 0.06);
+            border: 1px solid var(--border-soft);
+            color: var(--text);
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background 0.2s ease, transform 0.15s ease;
+        }
+
+        .lightbox-close:hover {
+            background: rgba(255, 255, 255, 0.12);
+            transform: scale(1.05);
+        }
 
         /* ================= LOCKDOWN SCREEN ================= */
         #lockdown-screen {
@@ -1190,10 +1463,12 @@
             .mobile-menu-btn {
                 display: none !important;
             }
+
             /* On desktop, show text, hide icon */
             .cyber-select #selectedText {
                 display: inline;
             }
+
             .cyber-select #selectedIcon {
                 display: none !important;
             }
@@ -1224,6 +1499,7 @@
 
         /* Mobile (below 768px) - COMPLETE REBUILD */
         @media (max-width: 767px) {
+
             /* Body reset for mobile */
             body {
                 display: block;
@@ -1431,6 +1707,16 @@
                 gap: 6px;
             }
 
+            /* Attachment tray keeps the same 16px inset as the command box on mobile */
+            #attachment-preview {
+                right: 16px;
+                max-width: calc(100% - 32px);
+            }
+
+            .attachment-chip {
+                max-width: 160px;
+            }
+
             /* Cyber select - TINY DROPDOWN ONLY on mobile */
             .cyber-select-wrapper {
                 width: 44px !important;
@@ -1518,7 +1804,7 @@
             }
 
             /* Suggestion cards - responsive grid */
-            .welcome-container > div[style*="grid-template-columns"] {
+            .welcome-container>div[style*="grid-template-columns"] {
                 grid-template-columns: repeat(2, 1fr) !important;
                 max-width: 100%;
                 width: 100%;
@@ -1540,6 +1826,7 @@
 
         /* Small mobile (below 400px) - 1 column cards */
         @media (max-width: 399px) {
+
             .cyber-select-wrapper,
             .cyber-select {
                 width: 100px;
@@ -1563,7 +1850,7 @@
             }
 
             /* Suggestion cards - 1 column */
-            .welcome-container > div[style*="grid-template-columns"] {
+            .welcome-container>div[style*="grid-template-columns"] {
                 grid-template-columns: 1fr !important;
             }
         }
@@ -1646,6 +1933,7 @@
         rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.1.6/purify.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
 
@@ -1667,6 +1955,24 @@
         </div>
     </div>
 
+    <div id="camera-modal" style="display:none; position:fixed; inset:0; background:rgba(3,4,5,0.9); backdrop-filter:blur(15px); z-index:100000; flex-direction:column; align-items:center; justify-content:center; font-family:'JetBrains Mono',monospace;">
+        <div style="padding:24px; background:rgba(10,15,20,0.95); border:1px solid rgba(0,229,255,0.4); border-radius:8px; box-shadow:0 0 30px rgba(0,229,255,0.2); text-align:center; display:flex; flex-direction:column; align-items:center; gap:16px; max-width:90vw;">
+            <video id="camera-video" autoplay playsinline style="max-width:80vw; max-height:60vh; border-radius:6px; background:#000;"></video>
+            <canvas id="camera-canvas" style="display:none;"></canvas>
+            <div style="display:flex; gap:12px;">
+                <button class="copy-btn" onclick="capturePhoto()"><i class="fa-solid fa-camera"></i> Capture</button>
+                <button class="copy-btn" onclick="closeCameraCapture()"><i class="fa-solid fa-xmark"></i> Cancel</button>
+            </div>
+        </div>
+    </div>
+
+
+    <div id="image-lightbox" onclick="closeImageLightbox()">
+        <button type="button" class="lightbox-close" onclick="closeImageLightbox(); event.stopPropagation();" aria-label="Close">
+            <i class="fa-solid fa-xmark"></i>
+        </button>
+        <img id="lightbox-img" src="" alt="Full size preview" onclick="event.stopPropagation();">
+    </div>
 
     <div id="boot-screen">
         <div id="terminal-output"></div>
@@ -1698,6 +2004,12 @@
             </button>
         </div>
         <a href="/" class="new-chat">/initialize_new_intel</a>
+        {% if current_session %}
+        <button type="button" class="new-chat"
+            data-chat-title="{{ current_session.title|escapejs }}" onclick="exportChatAsPdf(this.dataset.chatTitle)">
+            <i class="fa-solid fa-file-pdf"></i> /export_pdf
+        </button>
+        {% endif %}
 
         <div class="system-monitor" style="padding: 10px; border-top: 1px solid var(--accent-dim); margin-top: 10px;">
             <span class="msg-label" style="font-size: 12px; color: #bf9b30;">CORE_METRICS_UPLINK</span>
@@ -1705,7 +2017,7 @@
             <div class="circle-wrapper">
 
                 <div class="circle-card">
-                    <svg class="progress-ring" width="120" height="120">
+                    <svg class="progress-ring" width="96" height="96" viewBox="0 0 120 120">
                         <circle class="progress-bg" cx="60" cy="60" r="50"></circle>
                         <circle id="cpu-circle" class="progress-fill" cx="60" cy="60" r="50"></circle>
                     </svg>
@@ -1716,7 +2028,7 @@
                 </div>
 
                 <div class="circle-card">
-                    <svg class="progress-ring" width="120" height="120">
+                    <svg class="progress-ring" width="96" height="96" viewBox="0 0 120 120">
                         <circle class="progress-bg" cx="60" cy="60" r="50"></circle>
                         <circle id="ram-circle" class="progress-fill" cx="60" cy="60" r="50"></circle>
                     </svg>
@@ -1728,7 +2040,7 @@
 
             </div>
 
-            <div class="system-monitor"
+            <!-- <div class="system-monitor"
                 style="margin-top: 20px; border-top: 1px solid var(--border); padding-top: 15px;">
                 <span class="msg-label" style="color: var(--accent-gold);">ENV_INTEL</span>
                 <div
@@ -1740,12 +2052,18 @@
                     <div style="display: flex; justify-content: space-between;"><span>NET:</span> <strong
                             id="env-status" style="color: #fff;">SCANNING...</strong></div>
                 </div>
-            </div>
+            </div> -->
 
         </div>
 
         <div class="history-section">
             <span class="label">ARCHIVE_LOG</span>
+
+            <div class="sidebar-search">
+                <i class="fa-solid fa-magnifying-glass"></i>
+                <input type="text" id="chat-search-input" placeholder="Search conversations..."
+                    oninput="filterChatHistory(this.value)" aria-label="Search conversations">
+            </div>
 
             <div id="pinned-chats">
                 {% for s in sessions %}
@@ -1812,29 +2130,30 @@
 
         <div class="auth-section">
             {% if user.is_authenticated %}
-                <div class="profile-card">
-                    {% if user.socialaccount_set.all.0.get_avatar_url %}
-                        <img src="{{ user.socialaccount_set.all.0.get_avatar_url }}" alt="Profile" class="profile-avatar">
-                    {% else %}
-                        <img src="https://ui-avatars.com/api/?name={{ user.first_name|default:'User' }}+{{ user.last_name|default:'' }}&background=12161c&color=00e5ff&size=80" alt="Profile" class="profile-avatar">
-                    {% endif %}
-                    <div class="profile-info">
-                        <p class="profile-name">{{ user.get_full_name|default:user.username }}</p>
-                        <p class="profile-email">{{ user.email }}</p>
-                    </div>
+            <div class="profile-card">
+                {% if user.socialaccount_set.all.0.get_avatar_url %}
+                <img src="{{ user.socialaccount_set.all.0.get_avatar_url }}" alt="Profile" class="profile-avatar">
+                {% else %}
+                <img src="https://ui-avatars.com/api/?name={{ user.first_name|default:'User' }}+{{ user.last_name|default:'' }}&background=12161c&color=00e5ff&size=80"
+                    alt="Profile" class="profile-avatar">
+                {% endif %}
+                <div class="profile-info">
+                    <p class="profile-name">{{ user.get_full_name|default:user.username }}</p>
+                    <p class="profile-email">{{ user.email }}</p>
                 </div>
-                <form method="post" action="{% url 'account_logout' %}">
-                    {% csrf_token %}
-                    <button type="submit" class="auth-btn">
-                        <i class="fa-solid fa-sign-out-alt"></i>
-                        LOGOUT
-                    </button>
-                </form>
+            </div>
+            <form method="post" action="{% url 'account_logout' %}">
+                {% csrf_token %}
+                <button type="submit" class="auth-btn">
+                    <i class="fa-solid fa-sign-out-alt"></i>
+                    LOGOUT
+                </button>
+            </form>
             {% else %}
-                <a href="{% url 'google_login' %}" class="auth-btn">
-                    <i class="fa-brands fa-google"></i>
-                    CONTINUE WITH GOOGLE
-                </a>
+            <a href="{% url 'google_login' %}" class="auth-btn">
+                <i class="fa-brands fa-google"></i>
+                CONTINUE WITH GOOGLE
+            </a>
             {% endif %}
         </div>
 
@@ -1882,7 +2201,66 @@
             <div class="chat-block user-block">
                 <span class="msg-label">DHRUV_INPUT</span>
                 <div class="content">{{ m.user_query }}</div>
+                <textarea class="raw-query" style="display:none;">{{ m.user_query }}</textarea>
             </div>
+            {% if m.extra_data and m.extra_data.type == "image" %}
+            <div class="chat-block simba-block">
+                <span class="msg-label">
+                    SIMBA_IMAGE
+                </span>
+                <div class="content">
+                    <div class="image-card" style="display:flex;flex-direction:column;gap:15px;align-items:center;padding:20px;background:rgba(15,21,28,0.5);border:1px solid rgba(0,229,255,0.2);border-radius:12px;">
+                        <img class="generated-image" crossorigin="anonymous" src="{{ m.extra_data.image_url }}" style="max-width:100%;border-radius:8px;box-shadow:0 0 30px rgba(0,229,255,0.1);" alt="Generated image">
+                        <div style="display:flex;flex-direction:column;gap:8px;width:100%;max-width:600px;">
+                            <div style="display:flex;justify-content:space-between;color:#a0aabf;font-size:14px;">
+                                <span>Resolution: {{ m.extra_data.width }}x{{ m.extra_data.height }}</span>
+                                <span>Model: {{ m.extra_data.model_used }}</span>
+                            </div>
+                            <div style="text-align:center;color:#0edb2a;font-size:14px;">
+                                Image generated
+                            </div>
+                        </div>
+                        <div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center;">
+                            <button class="copy-btn" onclick="downloadImage('{{ m.extra_data.image_url }}', 'simba-intel-image.jpg')">
+                                <i class="fa-solid fa-download"></i> Download
+                            </button>
+                            <button class="copy-btn" onclick="openImage('{{ m.extra_data.image_url }}')">
+                                <i class="fa-solid fa-up-right-from-square"></i> Open
+                            </button>
+                            <button class="copy-btn" onclick="copyToClipboard('{{ m.extra_data.prompt|escapejs }}', this)">
+                                <i class="fa-solid fa-copy"></i> Copy Prompt
+                            </button>
+                            <button class="copy-btn" onclick="regenerateImage('{{ m.extra_data.prompt|escapejs }}', '{{ m.extra_data.prompt|escapejs }}')">
+                                <i class="fa-solid fa-rotate"></i> Regenerate
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% elif m.extra_data and m.extra_data.type == "vision" %}
+            <div class="chat-block simba-block">
+                <span class="msg-label">
+                    SIMBA_VISION{% if m.latency %} • {{ m.latency }}s{% endif %}
+                </span>
+                {% if m.extra_data.image_previews %}
+                <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
+                    {% for preview in m.extra_data.image_previews %}
+                    <img src="{{ preview }}" style="max-width:160px;max-height:160px;border-radius:8px;object-fit:cover;" alt="Attached image">
+                    {% endfor %}
+                </div>
+                {% elif m.extra_data.image_preview %}
+                <img src="{{ m.extra_data.image_preview }}" style="max-width:200px;border-radius:8px;margin-bottom:10px;display:block;" alt="Attached image">
+                {% endif %}
+                <textarea style="display:none;" class="raw-data">{{ m.ai_response }}</textarea>
+                <div class="content markdown-content">{{ m.ai_response }}</div>
+                <div style="display: flex; gap: 10px; margin-top: 5px;">
+                    <button class="copy-btn"
+                        onclick="copyToClipboard(this.closest('.simba-block').querySelector('.raw-data').value, this)">
+                        <i class="fa-regular fa-copy"></i> COPY_INTEL
+                    </button>
+                </div>
+            </div>
+            {% else %}
             <div class="chat-block simba-block">
                 <span class="msg-label">
                     SIMBA_RESPONSE{% if m.latency %} • {{ m.latency }}s{% endif %}
@@ -1899,44 +2277,77 @@
                         onclick="shareChat(this.closest('.simba-block').querySelector('.raw-data').value)">
                         <i class="fa-solid fa-share-nodes"></i> SHARE
                     </button>
+                    <button class="copy-btn" onclick="regenerateText(this)">
+                        <i class="fa-solid fa-rotate"></i> Regenerate
+                    </button>
                 </div>
             </div>
+            {% endif %}
             {% endfor %}
         </div>
 
         <div id="input-wrapper">
-            <div class="command-box">
+            <div class="composer-shell">
+                <div id="attachment-preview" style="display:none;"></div>
+                <div class="command-box">
+
+                <input type="file" id="attach-input" accept=".pdf,.csv,.txt,.jpg,.jpeg,.png,.webp,.gif,.bmp" multiple style="display:none;">
+
+                <div class="plus-menu-wrapper">
+                    <button class="voice-btn" id="plusMenuBtn" type="button" title="Add attachment"
+                        aria-label="Add attachment" onclick="togglePlusMenu(event)">
+                        <i class="fa-solid fa-plus"></i>
+                    </button>
+                    <div class="plus-menu" id="plusMenu">
+                        <button type="button" onclick="closePlusMenu(); openCameraCapture();">
+                            <i class="fa-solid fa-camera"></i> Camera
+                        </button>
+                        <button type="button" onclick="closePlusMenu(); triggerFilePicker('image');">
+                            <i class="fa-solid fa-image"></i> Gallery
+                        </button>
+                        <button type="button" onclick="closePlusMenu(); triggerFilePicker('file');">
+                            <i class="fa-solid fa-file-arrow-up"></i> File Upload
+                        </button>
+                    </div>
+                </div>
 
                 <div class="cyber-select-wrapper">
 
                     <div class="cyber-select" id="cyberSelect">
                         <span id="selectedText">
-                            {% if selected_model == 'groq' %}SONIC_LINK
-                            {% elif selected_model == 'groq2' %}SKY_NET
-                            <!-- {% else %}CORE_LOCAL{% endif %} -->
+                            {% for model in models %}
+                            {% if model.id == selected_model %}{{ model.display_name }}{% endif %}
+                            {% endfor %}
                         </span>
                         <span id="selectedIcon" style="display:none;">⇄</span>
                         <span class="arrow">▴</span>
                     </div>
 
                     <div class="cyber-options" id="cyberOptions">
-                        <!-- <div class="cyber-option {% if selected_model == 'offline' %}active{% endif %}"
-                            data-value="offline">
-                            CORE_LOCAL
-                        </div> -->
-
-                        <div class="cyber-option {% if selected_model == 'groq' %}active{% endif %}" data-value="groq">
-                            SONIC_LINK
+                        {% for model in models %}
+                        <div class="cyber-option {% if selected_model == model.id %}active{% endif %}"
+                            data-value="{{ model.id }}">
+                            {{ model.display_name }}
                         </div>
-
-                        <div class="cyber-option {% if selected_model == 'groq2' %}active{% endif %}"
-                            data-value="groq2">
-                            SKY_NET
-                        </div>
+                        {% endfor %}
                     </div>
 
                     <input type="hidden" name="model_choice" id="model-selector" value="{{ selected_model }}">
 
+                </div>
+
+                <!-- Aspect Ratio Selector -->
+                <div class="cyber-select-wrapper aspect-ratio-wrapper" id="aspectRatioWrapper" style="display: none;">
+                    <div class="cyber-select" id="aspectRatioSelect">
+                        <span id="aspectRatioText">1:1</span>
+                        <span class="arrow">▴</span>
+                    </div>
+                    <div class="cyber-options" id="aspectRatioOptions">
+                        <div class="cyber-option active" data-value="1:1">1:1</div>
+                        <div class="cyber-option" data-value="16:9">16:9</div>
+                        <div class="cyber-option" data-value="9:16">9:16</div>
+                    </div>
+                    <input type="hidden" id="aspect-ratio-selector" value="1:1">
                 </div>
 
 
@@ -1962,11 +2373,12 @@
                 </button>
 
 
-                <!-- SEND BUTTON -->
-                <button class="send-btn" type="button" onclick="sendQuery(event)">
+                <!-- SEND / STOP BUTTON -->
+                <button class="send-btn" type="button" title="Send" aria-label="Send" onclick="sendQuery(event)">
                     <i class="fa-solid fa-chevron-right"></i>
                 </button>
 
+                </div>
             </div>
         </div>
     </div>
@@ -1976,35 +2388,6 @@
 
 
     <script>
-
-
-        // ================= MOBILE MENU TOGGLE =================
-        const mobileMenuBtn = document.getElementById("mobile-menu-btn");
-        const mobileOverlay = document.getElementById("mobile-overlay");
-        const sidebar = document.getElementById("sidebar");
-
-        function toggleMobileMenu() {
-            sidebar.classList.toggle("mobile-open");
-            mobileOverlay.classList.toggle("show");
-        }
-
-        if (mobileMenuBtn) {
-            mobileMenuBtn.addEventListener("click", toggleMobileMenu);
-        }
-
-        if (mobileOverlay) {
-            mobileOverlay.addEventListener("click", toggleMobileMenu);
-        }
-
-        // Close menu when a chat item is clicked
-        const chatLinks = document.querySelectorAll(".chat-link");
-        chatLinks.forEach(link => {
-            link.addEventListener("click", () => {
-                if (window.innerWidth <= 767) {
-                    toggleMobileMenu();
-                }
-            });
-        });
 
 
         // ================= AUDIO ENGINE (SYNTHESIZED) =================
@@ -2057,10 +2440,7 @@
                 bootLines = [
                     "INITIALIZING SIMBA_INTEL KERNEL V3.0...",
                     "ESTABLISHING SECURE UPLINK...",
-                    "ACCESSING HARDWARE: LENOVO LOQ i5-13450HX...",
-                    "MOUNTING GPU: RTX 3050 TENSOR CORES...",
                     "ACCESS GRANTED.",
-                    "WELCOME, OPERATOR DHRUV.",
                     "SYSTEM ONLINE."
                 ];
                 sessionStorage.setItem('simba_booted', 'true');
@@ -2178,6 +2558,16 @@
 
         const csrfToken = document.getElementById("csrf-token").value;
 
+        // ================= Sidebar conversation search (client-side filter) =================
+        function filterChatHistory(query) {
+            const needle = query.trim().toLowerCase();
+            document.querySelectorAll('#pinned-chats .chat-item-container, #live-chat-list .chat-item-container').forEach(item => {
+                const link = item.querySelector('.chat-link');
+                const text = link ? link.innerText.toLowerCase() : "";
+                item.style.display = (!needle || text.includes(needle)) ? "" : "none";
+            });
+        }
+
         // ================= MENU, PIN, DELETE, RENAME, COPY, SHARE =================
         function toggleMenu(event, id) {
             event.stopPropagation();
@@ -2251,7 +2641,7 @@
                 const raw = block.querySelector(".raw-data");
                 const content = block.querySelector(".markdown-content");
                 if (raw && content && raw.value.trim() !== "") {
-                    content.innerHTML = marked.parse(raw.value.trim());
+                    content.innerHTML = renderMarkdown(raw.value.trim());
                     if (window.Prism) Prism.highlightAllUnder(content);
                 }
             });
@@ -2311,7 +2701,7 @@
             select.classList.toggle("open");
         });
 
-        document.querySelectorAll(".cyber-option").forEach(option => {
+        document.querySelectorAll("#cyberOptions .cyber-option").forEach(option => {
             option.addEventListener("click", async function (e) {
                 e.stopPropagation();
                 const value = this.getAttribute("data-value");
@@ -2329,12 +2719,15 @@
 
                 localStorage.setItem("selected_simba_model", value); // કી ફિક્સ કરી [cite: 2026-03-01]
 
-                document.querySelectorAll(".cyber-option").forEach(o => o.classList.remove("active"));
+                document.querySelectorAll("#cyberOptions .cyber-option").forEach(o => o.classList.remove("active"));
                 this.classList.add("active");
+
+                // Update aspect ratio visibility
+                updateAspectRatioVisibility();
 
                 // સર્વરના સેશનને પણ તે જ સમયે અપડેટ કરો [cite: 2026-03-01]
                 try {
-                    await fetch(`/update_model/?model=${value}`);
+                    await fetch(`/update_model/?model_id=${value}`);
                     console.log("SIMBA_SESSION: Model synced to " + value);
                 } catch (err) { console.log("Sync Error"); }
 
@@ -2343,9 +2736,75 @@
             });
         });
 
-        window.addEventListener("click", () => {
+        // ================= Aspect Ratio Selector Logic =================
+        const aspectSelect = document.getElementById("aspectRatioSelect");
+        const aspectOptionsBox = document.getElementById("aspectRatioOptions");
+        const aspectHiddenInput = document.getElementById("aspect-ratio-selector");
+        const aspectText = document.getElementById("aspectRatioText");
+        const aspectWrapper = document.getElementById("aspectRatioWrapper");
+
+        if (aspectSelect) {
+            aspectSelect.addEventListener("click", (e) => {
+                e.stopPropagation();
+                const isVisible = aspectOptionsBox.style.display === "block";
+                aspectOptionsBox.style.display = isVisible ? "none" : "block";
+                aspectSelect.classList.toggle("open");
+            });
+
+            aspectOptionsBox.querySelectorAll(".cyber-option").forEach(option => {
+                option.addEventListener("click", function (e) {
+                    e.stopPropagation();
+                    const value = this.getAttribute("data-value");
+                    const text = this.innerText;
+
+                    aspectHiddenInput.value = value;
+                    aspectText.innerText = text;
+                    localStorage.setItem("selected_aspect_ratio", value);
+
+                    aspectOptionsBox.querySelectorAll(".cyber-option").forEach(o => o.classList.remove("active"));
+                    this.classList.add("active");
+                    aspectOptionsBox.style.display = "none";
+                    aspectSelect.classList.remove("open");
+                });
+            });
+        }
+
+        // ================= Function to toggle aspect ratio selector visibility =================
+        function updateAspectRatioVisibility() {
+            const currentModel = document.getElementById("model-selector").value;
+            // Check if model is image-studio (or whatever the image model ID is)
+            const modelConfig = Array.from(document.querySelectorAll("#cyberOptions .cyber-option")).find(o => o.getAttribute("data-value") === currentModel);
+            const isImageGenMode = !!(modelConfig && modelConfig.innerText.includes("Image"));
+            aspectWrapper.style.display = isImageGenMode ? "block" : "none";
+
+            // Attachments (Vision AI) don't apply in image-generation mode - hide the control there.
+            const plusMenuWrapper = document.querySelector(".plus-menu-wrapper");
+            if (plusMenuWrapper) plusMenuWrapper.style.display = isImageGenMode ? "none" : "flex";
+            if (isImageGenMode) {
+                closePlusMenu();
+                if (typeof removeAttachment === "function") removeAttachment();
+            }
+        }
+
+        // ================= Load saved aspect ratio =================
+        const savedAspectRatio = localStorage.getItem("selected_aspect_ratio");
+        if (savedAspectRatio) {
+            aspectHiddenInput.value = savedAspectRatio;
+            aspectText.innerText = savedAspectRatio;
+            aspectOptionsBox.querySelectorAll(".cyber-option").forEach(o => {
+                if (o.getAttribute("data-value") === savedAspectRatio) {
+                    o.classList.add("active");
+                } else {
+                    o.classList.remove("active");
+                }
+            });
+        }
+
+        window.addEventListener("click", (e) => {
             if (optionsBox) optionsBox.style.display = "none";
             if (select) select.classList.remove("open");
+            if (aspectOptionsBox) aspectOptionsBox.style.display = "none";
+            if (aspectSelect) aspectSelect.classList.remove("open");
         });
 
         // ================= URL SYNC & HISTORY FIX =================
@@ -2357,14 +2816,645 @@
             }
         }
 
+        // ================= Global variable to track if we're generating an image =================
+        let isGeneratingImage = false;
+        // ================= Global variable to track if a text query is in flight =================
+        let isSendingQuery = false;
+        // ================= AbortController for the in-flight request - powers the Stop button =================
+        let currentAbortController = null;
+
+        function setSendButtonBusy(isBusy) {
+            const btn = document.querySelector(".send-btn");
+            if (!btn) return;
+            btn.innerHTML = isBusy
+                ? '<i class="fa-solid fa-stop"></i>'
+                : '<i class="fa-solid fa-chevron-right"></i>';
+            btn.classList.toggle("stop-mode", isBusy);
+            btn.title = isBusy ? "Stop generating" : "Send";
+            btn.setAttribute("aria-label", isBusy ? "Stop generating" : "Send");
+        }
+
+        // ================= Update the CORE_STATUS indicator - shared by sendQuery/sendImageQuery/regenerateText =================
+        function setStatus(state, text) {
+            const el = document.getElementById("aiStatus");
+            if (!el) return;
+            el.className = "ai-status " + state;
+            const textEl = el.querySelector(".status-text");
+            if (textEl) textEl.innerText = text;
+        }
+
+        // ================= HTML-escape untrusted text before ever inserting it via innerHTML =================
+        function escapeHtml(str) {
+            const div = document.createElement("div");
+            div.textContent = str;
+            return div.innerHTML;
+        }
+
+        // ================= Sanitize markdown-rendered HTML before it hits the DOM =================
+        function renderMarkdown(text) {
+            const html = marked.parse(text);
+            return window.DOMPurify ? DOMPurify.sanitize(html) : html;
+        }
+
+        // ================= Plus button popover (Camera / Gallery / File Upload) =================
+        function togglePlusMenu(e) {
+            if (e) e.stopPropagation();
+            const menu = document.getElementById("plusMenu");
+            if (menu) menu.classList.toggle("show");
+        }
+
+        function closePlusMenu() {
+            const menu = document.getElementById("plusMenu");
+            if (menu) menu.classList.remove("show");
+        }
+
+        function triggerFilePicker(kind) {
+            const input = document.getElementById("attach-input");
+            if (!input) return;
+            input.accept = kind === "image"
+                ? ".jpg,.jpeg,.png,.webp,.gif,.bmp"
+                : ".pdf,.csv,.txt,.jpg,.jpeg,.png,.webp,.gif,.bmp";
+            input.click();
+        }
+
+        document.addEventListener("click", (e) => {
+            const wrapper = document.querySelector(".plus-menu-wrapper");
+            if (wrapper && !wrapper.contains(e.target)) closePlusMenu();
+        });
+
+        // ================= File attach / paste / drag-drop / camera capture (Vision AI + document context) =================
+        let pendingAttachments = []; // [{file, name, size, isImage, previewUrl}], sent with the next sendQuery()
+        let cameraStream = null;
+
+        const ACCEPTED_ATTACHMENT_RE = /\.(jpe?g|png|webp|gif|bmp|pdf|csv|txt)$/i;
+        const ACCEPTED_IMAGE_RE = /\.(jpe?g|png|webp|gif|bmp)$/i;
+        const MAX_ATTACHMENTS = 6;
+        const MAX_ATTACHMENT_BYTES = 10 * 1024 * 1024; // mirrors the backend's per-file limit
+
+        function formatFileSize(bytes) {
+            if (bytes < 1024) return `${bytes} B`;
+            if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+            return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+        }
+
+        function isDuplicateAttachment(file) {
+            return pendingAttachments.some(a => a.name === file.name && a.size === file.size);
+        }
+
+        function addAttachment(file) {
+            if (!file) return;
+            if (!ACCEPTED_ATTACHMENT_RE.test(file.name)) {
+                alert(`Unsupported file type: ${file.name}`);
+                return;
+            }
+            if (file.size > MAX_ATTACHMENT_BYTES) {
+                alert(`${file.name} is too large (max 10MB)`);
+                return;
+            }
+            if (isDuplicateAttachment(file)) return; // never upload the same file twice
+            if (pendingAttachments.length >= MAX_ATTACHMENTS) {
+                alert(`You can attach up to ${MAX_ATTACHMENTS} files`);
+                return;
+            }
+
+            const isImage = ACCEPTED_IMAGE_RE.test(file.name);
+            const entry = { file, name: file.name, size: file.size, isImage, previewUrl: null };
+            pendingAttachments.push(entry);
+            renderAttachmentPreviews();
+
+            if (isImage) {
+                const reader = new FileReader();
+                reader.onload = () => {
+                    entry.previewUrl = reader.result;
+                    renderAttachmentPreviews();
+                };
+                reader.readAsDataURL(file);
+            }
+        }
+
+        function addAttachments(fileList) {
+            Array.from(fileList || []).forEach(addAttachment);
+        }
+
+        function removeAttachmentAt(index) {
+            pendingAttachments.splice(index, 1);
+            renderAttachmentPreviews();
+        }
+
+        function removeAttachment() {
+            pendingAttachments = [];
+            renderAttachmentPreviews();
+            const input = document.getElementById("attach-input");
+            if (input) input.value = "";
+        }
+
+        function renderAttachmentPreviews() {
+            const preview = document.getElementById("attachment-preview");
+            if (!preview) return;
+            if (pendingAttachments.length === 0) {
+                preview.style.display = "none";
+                preview.innerHTML = "";
+                return;
+            }
+            preview.style.display = "flex";
+            preview.style.cssText += "flex-wrap:wrap; gap:8px; margin-bottom:8px;";
+            preview.innerHTML = pendingAttachments.map((a, i) => `
+                <div class="attachment-chip" data-index="${i}" title="Click to preview">
+                    ${a.isImage
+                        ? (a.previewUrl ? `<img src="${a.previewUrl}" alt="${escapeHtml(a.name)}">` : `<div class="attachment-chip-placeholder"></div>`)
+                        : '<i class="fa-solid fa-file-lines"></i>'}
+                    <div class="attachment-chip-meta">
+                        <span class="attachment-chip-name">${escapeHtml(a.name)}</span>
+                        <span class="attachment-chip-size">${formatFileSize(a.size)}</span>
+                    </div>
+                    <button type="button" class="attachment-chip-remove" aria-label="Remove ${escapeHtml(a.name)}"><i class="fa-solid fa-xmark"></i></button>
+                </div>
+            `).join("");
+        }
+
+        // Event delegation: clicking a chip previews it (image -> lightbox, file ->
+        // opens in a new tab); clicking the remove button removes it instead.
+        document.getElementById("attachment-preview").addEventListener("click", (e) => {
+            const chip = e.target.closest(".attachment-chip");
+            if (!chip) return;
+            const index = parseInt(chip.dataset.index, 10);
+            const attachment = pendingAttachments[index];
+            if (!attachment) return;
+
+            if (e.target.closest(".attachment-chip-remove")) {
+                removeAttachmentAt(index);
+                return;
+            }
+            if (attachment.isImage && attachment.previewUrl) {
+                openImageLightbox(attachment.previewUrl);
+            } else if (!attachment.isImage) {
+                window.open(URL.createObjectURL(attachment.file), "_blank");
+            }
+        });
+
+        document.getElementById("attach-input").addEventListener("change", (e) => {
+            addAttachments(e.target.files);
+            e.target.value = ""; // allow re-selecting the same file later
+        });
+
+        // ----- Paste (Ctrl+V) - ChatGPT-style clipboard image paste -----
+        document.getElementById("user-input").addEventListener("paste", (e) => {
+            const items = e.clipboardData && e.clipboardData.items;
+            if (!items) return;
+            let pastedImage = false;
+            for (const item of items) {
+                if (item.kind === "file" && item.type.startsWith("image/")) {
+                    const file = item.getAsFile();
+                    if (!file) continue;
+                    const ext = (item.type.split("/")[1] || "png").replace("jpeg", "jpg");
+                    const hasRealName = file.name && !/^image\.(png|jpe?g)$/i.test(file.name);
+                    const named = hasRealName ? file : new File([file], `pasted-image-${Date.now()}.${ext}`, { type: file.type });
+                    addAttachment(named);
+                    pastedImage = true;
+                }
+            }
+            if (pastedImage) e.preventDefault();
+        });
+
+        // ----- Drag & Drop -----
+        (function setupDragAndDrop() {
+            const dropTarget = document.querySelector(".command-box");
+            if (!dropTarget) return;
+            let dragDepth = 0;
+            dropTarget.addEventListener("dragenter", (e) => {
+                e.preventDefault();
+                dragDepth++;
+                dropTarget.classList.add("drag-active");
+            });
+            dropTarget.addEventListener("dragover", (e) => e.preventDefault());
+            dropTarget.addEventListener("dragleave", (e) => {
+                e.preventDefault();
+                dragDepth = Math.max(0, dragDepth - 1);
+                if (dragDepth === 0) dropTarget.classList.remove("drag-active");
+            });
+            dropTarget.addEventListener("drop", (e) => {
+                e.preventDefault();
+                dragDepth = 0;
+                dropTarget.classList.remove("drag-active");
+                if (e.dataTransfer && e.dataTransfer.files) addAttachments(e.dataTransfer.files);
+            });
+        })();
+
+        async function openCameraCapture() {
+            const modal = document.getElementById("camera-modal");
+            const video = document.getElementById("camera-video");
+            try {
+                cameraStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+                video.srcObject = cameraStream;
+                modal.style.display = "flex";
+            } catch (err) {
+                console.error("Camera access failed:", err);
+                alert("Could not access the camera. Check browser permissions.");
+            }
+        }
+
+        function closeCameraCapture() {
+            const modal = document.getElementById("camera-modal");
+            modal.style.display = "none";
+            if (cameraStream) {
+                cameraStream.getTracks().forEach(track => track.stop());
+                cameraStream = null;
+            }
+        }
+
+        function capturePhoto() {
+            const video = document.getElementById("camera-video");
+            const canvas = document.getElementById("camera-canvas");
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            canvas.getContext("2d").drawImage(video, 0, 0);
+            canvas.toBlob((blob) => {
+                const name = `camera-capture-${Date.now()}.jpg`;
+                addAttachment(new File([blob], name, { type: "image/jpeg" }));
+                closeCameraCapture();
+            }, "image/jpeg", 0.9);
+        }
+
+        // ================= Function to regenerate image =================
+        async function regenerateImage(prompt, originalPrompt) {
+            const seed = Math.floor(Math.random() * 1000000);
+            await sendImageQuery(prompt, seed, originalPrompt);
+        }
+
+        // ================= Function to send image query =================
+        async function sendImageQuery(query, seed = null, originalPrompt = null) {
+            if (isGeneratingImage || isSendingQuery) {
+                if (currentAbortController) currentAbortController.abort();
+                return;
+            }
+            isGeneratingImage = true;
+            currentAbortController = new AbortController();
+            setSendButtonBusy(true);
+
+            const input = document.getElementById("user-input");
+            const cf = document.getElementById("chat-flow");
+
+            const userPrompt = originalPrompt || query;
+
+            // If it's a new query, add user message
+            if (!originalPrompt) {
+                const escapedPrompt = escapeHtml(userPrompt);
+                let formattedQuery = escapedPrompt;
+                if (userPrompt.includes("{") || userPrompt.includes(";") || userPrompt.includes("function") || userPrompt.includes("const")) {
+                    formattedQuery = `<pre><code class="language-js">${escapedPrompt}</code></pre>`;
+                }
+                cf.insertAdjacentHTML("beforeend", `
+<div class="chat-block user-block">
+<span class="msg-label">DHRUV_INPUT</span>
+<div class="content">${formattedQuery}</div>
+</div>
+`);
+            }
+
+            const loaderId = "img-load-" + Date.now();
+
+            // Show loading card immediately
+            cf.insertAdjacentHTML("beforeend", `
+        <div class="chat-block simba-block" id="${loaderId}">
+            <span class="msg-label" id="status-label-${loaderId}">
+                SIMBA_STATUS: INITIALIZING...
+            </span>
+            <div class="content" id="content-${loaderId}">
+                <div style="text-align:center; padding:20px;">
+                    <div style="font-size:24px; margin-bottom:10px;">🎨 Creating Image</div>
+                    <div id="model-name-${loaderId}" style="color:#0edb2a; margin-bottom:10px;">Loading model...</div>
+                    <div id="eta-${loaderId}" style="color:#a0aabf; margin-bottom:15px;">Estimating time...</div>
+                    <div id="status-msg-${loaderId}" style="color:#00e5ff;">Preparing prompt...</div>
+                    <div class="typing-loader" style="margin-top:20px;">
+                        <div class="typing-dot"></div>
+                        <div class="typing-dot"></div>
+                        <div class="typing-dot"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `);
+            cf.scrollTop = cf.scrollHeight;
+
+            // Animate loading messages and ETA
+            const loadingMessages = ["Preparing prompt...", "Choosing model...", "Rendering...", "Enhancing quality...", "Finalizing..."];
+            let msgIndex = 0;
+            const startTime = Date.now();
+            const labelElement = document.getElementById(`status-label-${loaderId}`);
+            const statusMsgElement = document.getElementById(`status-msg-${loaderId}`);
+            const etaElement = document.getElementById(`eta-${loaderId}`);
+            const modelNameElement = document.getElementById(`model-name-${loaderId}`);
+
+            const loadingInterval = setInterval(() => {
+                statusMsgElement.innerText = loadingMessages[msgIndex % loadingMessages.length];
+                msgIndex++;
+                const elapsed = (Date.now() - startTime) / 1000;
+                const estimated = Math.max(5, 30 - elapsed);
+                etaElement.innerText = `Estimated time: ~${Math.round(estimated)}s`;
+            }, 2000);
+
+            try {
+                const currentModel = document.getElementById("model-selector").value;
+                const aspectRatio = document.getElementById("aspect-ratio-selector").value;
+
+                // Validate the payload before it ever leaves the browser - a corrupted
+                // model id here is exactly what used to produce a silent backend 500.
+                const knownModel = document.querySelector(`#cyberOptions .cyber-option[data-value="${CSS.escape(currentModel || "")}"]`);
+                if (!currentModel || !knownModel) {
+                    throw new Error(`Invalid model selection: "${currentModel}"`);
+                }
+                if (!aspectRatio) {
+                    throw new Error("Missing aspect ratio");
+                }
+                if (!userPrompt) {
+                    throw new Error("Missing prompt");
+                }
+
+                const res = await fetch("/ask_ai/", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/x-www-form-urlencoded",
+                        "X-CSRFToken": csrfToken
+                    },
+                    body: `query=${encodeURIComponent(userPrompt)}&model_id=${encodeURIComponent(currentModel)}&aspect_ratio=${encodeURIComponent(aspectRatio)}&seed=${seed || ""}&session_id=${new URLSearchParams(window.location.search).get("session")}`,
+                    signal: currentAbortController.signal
+                });
+
+                if (!res.ok) throw new Error(`Server error: ${res.status}`);
+
+                const data = await res.json();
+
+                if (data.type === "image") {
+                    // Sidebar/URL sync is cosmetic - never let it prevent the
+                    // successfully-generated image from rendering below.
+                    try {
+                        const sID = res.headers.get('X-Session-ID');
+                        const urlParams = new URLSearchParams(window.location.search);
+
+                        if (sID && !urlParams.get('session')) {
+                            updateBrowserURL(sID);
+                            const listContainer = document.getElementById('live-chat-list');
+                            if (listContainer) {
+                                const rawTitle = userPrompt.length > 20 ? userPrompt.substring(0, 20) + "..." : userPrompt;
+                                const displayTitle = escapeHtml(rawTitle);
+                                const newEntry = `
+    <div class="chat-item-container active-chat" style="animation: slideIn 0.3s ease;">
+        <a href="/?session=${sID}" class="chat-link active-chat">
+            > ${displayTitle}
+        </a>
+    </div>
+`;
+                                document.querySelectorAll('.chat-item-container, .chat-link').forEach(el => {
+                                    el.classList.remove('active-chat');
+                                });
+                                listContainer.insertAdjacentHTML('afterbegin', newEntry);
+                            }
+                        }
+                    } catch (sidebarErr) {
+                        console.error("Sidebar sync failed (non-fatal):", sidebarErr);
+                    }
+
+                    // Update model name
+                    if (modelNameElement) modelNameElement.innerText = data.model_used;
+
+                    // Replace loading card with final image
+                    const loader = document.getElementById(loaderId);
+                    const contentDiv = document.getElementById(`content-${loaderId}`);
+                    if (labelElement) labelElement.innerText = "SIMBA_IMAGE";
+
+                    if (contentDiv) {
+                        contentDiv.innerHTML = `
+                            <div class="image-card" style="display:flex;flex-direction:column;gap:15px;align-items:center;padding:20px;background:rgba(15,21,28,0.5);border:1px solid rgba(0,229,255,0.2);border-radius:12px;">
+                                <img class="generated-image" crossorigin="anonymous" src="${data.url}" style="max-width:100%;border-radius:8px;box-shadow:0 0 30px rgba(0,229,255,0.1);" alt="Generated image">
+                                <div style="display:flex;flex-direction:column;gap:8px;width:100%;max-width:600px;">
+                                    <div style="display:flex;justify-content:space-between;color:#a0aabf;font-size:14px;">
+                                        <span>Resolution: ${data.width}x${data.height}</span>
+                                        <span>Model: ${data.model_used}</span>
+                                    </div>
+                                    <div class="gen-time-label" style="text-align:center;color:#0edb2a;font-size:14px;">
+                                        Rendering image...
+                                    </div>
+                                </div>
+                                <div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center;">
+                                    <button class="copy-btn download-btn">
+                                        <i class="fa-solid fa-download"></i> Download
+                                    </button>
+                                    <button class="copy-btn open-btn">
+                                        <i class="fa-solid fa-up-right-from-square"></i> Open
+                                    </button>
+                                    <button class="copy-btn copy-prompt-btn">
+                                        <i class="fa-solid fa-copy"></i> Copy Prompt
+                                    </button>
+                                    <button class="copy-btn regen-btn">
+                                        <i class="fa-solid fa-rotate"></i> Regenerate
+                                    </button>
+                                </div>
+                            </div>
+                        `;
+                    }
+
+                    // The image itself is already committed to the DOM above - it is a
+                    // fully successful render at this point. Everything below is pure
+                    // cosmetic follow-up (timers, sound, status pill), so it's isolated
+                    // in its own try/catch: nothing here is allowed to fall through to
+                    // the outer catch and overwrite a successfully-rendered image with
+                    // an "Image generation failed" message.
+                    try {
+                        if (contentDiv) {
+                            const imgEl = contentDiv.querySelector(".generated-image");
+                            const genTimeLabel = contentDiv.querySelector(".gen-time-label");
+                            const imgFetchStart = performance.now();
+                            let renderProgressInterval = null;
+
+                            const finalizeTiming = (ok) => {
+                                if (renderProgressInterval) {
+                                    clearInterval(renderProgressInterval);
+                                    renderProgressInterval = null;
+                                }
+                                if (!genTimeLabel) return;
+                                const elapsed = ((performance.now() - imgFetchStart) / 1000).toFixed(2);
+                                genTimeLabel.innerText = ok
+                                    ? `Generation completed in ${elapsed}s`
+                                    : `Image failed to load after ${elapsed}s`;
+                                genTimeLabel.style.color = ok ? "#0edb2a" : "#ff4444";
+                            };
+                            if (imgEl) {
+                                if (imgEl.complete && imgEl.naturalWidth > 0) {
+                                    finalizeTiming(true);
+                                } else {
+                                    imgEl.addEventListener("load", () => finalizeTiming(true));
+                                    imgEl.addEventListener("error", () => finalizeTiming(false));
+                                    // Pollinations render time is highly variable (a couple of
+                                    // seconds up to a minute or more) - keep the label ticking
+                                    // so a slow-but-working render never looks frozen.
+                                    if (genTimeLabel) {
+                                        renderProgressInterval = setInterval(() => {
+                                            const elapsedSec = Math.round((performance.now() - imgFetchStart) / 1000);
+                                            genTimeLabel.innerText = elapsedSec < 20
+                                                ? `Rendering image... ${elapsedSec}s`
+                                                : `Still rendering (${elapsedSec}s) - this can take up to a minute...`;
+                                        }, 1000);
+                                    }
+                                }
+                            }
+
+                            const downloadBtn = contentDiv.querySelector(".download-btn");
+                            const openBtn = contentDiv.querySelector(".open-btn");
+                            const copyPromptBtn = contentDiv.querySelector(".copy-prompt-btn");
+                            const regenBtn = contentDiv.querySelector(".regen-btn");
+                            if (downloadBtn) downloadBtn.addEventListener("click", () => downloadImage(data.url, "simba-intel-image.jpg"));
+                            if (openBtn) openBtn.addEventListener("click", () => openImage(data.url));
+                            if (copyPromptBtn) copyPromptBtn.addEventListener("click", function () { copyToClipboard(data.prompt, this); });
+                            if (regenBtn) regenBtn.addEventListener("click", () => regenerateImage(data.prompt, data.prompt));
+                        }
+
+                        setStatus("status-online", "CORE ONLINE");
+                        playBlip();
+                    } catch (postRenderErr) {
+                        console.error("Post-render cosmetic step failed (image itself is fine):", postRenderErr);
+                    }
+                } else if (data.type === "error") {
+                    const loader = document.getElementById(loaderId);
+                    const contentDiv = document.getElementById(`content-${loaderId}`);
+                    if (contentDiv) {
+                        contentDiv.innerHTML = `<div style="color:#ff4444;text-align:center;padding:20px;">${data.message}</div>`;
+                    }
+                    if (labelElement) labelElement.innerText = "SIMBA_ERROR";
+                    try { setStatus("status-offline", "CONNECTION LOST"); } catch (statusErr) { console.error(statusErr); }
+                }
+            } catch (e) {
+                const loader = document.getElementById(loaderId);
+                const contentDiv = document.getElementById(`content-${loaderId}`);
+                if (e.name === "AbortError") {
+                    if (contentDiv) {
+                        contentDiv.innerHTML = `<div style="color:var(--text-dim);text-align:center;padding:20px;">Generation stopped.</div>`;
+                    }
+                    if (labelElement) labelElement.innerText = "SIMBA_STOPPED";
+                    setStatus("status-online", "CORE ONLINE");
+                } else {
+                    console.error("Image generation request failed:", e);
+                    if (contentDiv) {
+                        contentDiv.innerHTML = `<div style="color:#ff4444;text-align:center;padding:20px;">Image generation failed. Please try again.</div>`;
+                    }
+                    if (labelElement) labelElement.innerText = "SIMBA_ERROR";
+                    setStatus("status-offline", "CONNECTION LOST");
+                }
+            } finally {
+                clearInterval(loadingInterval);
+                isGeneratingImage = false;
+                currentAbortController = null;
+                setSendButtonBusy(false);
+            }
+        }
+
+        // ================= Function to download image =================
+        function downloadImage(url, filename) {
+            fetch(url)
+                .then(response => response.blob())
+                .then(blob => {
+                    const objectUrl = URL.createObjectURL(blob);
+                    const link = document.createElement('a');
+                    link.href = objectUrl;
+                    link.download = filename;
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    URL.revokeObjectURL(objectUrl);
+                })
+                .catch(() => window.open(url, '_blank'));
+        }
+
+        // ================= Function to open image =================
+        function openImage(url) {
+            window.open(url, '_blank');
+        }
+
+        // ================= Fullscreen image lightbox =================
+        function openImageLightbox(url) {
+            const lightbox = document.getElementById("image-lightbox");
+            const img = document.getElementById("lightbox-img");
+            if (!lightbox || !img) return;
+            img.src = url;
+            lightbox.classList.add("show");
+        }
+
+        function closeImageLightbox() {
+            const lightbox = document.getElementById("image-lightbox");
+            const img = document.getElementById("lightbox-img");
+            if (lightbox) lightbox.classList.remove("show");
+            if (img) img.src = "";
+        }
+
+        document.addEventListener("keydown", (e) => {
+            if (e.key === "Escape") closeImageLightbox();
+        });
+
+        // Event delegation: any generated image, live or from history, opens the
+        // lightbox on click - works for images inserted after page load too.
+        document.addEventListener("click", (e) => {
+            const img = e.target.closest(".generated-image");
+            if (img) openImageLightbox(img.src);
+        });
+
+        // ================= Export the current conversation as a PDF =================
+        function exportChatAsPdf(chatTitle) {
+            if (typeof html2pdf === "undefined") {
+                alert("PDF export library failed to load. Check your connection and try again.");
+                return;
+            }
+            const chatFlow = document.getElementById("chat-flow");
+            if (!chatFlow) return;
+
+            const clone = chatFlow.cloneNode(true);
+            // Strip interactive/UI-only chrome so the PDF only contains the conversation.
+            clone.querySelectorAll(
+                '.copy-btn, .typing-loader, textarea.raw-data, textarea.raw-query, .welcome-container'
+            ).forEach(el => el.remove());
+            clone.style.background = "#0a0b0e";
+            clone.style.color = "#d1d5db";
+            clone.style.padding = "20px";
+
+            const filename = (chatTitle || "simba-intel-chat")
+                .replace(/[^a-z0-9\-_ ]/gi, "").trim() || "simba-intel-chat";
+
+            // Generated images are hosted cross-origin (image.pollinations.ai). html2canvas
+            // can only read cross-origin pixel data into the PDF's canvas if useCORS is on
+            // AND the <img> tags carry crossorigin="anonymous" (set at render time above).
+            html2pdf().set({
+                margin: 10,
+                filename: `${filename}.pdf`,
+                html2canvas: { backgroundColor: "#0a0b0e", scale: 2, useCORS: true, allowTaint: false },
+                jsPDF: { unit: "mm", format: "a4", orientation: "portrait" }
+            }).from(clone).save();
+        }
+
         /// ================= SEND QUERY (ચેટ અને સેશન સિંક સાથે) =================
         async function sendQuery(event) {
             if (event) event.preventDefault();
 
             const input = document.getElementById("user-input");
             const query = input.value.trim();
-            if (!query) return;
+            if (!query && pendingAttachments.length === 0) return;
+            if (isSendingQuery || isGeneratingImage) {
+                if (currentAbortController) currentAbortController.abort();
+                return;
+            }
 
+            // Check if current model is image model
+            const currentModel = document.getElementById("model-selector").value;
+            const modelOption = Array.from(document.querySelectorAll("#cyberOptions .cyber-option")).find(o => o.getAttribute("data-value") === currentModel);
+
+            if (modelOption && modelOption.innerText.includes("Image")) {
+                // It's an image query
+                input.value = "";
+                await sendImageQuery(query);
+                return;
+            }
+
+            // Snapshot the pending attachments and reset the UI immediately, same as
+            // the text input clearing below.
+            const attachmentsToSend = pendingAttachments;
+            if (attachmentsToSend.length > 0) removeAttachment();
 
             // ----- LOCKDOWN COMMAND -----
             if (query.toLowerCase() === '/lockdown') {
@@ -2375,13 +3465,9 @@
                 return;
             }
 
-
-            function setStatus(state, text) {
-                const el = document.getElementById("aiStatus");
-                if (!el) return;
-                el.className = "ai-status " + state;
-                el.querySelector(".status-text").innerText = text;
-            }
+            isSendingQuery = true;
+            currentAbortController = new AbortController();
+            setSendButtonBusy(true);
 
             // 🟡 PROCESSING STATE
             setStatus("status-processing", "PROCESSING...");
@@ -2389,25 +3475,42 @@
             const welcomeContainer = document.querySelector('.welcome-container');
             if (welcomeContainer) welcomeContainer.style.display = 'none';
 
-            const currentModel =
+            let modelId =
                 document.getElementById("model-selector").value ||
                 localStorage.getItem("selected_simba_model") ||
-                "offline";
+                "cyber-max";
+
+            // Defensive: if model-selector's value ever ends up not matching any real
+            // model (e.g. state corruption), fall back to a known-good model instead
+            // of sending an invalid model_id to the backend.
+            if (!document.querySelector(`#cyberOptions .cyber-option[data-value="${CSS.escape(modelId)}"]`)) {
+                console.error(`Invalid model id "${modelId}" - falling back to cyber-max`);
+                modelId = "cyber-max";
+                const modelHiddenInput = document.getElementById("model-selector");
+                if (modelHiddenInput) modelHiddenInput.value = modelId;
+                localStorage.setItem("selected_simba_model", modelId);
+            }
 
             input.value = "";
             const cf = document.getElementById("chat-flow");
 
-            let formattedQuery = query;
+            const escapedQuery = escapeHtml(query);
+            let formattedQuery = escapedQuery;
 
             // detect code
             if (query.includes("{") || query.includes(";") || query.includes("function") || query.includes("const")) {
-                formattedQuery = `<pre><code class="language-js">${query.replace(/</g, "&lt;").replace(/>/g, "&gt;")}</code></pre>`;
+                formattedQuery = `<pre><code class="language-js">${escapedQuery}</code></pre>`;
             }
+
+            const attachmentBadge = attachmentsToSend.length > 0
+                ? `<div style="margin-top:6px;font-size:11px;opacity:0.7;display:flex;flex-direction:column;gap:2px;">${attachmentsToSend.map(a => `<span><i class="fa-solid fa-paperclip"></i> ${escapeHtml(a.name)}</span>`).join("")}</div>`
+                : "";
 
             cf.insertAdjacentHTML("beforeend", `
 <div class="chat-block user-block">
 <span class="msg-label">DHRUV_INPUT</span>
-<div class="content">${formattedQuery}</div>
+<div class="content">${formattedQuery}${attachmentBadge}</div>
+<textarea class="raw-query" style="display:none;">${escapedQuery}</textarea>
 </div>
 `);
 
@@ -2452,32 +3555,79 @@
 
             try {
                 const startTime = performance.now();
+                const sessionParam = new URLSearchParams(window.location.search).get("session");
 
-                const res = await fetch("/ask_ai/", {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/x-www-form-urlencoded",
-                        "X-CSRFToken": csrfToken
-                    },
-                    body: `query=${encodeURIComponent(query)}&model_choice=${encodeURIComponent(currentModel)}&session_id=${new URLSearchParams(window.location.search).get("session")}`
-                });
+                let fetchOptions;
+                if (attachmentsToSend.length > 0) {
+                    const form = new FormData();
+                    form.append("query", query);
+                    form.append("model_id", modelId);
+                    form.append("session_id", sessionParam || "");
+                    attachmentsToSend.forEach(a => form.append("attachment", a.file, a.name));
+                    fetchOptions = {
+                        method: "POST",
+                        headers: { "X-CSRFToken": csrfToken },
+                        body: form,
+                        signal: currentAbortController.signal
+                    };
+                } else {
+                    fetchOptions = {
+                        method: "POST",
+                        headers: {
+                            "Content-Type": "application/x-www-form-urlencoded",
+                            "X-CSRFToken": csrfToken
+                        },
+                        body: `query=${encodeURIComponent(query)}&model_id=${encodeURIComponent(modelId)}&session_id=${sessionParam || ""}`,
+                        signal: currentAbortController.signal
+                    };
+                }
+
+                const res = await fetch("/ask_ai/", fetchOptions);
 
                 if (!res.ok) throw new Error(`Server error: ${res.status}`);
 
-                // નવી ચેટને લાઈવ સાઇડબારમાં (પિન કરેલી ચેટની નીચે) ઉમેરવા માટે [cite: 2026-03-01]
-                const sID = res.headers.get('X-Session-ID');
-                const urlParams = new URLSearchParams(window.location.search);
+                // Check if response is JSON (image / vision / error case)
+                const contentType = res.headers.get("content-type");
+                if (contentType && contentType.includes("application/json")) {
+                    const data = await res.json();
+                    clearInterval(statusInterval);
+                    const loader = document.getElementById(loaderId);
+                    const contentDiv = loader ? loader.querySelector('.content') : null;
 
-                if (sID && !urlParams.get('session')) {
-                    updateBrowserURL(sID);
+                    if (data.type === "error") {
+                        if (contentDiv) contentDiv.innerText = data.message;
+                        labelElement.innerText = "SIMBA_ERROR";
+                        setStatus("status-offline", "CONNECTION LOST");
+                        return;
+                    }
 
-                    const listContainer = document.getElementById('live-chat-list');
-                    if (listContainer) {
-                        const displayTitle = query.length > 20 ? query.substring(0, 20) + "..." : query;
+                    if (data.type === "vision") {
+                        if (contentDiv) {
+                            contentDiv.innerHTML = `<div class="markdown-content">${renderMarkdown(data.response)}</div>`;
+                            if (window.Prism) Prism.highlightAllUnder(loader);
+                            applyCodeButtons();
+                        }
+                        labelElement.innerText = "SIMBA_RESPONSE";
+                        setStatus("status-online", "CORE ONLINE");
+                        playBlip();
+                        return;
+                    }
+                }
 
-                        // અહીં container અને link બંનેમાં active-chat ક્લાસ છે [cite: 2026-03-01]
-                        // નવી ચેટ એડ કરતી વખતે આ રીતે ક્લાસ આપો [cite: 2026-03-01]
-                        const newEntry = `
+                // Sidebar/URL sync is cosmetic - never let it block the response stream below.
+                try {
+                    const sID = res.headers.get('X-Session-ID');
+                    const urlParams = new URLSearchParams(window.location.search);
+
+                    if (sID && !urlParams.get('session')) {
+                        updateBrowserURL(sID);
+
+                        const listContainer = document.getElementById('live-chat-list');
+                        if (listContainer) {
+                            const rawTitle = query.length > 20 ? query.substring(0, 20) + "..." : query;
+                            const displayTitle = escapeHtml(rawTitle);
+
+                            const newEntry = `
     <div class="chat-item-container active-chat" style="animation: slideIn 0.3s ease;">
         <a href="/?session=${sID}" class="chat-link active-chat">
             > ${displayTitle}
@@ -2485,15 +3635,16 @@
     </div>
 `;
 
-                        // પેલા જૂની બધી ચેટ્સમાંથી ગ્રીન કલર હટાવી દેવો [cite: 2026-03-01]
-                        document.querySelectorAll('.chat-item-container, .chat-link').forEach(el => {
-                            el.classList.remove('active-chat');
-                        });
-                        document.querySelectorAll('.chat-link').forEach(link => link.classList.remove('active-chat'));
+                            document.querySelectorAll('.chat-item-container, .chat-link').forEach(el => {
+                                el.classList.remove('active-chat');
+                            });
+                            document.querySelectorAll('.chat-link').forEach(link => link.classList.remove('active-chat'));
 
-                        // નવી ચેટ એડ કરો [cite: 2026-03-01]
-                        listContainer.insertAdjacentHTML('afterbegin', newEntry);
+                            listContainer.insertAdjacentHTML('afterbegin', newEntry);
+                        }
                     }
+                } catch (sidebarErr) {
+                    console.error("Sidebar sync failed (non-fatal):", sidebarErr);
                 }
 
                 clearInterval(statusInterval);
@@ -2558,7 +3709,7 @@
 
                     // ⚡ LIGHTER UPDATE (no Prism here)
                     if (markdownDiv) {
-                        markdownDiv.innerHTML = marked.parse(fullResponse);
+                        markdownDiv.innerHTML = renderMarkdown(fullResponse);
                     }
 
                     if (isAtBottom) cf.scrollTop = cf.scrollHeight;
@@ -2590,6 +3741,9 @@
                             .querySelector('.raw-data').value)">
                             SHARE
                         </button>
+                        <button class="copy-btn" onclick="regenerateText(this)">
+                            <i class="fa-solid fa-rotate"></i> Regenerate
+                        </button>
                     </div>
                 `);
 
@@ -2603,15 +3757,146 @@
 
             } catch (error) {
                 clearInterval(statusInterval);
-                console.error("Error:", error);
-
                 const loader = document.getElementById(loaderId);
-                if (loader)
-                    loader.querySelector('.content').innerText =
-                        "SYSTEM ERROR: " + error.message;
 
-                // 🔴 ERROR STATE
-                setStatus("status-offline", "CONNECTION LOST");
+                if (error.name === "AbortError") {
+                    if (loader) loader.querySelector('.content').innerText = "Generation stopped.";
+                    if (labelElement) labelElement.innerText = "SIMBA_STOPPED";
+                    setStatus("status-online", "CORE ONLINE");
+                } else {
+                    console.error("Error:", error);
+                    if (loader)
+                        loader.querySelector('.content').innerText =
+                            "SYSTEM ERROR: " + error.message;
+                    // 🔴 ERROR STATE
+                    setStatus("status-offline", "CONNECTION LOST");
+                }
+            } finally {
+                isSendingQuery = false;
+                currentAbortController = null;
+                setSendButtonBusy(false);
+            }
+        }
+
+        // ================= Regenerate a text response (Phase 1: appends a fresh
+        // reply rather than mutating history in place; proper sibling-branch
+        // versioning is a schema change slated for a later phase) =================
+        async function regenerateText(btn) {
+            if (isSendingQuery || isGeneratingImage) return;
+
+            const simbaBlock = btn.closest('.simba-block');
+            const userBlock = simbaBlock ? simbaBlock.previousElementSibling : null;
+            const rawQueryEl = userBlock ? userBlock.querySelector('.raw-query') : null;
+            const query = rawQueryEl ? rawQueryEl.value.trim() : "";
+            if (!query) return;
+
+            isSendingQuery = true;
+            currentAbortController = new AbortController();
+            setSendButtonBusy(true);
+
+            const modelId =
+                document.getElementById("model-selector").value ||
+                localStorage.getItem("selected_simba_model") ||
+                "cyber-max";
+
+            const cf = document.getElementById("chat-flow");
+            const loaderId = "load-" + Date.now();
+
+            cf.insertAdjacentHTML("beforeend", `
+        <div class="chat-block simba-block" id="${loaderId}">
+            <span class="msg-label" id="status-label-${loaderId}">SIMBA_STATUS: REGENERATING...</span>
+            <div class="content">
+                <div class="typing-loader">
+                    <div class="typing-dot"></div>
+                    <div class="typing-dot"></div>
+                    <div class="typing-dot"></div>
+                </div>
+            </div>
+        </div>
+    `);
+            cf.scrollTop = cf.scrollHeight;
+            const labelElement = document.getElementById(`status-label-${loaderId}`);
+
+            try {
+                const sessionParam = new URLSearchParams(window.location.search).get("session");
+                const res = await fetch("/ask_ai/", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/x-www-form-urlencoded",
+                        "X-CSRFToken": csrfToken
+                    },
+                    body: `query=${encodeURIComponent(query)}&model_id=${encodeURIComponent(modelId)}&session_id=${sessionParam || ""}`,
+                    signal: currentAbortController.signal
+                });
+
+                if (!res.ok) throw new Error(`Server error: ${res.status}`);
+
+                const contentType = res.headers.get("content-type");
+                if (contentType && contentType.includes("application/json")) {
+                    const data = await res.json();
+                    const loader = document.getElementById(loaderId);
+                    const contentDiv = loader ? loader.querySelector('.content') : null;
+                    if (data.type === "error") {
+                        if (contentDiv) contentDiv.innerText = data.message;
+                        if (labelElement) labelElement.innerText = "SIMBA_ERROR";
+                        return;
+                    }
+                }
+
+                const reader = res.body.getReader();
+                const decoder = new TextDecoder();
+                let fullResponse = "";
+                let firstTokenReceived = false;
+                const loader = document.getElementById(loaderId);
+                const contentDiv = loader.querySelector('.content');
+
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+                    const chunk = decoder.decode(value, { stream: true });
+                    if (!firstTokenReceived) {
+                        contentDiv.innerHTML = `<div class="markdown-content"></div>`;
+                        if (labelElement) labelElement.innerText = "SIMBA_RESPONSE";
+                        firstTokenReceived = true;
+                    }
+                    fullResponse += chunk.replace("<think>", "").replace("</think>", "");
+                    const markdownDiv = contentDiv.querySelector('.markdown-content');
+                    if (markdownDiv) markdownDiv.innerHTML = renderMarkdown(fullResponse);
+                    cf.scrollTop = cf.scrollHeight;
+                }
+
+                if (window.Prism) Prism.highlightAllUnder(loader);
+                applyCodeButtons();
+                playBlip();
+
+                loader.insertAdjacentHTML("beforeend", `
+                    <textarea class="raw-data" style="display:none;">${escapeHtml(fullResponse)}</textarea>
+                    <div style="display:flex;gap:10px;margin-top:5px;">
+                        <button class="copy-btn" onclick="copyToClipboard(this.closest('.simba-block').querySelector('.raw-data').value, this)">
+                            <i class="fa-regular fa-copy"></i> COPY_INTEL
+                        </button>
+                        <button class="copy-btn" onclick="shareChat(this.closest('.simba-block').querySelector('.raw-data').value)">
+                            <i class="fa-solid fa-share-nodes"></i> SHARE
+                        </button>
+                        <button class="copy-btn" onclick="regenerateText(this)">
+                            <i class="fa-solid fa-rotate"></i> Regenerate
+                        </button>
+                    </div>
+                `);
+            } catch (e) {
+                const loader = document.getElementById(loaderId);
+                if (e.name === "AbortError") {
+                    if (loader) loader.querySelector('.content').innerText = "Generation stopped.";
+                    if (labelElement) labelElement.innerText = "SIMBA_STOPPED";
+                } else {
+                    console.error("Regenerate failed:", e);
+                    if (loader) loader.querySelector('.content').innerText = "SYSTEM ERROR: " + e.message;
+                    if (labelElement) labelElement.innerText = "SIMBA_ERROR";
+                }
+            } finally {
+                isSendingQuery = false;
+                currentAbortController = null;
+                setSendButtonBusy(false);
             }
         }
 
@@ -2620,7 +3905,7 @@
             const savedModel = localStorage.getItem("selected_simba_model"); // કી મેચ કરી [cite: 2026-03-01]
             if (savedModel) {
                 hiddenInput.value = savedModel;
-                document.querySelectorAll(".cyber-option").forEach(option => {
+                document.querySelectorAll("#cyberOptions .cyber-option").forEach(option => {
                     if (option.getAttribute("data-value") === savedModel) {
                         option.classList.add("active");
                         selectedText.innerText = option.innerText;
@@ -2644,6 +3929,8 @@
                 if (initialValue === "groq2") icon = "☁️";
                 selectedIcon.innerText = icon;
             }
+            // Update aspect ratio visibility
+            updateAspectRatioVisibility();
             formatAllMessages(); // જૂની ચેટને પ્રોપર બતાવવા માટે [cite: 2026-03-01]
             const cf = document.getElementById("chat-flow");
             if (cf) cf.scrollTop = cf.scrollHeight;
@@ -2705,6 +3992,11 @@
 
         // ================= LIVE WEATHER API (SMART CACHE) =================
         function fetchEnvIntel() {
+            // The ENV_INTEL widget's HTML is currently commented out in the sidebar.
+            // Without this guard the callbacks below throw "Cannot set properties
+            // of null" on every page load.
+            if (!document.getElementById('env-temp') || !document.getElementById('env-status')) return;
+
             // મેમરીમાંથી જૂનું સેવ કરેલું તાપમાન લાવો
             const cachedTemp = sessionStorage.getItem('simba_env_temp');
 
@@ -2725,7 +4017,7 @@
             document.getElementById('env-status').style.color = "#a0aabf";
 
             // જૂનાગઢના કોઓર્ડિનેટ્સ
-            fetch('https://api.open-meteo.com/v1/forecast?latitude=21.5222&longitude=70.4579&current_weather=true')
+            fetch('https://api.open-meteo.com/v1/forecast?latitude=21.5222&longitude=70.4579¤t_weather=true')
                 .then(res => res.json())
                 .then(data => {
                     const currentTemp = data.current_weather.temperature + "°C";
@@ -2900,25 +4192,42 @@
 
         input.addEventListener("input", () => {
 
+            // Auto-grow: reset first so scrollHeight reflects the new content
+            // (not the previously-set height), then grow to fit. CSS max-height
+            // + overflow-y:auto on #user-input caps this and scrolls beyond it.
             input.style.height = "auto";
-
-            if (input.scrollHeight < 20) {
-                input.style.height = input.scrollHeight + "px";
-            }
+            input.style.height = input.scrollHeight + "px";
 
         });
         document.getElementById("user-input").addEventListener("keydown", function (e) {
 
             if (e.key === "Enter" && !e.shiftKey) {
 
-                e.preventDefault()
+            e.preventDefault()
 
-                sendQuery()
+            sendQuery()
 
-            }
+        }
 
         })
 
+
+        // ================= Image Studio Functions =================
+        async function switchToImageMode() {
+            const hiddenInput = document.getElementById("model-selector");
+            const optionsBox = document.getElementById("cyberOptions");
+            const selectedText = document.getElementById("selectedText");
+
+            hiddenInput.value = "image-studio";
+            const imageOption = optionsBox.querySelector('.cyber-option[data-value="image-studio"]');
+            if (imageOption) {
+                selectedText.innerText = imageOption.innerText;
+                optionsBox.querySelectorAll(".cyber-option").forEach(o => o.classList.remove("active"));
+                imageOption.classList.add("active");
+                localStorage.setItem("selected_simba_model", "image-studio");
+                await fetch(`/update_model/?model_id=image-studio`);
+            }
+        }
 
         function checkUnlock(e) {
             if (e.key === 'Enter') {
@@ -2938,10 +4247,6 @@
                 }
             }
         }
-
-
-
-
     </script>
 
 

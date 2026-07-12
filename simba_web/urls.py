@@ -1,9 +1,11 @@
 from django.contrib import admin
 from django.urls import path, include
+from django.views.generic.base import RedirectView
 from chat import views
 
 urlpatterns = [
     path('admin/', admin.site.urls),
+    path('favicon.ico', RedirectView.as_view(url='/static/favicon2.png', permanent=True)),
     path('accounts/', include('allauth.urls')),
     path('', views.chat_home, name='home'),
     path('ask/', views.ask_ai, name='ask'),
