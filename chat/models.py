@@ -1,6 +1,7 @@
 import random
 from datetime import timedelta
 
+from django.core.cache import cache
 from django.db import models
 from django.contrib.auth import get_user_model
 from django.utils import timezone
@@ -83,6 +84,11 @@ class UserProfile(models.Model):
         ("light", "Light"),
     ]
 
+    REGISTRATION_SOURCE_CHOICES = [
+        ("email", "Email"),
+        ("google", "Google"),
+    ]
+
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
     display_name = models.CharField(max_length=100, blank=True)
     avatar_url = models.URLField(blank=True)
@@ -91,6 +97,18 @@ class UserProfile(models.Model):
     memory_enabled = models.BooleanField(default=False)
     notifications_enabled = models.BooleanField(default=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+    # --- Account/security snapshot (admin-console prep) ---
+    # Deliberately a snapshot of the *latest* login, not a full history -
+    # SecurityEvent already is the append-only history this is drawn from;
+    # these fields exist purely so a "last login was X from Y" fact doesn't
+    # need a query against that log every time it's displayed.
+    registration_source = models.CharField(max_length=20, choices=REGISTRATION_SOURCE_CHOICES, default='email')
+    email_verified_at = models.DateTimeField(null=True, blank=True)
+    last_login_ip = models.GenericIPAddressField(null=True, blank=True)
+    last_login_device = models.CharField(max_length=100, blank=True, default='Unknown Device')
+    last_login_browser = models.CharField(max_length=100, blank=True, default='Unknown Browser')
+    last_login_os = models.CharField(max_length=100, blank=True, default='Unknown OS')
 
     # --- Admin console moderation state ---
     # Ban/suspend are deliberately separate from User.is_active: is_active is
@@ -286,7 +304,22 @@ class SecurityEvent(models.Model):
     user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='security_events')
     event_type = models.CharField(max_length=50)
     severity = models.CharField(max_length=10, choices=SEVERITY_CHOICES, default="info")
+    # ip_address stays nullable (None is the correct representation of
+    # "unknown" for an IP-typed column - a placeholder string can't go in
+    # here) - display code falls back to "Unknown IP" at render time. The
+    # text fields below all get a real default: chat/utils/device.py's
+    # parse_client_info() already always returns a concrete "Unknown ..."
+    # string rather than blank, but the model-level defaults are a second
+    # line of defense against any future insert that forgets to pass one.
     ip_address = models.GenericIPAddressField(null=True, blank=True)
+    user_agent = models.CharField(max_length=500, blank=True, default='')
+    browser = models.CharField(max_length=100, blank=True, default='Unknown Browser')
+    device = models.CharField(max_length=100, blank=True, default='Unknown Device')
+    os = models.CharField(max_length=100, blank=True, default='Unknown OS')
+    # No geo-IP lookup is wired in anywhere in this project - this is a
+    # placeholder for that future integration, always "Unknown Location"
+    # until one exists, rather than a column that silently sits unused.
+    location = models.CharField(max_length=100, blank=True, default='Unknown Location')
     detail = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -305,9 +338,15 @@ class SecurityEvent(models.Model):
 
 
 class FeatureFlag(models.Model):
-    """Simple on/off switches read at request time - no caching layer, this
-    app's traffic doesn't need one yet and it'd be a real bug source if the
-    flag changed and a stale cached value kept the old behavior live."""
+    """Simple on/off switches read at request time. `is_enabled()` sits on
+    the hottest possible path - MaintenanceModeMiddleware calls it before
+    anything else runs on every single request - so reads go through a
+    short-TTL cache instead of hitting the DB every time. save()/delete()
+    clear the cache immediately, so a toggle still takes effect right away
+    in the process that made the change; the TTL is just a safety net
+    bounding how long any *other* worker process can serve a stale value."""
+
+    CACHE_TTL_SECONDS = 10
 
     key = models.SlugField(max_length=50, unique=True)
     enabled = models.BooleanField(default=True)
@@ -317,10 +356,64 @@ class FeatureFlag(models.Model):
     def __str__(self):
         return f"{self.key} = {self.enabled}"
 
+    @staticmethod
+    def _cache_key(key):
+        return f"featureflag:{key}"
+
+    def save(self, *args, **kwargs):
+        super().save(*args, **kwargs)
+        cache.delete(self._cache_key(self.key))
+
+    def delete(self, *args, **kwargs):
+        key = self.key
+        super().delete(*args, **kwargs)
+        cache.delete(self._cache_key(key))
+
     @classmethod
     def is_enabled(cls, key, default=True):
+        cache_key = cls._cache_key(key)
+        cached = cache.get(cache_key)
+        if cached is not None:
+            return cached
         flag = cls.objects.filter(key=key).first()
-        return flag.enabled if flag else default
+        if flag is None:
+            return default
+        cache.set(cache_key, flag.enabled, cls.CACHE_TTL_SECONDS)
+        return flag.enabled
+
+
+class UserSession(models.Model):
+    """One row per active login session, keyed to Django's own session_key -
+    powers the Account Security page's device list and the logout-this-
+    device/logout-all-devices actions. Django's built-in Session model has
+    no user FK or metadata columns (session_data is an opaque encoded blob),
+    which is why admin_views.py's _force_logout_user has to decode every
+    live session to find a user's own - this exists so a user's own security
+    page doesn't need to pay that same O(all active sessions) cost just to
+    list their own devices.
+
+    Written once, at login (see chat/signals.py) - deliberately not touched
+    on every request (no "last seen" freshness tracking), since that would
+    mean a DB write on every single page view for a nice-to-have timestamp.
+    A session row simply represents "was active as of this login"; whether
+    it's still valid at all is Django's own Session table's job (expiry),
+    not this model's."""
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='tracked_sessions')
+    session_key = models.CharField(max_length=40, unique=True)
+    ip_address = models.GenericIPAddressField(null=True, blank=True)
+    user_agent = models.CharField(max_length=500, blank=True, default='')
+    browser = models.CharField(max_length=100, blank=True, default='Unknown Browser')
+    device = models.CharField(max_length=100, blank=True, default='Unknown Device')
+    os = models.CharField(max_length=100, blank=True, default='Unknown OS')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        indexes = [models.Index(fields=['user', '-created_at'])]
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"Session({self.user}, {self.device}, {self.browser})"
 
 
 class Broadcast(models.Model):

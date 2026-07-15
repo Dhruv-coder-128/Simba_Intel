@@ -431,6 +431,85 @@
         }
 
         .logout-btn:hover { background: var(--accent); color: var(--bg); }
+
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 3px 10px;
+            border-radius: 999px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 11px;
+            letter-spacing: 0.5px;
+        }
+
+        .status-badge.verified { background: rgba(46, 204, 113, 0.12); color: #2ecc71; border: 1px solid rgba(46, 204, 113, 0.3); }
+        .status-badge.unverified { background: rgba(255, 68, 68, 0.12); color: #ff6b6b; border: 1px solid rgba(255, 68, 68, 0.3); }
+        .status-badge.connected { background: var(--accent-dim); color: var(--accent); border: 1px solid var(--accent-dim); }
+
+        .session-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            padding: 12px 0;
+            border-bottom: 1px solid var(--border-soft);
+        }
+
+        .session-item:last-child { border-bottom: none; }
+
+        .session-item .session-icon {
+            width: 36px;
+            height: 36px;
+            border-radius: 8px;
+            background: var(--accent-dim);
+            color: var(--accent);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+
+        .session-item .session-meta {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .session-item .session-device {
+            font-size: 13px;
+            color: var(--text);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .session-item .session-detail {
+            font-size: 11px;
+            color: var(--text-dim);
+            font-family: 'JetBrains Mono', monospace;
+            margin-top: 2px;
+        }
+
+        .session-item .session-logout-btn {
+            border: 1px solid var(--border-soft);
+            border-radius: var(--radius-sm);
+            background: transparent;
+            color: var(--text-dim);
+            font-size: 12px;
+            padding: 6px 10px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            flex-shrink: 0;
+        }
+
+        .session-item .session-logout-btn:hover { background: #ff4444; color: #fff; border-color: #ff4444; }
+
+        .empty-note {
+            font-size: 12px;
+            color: var(--text-dim);
+            padding: 8px 0;
+        }
     </style>
 </head>
 
@@ -462,6 +541,7 @@
                 <button type="button" class="tab-nav-btn" data-tab="notifications" onclick="switchSettingsTab('notifications')"><i class="fa-solid fa-bell"></i> Notifications</button>
                 <button type="button" class="tab-nav-btn" data-tab="privacy" onclick="switchSettingsTab('privacy')"><i class="fa-solid fa-shield-halved"></i> Privacy</button>
                 <button type="button" class="tab-nav-btn" data-tab="account" onclick="switchSettingsTab('account')"><i class="fa-solid fa-user"></i> Account</button>
+                <button type="button" class="tab-nav-btn" data-tab="security" onclick="switchSettingsTab('security')"><i class="fa-solid fa-user-shield"></i> Security</button>
                 <button type="button" class="tab-nav-btn" data-tab="developer" onclick="switchSettingsTab('developer')"><i class="fa-solid fa-code"></i> Developer</button>
                 <button type="button" class="tab-nav-btn" data-tab="about" onclick="switchSettingsTab('about')"><i class="fa-solid fa-circle-info"></i> About</button>
             </nav>
@@ -616,6 +696,105 @@
                     </div>
                 </div>
 
+                <div class="tab-panel" data-tab="security">
+                    <div class="settings-card">
+                        <h2 class="card-title"><i class="fa-solid fa-user-shield"></i> Account Security</h2>
+                        <p class="card-desc">Verification, sign-in history, connected accounts, and active sessions.</p>
+
+                        <div class="kv-row">
+                            <span>Email verification</span>
+                            <span>
+                                {% if email_verified %}
+                                    <span class="status-badge verified"><i class="fa-solid fa-circle-check"></i> Verified</span>
+                                {% else %}
+                                    <span class="status-badge unverified"><i class="fa-solid fa-triangle-exclamation"></i> Not verified</span>
+                                {% endif %}
+                            </span>
+                        </div>
+                        {% if profile.email_verified_at %}
+                        <div class="kv-row"><span>Verified on</span><span>{{ profile.email_verified_at|date:"M j, Y" }}</span></div>
+                        {% endif %}
+                        {% if not email_verified %}
+                        <div style="margin-top:12px;">
+                            <button type="button" class="save-btn" id="securityResendBtn" onclick="resendVerificationEmail()">
+                                <i class="fa-solid fa-paper-plane"></i> RESEND VERIFICATION EMAIL
+                            </button>
+                        </div>
+                        {% endif %}
+
+                        <div class="kv-row" style="margin-top: 8px;"><span>Last login</span><span>{% if profile.last_login_device or profile.last_login_browser %}{{ profile.last_login_browser|default:"Unknown browser" }} &middot; {{ profile.last_login_device|default:"Unknown device" }}{% else %}No record yet{% endif %}</span></div>
+                        {% if profile.last_login_ip %}
+                        <div class="kv-row"><span>Last login IP</span><span>{{ profile.last_login_ip }}</span></div>
+                        {% endif %}
+
+                        <div class="kv-row">
+                            <span>Google account</span>
+                            <span>
+                                {% if google_account %}
+                                    <span class="status-badge connected"><i class="fa-brands fa-google"></i> Connected</span>
+                                {% else %}
+                                    <span style="color: var(--text-dim); font-size: 12px;">Not connected</span>
+                                {% endif %}
+                            </span>
+                        </div>
+
+                        <div style="margin-top:16px;">
+                            <a href="{% url 'account_change_password' %}" class="logout-btn" style="text-decoration:none; display:inline-flex;">
+                                <i class="fa-solid fa-key"></i> CHANGE PASSWORD
+                            </a>
+                        </div>
+                    </div>
+
+                    <div class="settings-card">
+                        <h2 class="card-title"><i class="fa-solid fa-display"></i> Active Sessions</h2>
+                        <p class="card-desc">Devices currently signed in to your account.</p>
+
+                        {% for s in user_sessions %}
+                        <div class="session-item">
+                            <div class="session-icon">
+                                <i class="fa-solid {% if 'iPhone' in s.device or 'Android' in s.device or 'Mobile' in s.device %}fa-mobile-screen{% elif 'Tablet' in s.device or 'iPad' in s.device %}fa-tablet-screen-button{% else %}fa-desktop{% endif %}"></i>
+                            </div>
+                            <div class="session-meta">
+                                <div class="session-device">
+                                    {{ s.browser|default:"Unknown browser" }} &middot; {{ s.device|default:"Unknown device" }}
+                                    {% if s.session_key == current_session_key %}
+                                        <span class="status-badge connected">This device</span>
+                                    {% endif %}
+                                </div>
+                                <div class="session-detail">{{ s.ip_address|default:"Unknown IP" }} &middot; signed in {{ s.created_at|date:"M j, Y H:i" }}</div>
+                            </div>
+                            {% if s.session_key != current_session_key %}
+                            <button type="button" class="session-logout-btn" onclick="logoutOneSession({{ s.id }}, this)">
+                                <i class="fa-solid fa-xmark"></i> Log out
+                            </button>
+                            {% endif %}
+                        </div>
+                        {% empty %}
+                        <div class="empty-note">No active sessions recorded yet.</div>
+                        {% endfor %}
+
+                        {% if user_sessions|length > 1 %}
+                        <div style="margin-top:16px;">
+                            <button type="button" class="logout-btn" onclick="logoutAllSessions()">
+                                <i class="fa-solid fa-power-off"></i> LOG OUT ALL DEVICES
+                            </button>
+                        </div>
+                        {% endif %}
+                    </div>
+
+                    <div class="settings-card">
+                        <h2 class="card-title"><i class="fa-solid fa-clock-rotate-left"></i> Recent Logins</h2>
+                        {% for event in recent_logins %}
+                        <div class="kv-row">
+                            <span>{{ event.browser|default:"Unknown browser" }} &middot; {{ event.device|default:"Unknown device" }}</span>
+                            <span>{{ event.ip_address|default:"Unknown IP" }} &middot; {{ event.created_at|date:"M j, H:i" }}</span>
+                        </div>
+                        {% empty %}
+                        <div class="empty-note">No login history recorded yet.</div>
+                        {% endfor %}
+                    </div>
+                </div>
+
                 <div class="tab-panel" data-tab="developer">
                     <div class="settings-card">
                         <h2 class="card-title"><i class="fa-solid fa-code"></i> Developer</h2>
@@ -648,6 +827,73 @@
     </form>
 
     <script>
+        const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+
+        function logoutOneSession(sessionId, btn) {
+            if (btn.disabled) return;
+            btn.disabled = true;
+            fetch(`/account/sessions/${sessionId}/logout/`, {
+                method: 'POST',
+                headers: { 'X-CSRFToken': csrfToken },
+                signal: AbortSignal.timeout(10000),
+            })
+                .then(res => res.json().then(data => ({ ok: res.ok, data })))
+                .then(({ ok }) => {
+                    if (ok) {
+                        btn.closest('.session-item').remove();
+                    } else {
+                        btn.disabled = false;
+                        alert('Could not log out that device - please try again.');
+                    }
+                })
+                .catch(() => {
+                    btn.disabled = false;
+                    alert('Network error - please try again.');
+                });
+        }
+
+        function logoutAllSessions() {
+            if (!confirm('Log out of every device, including this one?')) return;
+            fetch('/account/sessions/logout-all/', {
+                method: 'POST',
+                headers: { 'X-CSRFToken': csrfToken },
+                signal: AbortSignal.timeout(10000),
+            })
+                .then(res => res.json().then(data => ({ ok: res.ok, data })))
+                .then(({ ok }) => {
+                    if (ok) {
+                        window.location.href = '{% url "account_login" %}';
+                    } else {
+                        alert('Could not log out all devices - please try again.');
+                    }
+                })
+                .catch(() => alert('Network error - please try again.'));
+        }
+
+        function resendVerificationEmail() {
+            const btn = document.getElementById('securityResendBtn');
+            if (!btn || btn.disabled) return;
+            btn.disabled = true;
+            const original = btn.innerHTML;
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Sending...';
+            fetch('/verification/resend/', {
+                method: 'POST',
+                headers: { 'X-CSRFToken': csrfToken },
+                signal: AbortSignal.timeout(15000),
+            })
+                .then(res => res.json().then(data => ({ ok: res.ok, data })))
+                .then(({ ok, data }) => {
+                    btn.innerHTML = ok ? '<i class="fa-solid fa-check"></i> Sent!' : original;
+                    if (!ok) alert(data.error || 'Could not resend the verification email.');
+                    setTimeout(() => { btn.innerHTML = original; btn.disabled = false; }, 3000);
+                })
+                .catch(() => {
+                    btn.innerHTML = original;
+                    btn.disabled = false;
+                    alert('Network error - please try again.');
+                });
+        }
+
         function updateThemePreviewNote(value, name) {
             const note = document.getElementById('themePreviewNote');
             if (!note) return;

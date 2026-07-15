@@ -12,11 +12,23 @@ def walk_chain_from(node: Optional[Message]) -> List[Message]:
     for "what's the context up to this point" - used both for the session's
     current active branch (walk_active_chain) and for regenerating/editing
     an arbitrary historical message, which needs the context as of *that*
-    message, not necessarily the session's current active_leaf."""
+    message, not necessarily the session's current active_leaf.
+
+    Fetches the whole session's messages in one query and walks an in-memory
+    id map, rather than following `.parent` one hop (one query) at a time -
+    this runs on every AI request (get_conversation_history), so a long
+    conversation would otherwise cost one DB round trip per message in the
+    chain just to assemble context."""
+    if node is None:
+        return []
+
+    by_id = {m.id: m for m in Message.objects.filter(session_id=node.session_id)}
+
     chain = []
-    while node is not None:
-        chain.append(node)
-        node = node.parent
+    current = by_id.get(node.id, node)
+    while current is not None:
+        chain.append(current)
+        current = by_id.get(current.parent_id)
     chain.reverse()
     return chain
 

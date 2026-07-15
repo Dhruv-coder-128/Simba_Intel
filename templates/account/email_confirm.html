@@ -5,15 +5,15 @@
 {% block title %}{% trans "Confirm Email Address" %}{% endblock %}
 
 {% block content %}
-    <div class="auth-header">
-        <div class="auth-logo">
-            <i class="fa-solid fa-terminal"></i>
-            <h1>SIMBA_INTEL</h1>
-        </div>
-        <p class="auth-subtitle">CONFIRM EMAIL</p>
-    </div>
-
     {% if confirmation %}
+        <div class="auth-header">
+            <div class="auth-logo">
+                <i class="fa-solid fa-terminal"></i>
+                <h1>SIMBA_INTEL</h1>
+            </div>
+            <p class="auth-subtitle">CONFIRM EMAIL</p>
+        </div>
+
         {% user_display confirmation.email_address.user as user_display %}
         <p class="auth-footer" style="margin-bottom:20px; color: rgba(255,255,255,0.6);">
             {% blocktrans with confirmation.email_address.email as email %}
@@ -29,12 +29,22 @@
             </button>
         </form>
     {% else %}
+        <div class="auth-header">
+            <div class="auth-logo" style="color: #ff6b6b;">
+                <i class="fa-solid fa-triangle-exclamation"></i>
+                <h1>SIMBA_INTEL</h1>
+            </div>
+            <p class="auth-subtitle">{% trans "LINK EXPIRED" %}</p>
+        </div>
+
         {% url 'account_email' as email_url %}
-        <p class="auth-footer" style="margin-bottom:20px; color: rgba(255,255,255,0.6);">
-            {% blocktrans %}
-                This e‑mail confirmation link expired or is invalid. Please
-                <a href="{{ email_url }}">issue a new e‑mail confirmation request</a>.
-            {% endblocktrans %}
+        <p class="auth-footer" style="margin-bottom:28px; color: rgba(255,255,255,0.6); text-align: center;">
+            {% trans "This email confirmation link has expired or was already used. Request a fresh one to finish verifying your account." %}
         </p>
+
+        <a href="{{ email_url }}" class="btn btn-primary btn-block" style="text-decoration:none;">
+            <i class="fa-solid fa-paper-plane"></i>
+            {% trans "REQUEST A NEW LINK" %}
+        </a>
     {% endif %}
 {% endblock %}

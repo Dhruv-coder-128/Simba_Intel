@@ -9,8 +9,6 @@
     <link rel="icon" type="image/png" href="{% static 'favicon2.png' %}">
 
     {% load static %}
-    <!-- <link rel="stylesheet" href="{% static 'simba/css/chat.css' %}"> -->
-
 
     <style>
         :root {
@@ -2735,16 +2733,21 @@
         href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500&family=Outfit:wght@300;400;600&display=swap"
         rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.1.6/purify.min.js"></script>
+    <!-- defer: none of these run until formatAllMessages() at
+         DOMContentLoaded (or a later user-triggered event), and deferred
+         scripts are guaranteed to finish before DOMContentLoaded fires - so
+         this lets the HTML parser keep going instead of blocking first
+         paint on 6 external library fetches. -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js" defer></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.1.6/purify.min.js" defer></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js" defer></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.11/katex.min.css">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.11/katex.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.11/katex.min.js" defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js" defer></script>
 
     <script
-        src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/autoloader/prism-autoloader.min.js"></script>
+        src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/autoloader/prism-autoloader.min.js" defer></script>
 
 </head>
 
@@ -2873,20 +2876,6 @@
                     <div class="mini-stat-track"><div id="ram-bar" class="mini-stat-fill"></div></div>
                 </div>
             </div>
-
-            <!-- <div class="system-monitor"
-                style="margin-top: 20px; border-top: 1px solid var(--border); padding-top: 15px;">
-                <span class="msg-label" style="color: var(--accent-gold);">ENV_INTEL</span>
-                <div
-                    style="font-family: 'JetBrains Mono'; font-size: 11px; margin-top: 10px; color: #a0aabf; line-height: 1.8;">
-                    <div style="display: flex; justify-content: space-between;"><span>LOC:</span> <strong
-                            style="color: #fff;">JUNAGADH, GJ</strong></div>
-                    <div style="display: flex; justify-content: space-between;"><span>TEMP:</span> <strong id="env-temp"
-                            style="color: var(--accent);">--°C</strong></div>
-                    <div style="display: flex; justify-content: space-between;"><span>NET:</span> <strong
-                            id="env-status" style="color: #fff;">SCANNING...</strong></div>
-                </div>
-            </div> -->
 
         </div>
 
@@ -3100,9 +3089,6 @@
                             <button class="copy-btn" onclick="downloadImage('{{ m.extra_data.image_url }}', 'simba-intel-image.jpg')">
                                 <i class="fa-solid fa-download"></i> Download
                             </button>
-                            <!-- <button class="copy-btn" onclick="openImage('{{ m.extra_data.image_url }}')">
-                                <i class="fa-solid fa-up-right-from-square"></i> Open
-                            </button> -->
                             <button class="copy-btn" onclick="copyToClipboard('{{ m.extra_data.prompt|escapejs }}', this)">
                                 <i class="fa-solid fa-copy"></i> Copy Prompt
                             </button>
@@ -3273,10 +3259,6 @@
             </div>
         </div>
     </div>
-
-
-    <!-- <script src="{% static 'simba/js/chat.js' %}"></script> -->
-
 
     <script>
 
@@ -3667,8 +3649,14 @@
             applyCodeButtons();
         }
 
-        function applyCodeButtons() {
-            document.querySelectorAll("pre").forEach(pre => {
+        function applyCodeButtons(root) {
+            // Scoped to the just-rendered container when the caller has one
+            // (every new/streamed message), falling back to the whole
+            // document only for the page-load pass over all history
+            // (formatAllMessages) - a full-document "pre" scan on every new
+            // message was O(n) in total code blocks shown so far, not O(1)
+            // in the size of the new message.
+            (root || document).querySelectorAll("pre").forEach(pre => {
 
                 if (pre.querySelector(".copy-btn")) return;
 
@@ -4913,7 +4901,7 @@
                         if (contentDiv) {
                             contentDiv.innerHTML = `<div class="markdown-content">${renderMarkdown(data.response)}</div>`;
                             renderRichContent(loader);
-                            applyCodeButtons();
+                            applyCodeButtons(loader);
                         }
                         labelElement.innerText = "SIMBA_RESPONSE";
                         setStatus("status-online", "CORE ONLINE");
@@ -4966,13 +4954,29 @@
                 const loader = document.getElementById(loaderId);
                 const contentDiv = loader.querySelector('.content');
 
+                // Coalesce DOM updates to at most once per animation frame: fast
+                // providers can deliver many network chunks within a single
+                // ~16ms frame, and re-parsing the ENTIRE accumulated response
+                // (markdownDiv.innerHTML = renderMarkdown(fullResponse)) plus a
+                // scrollHeight read/write on every single chunk was doing
+                // duplicate, quadratic-cost work for no visible benefit - only
+                // the last state before each paint is ever seen anyway.
+                let latestIsAtBottom = true;
+                let markdownRafHandle = null;
+                const flushMarkdownUpdate = () => {
+                    markdownRafHandle = null;
+                    const markdownDiv = contentDiv.querySelector('.markdown-content');
+                    if (markdownDiv) markdownDiv.innerHTML = renderMarkdown(fullResponse);
+                    if (latestIsAtBottom) cf.scrollTop = cf.scrollHeight;
+                };
+
                 while (true) {
                     const { done, value } = await reader.read();
                     if (done) break;
                     resetWatchdog(currentAbortController, TEXT_REQUEST_TIMEOUT_MS);
 
                     const chunk = decoder.decode(value, { stream: true });
-                    const isAtBottom =
+                    latestIsAtBottom =
                         cf.scrollHeight - cf.clientHeight <= cf.scrollTop + 100;
 
                     if (!firstTokenReceived) {
@@ -4988,7 +4992,6 @@
         `;
                     }
 
-                    const markdownDiv = contentDiv.querySelector('.markdown-content');
                     const thoughtContent = contentDiv.querySelector('.thought-content');
                     const thinkingBox = contentDiv.querySelector('.thinking-box');
 
@@ -5016,17 +5019,20 @@
                         fullResponse += chunk.replace("</think>", "");
                     }
 
-                    // ⚡ LIGHTER UPDATE (no Prism here)
-                    if (markdownDiv) {
-                        markdownDiv.innerHTML = renderMarkdown(fullResponse);
+                    // ⚡ LIGHTER UPDATE (no Prism here) - throttled to one per frame
+                    if (markdownRafHandle === null) {
+                        markdownRafHandle = requestAnimationFrame(flushMarkdownUpdate);
                     }
-
-                    if (isAtBottom) cf.scrollTop = cf.scrollHeight;
                 }
+
+                // Guarantee the final chunk is rendered even if a throttled
+                // update was still pending when the stream ended.
+                if (markdownRafHandle !== null) cancelAnimationFrame(markdownRafHandle);
+                flushMarkdownUpdate();
 
                 // Highlight/diagram-render only once after full response complete
                 renderRichContent(loader);
-                applyCodeButtons();
+                applyCodeButtons(loader);
                 playBlip();
                 // const latency =
                 //     ((performance.now() - startTime) / 1000).toFixed(2);
@@ -5246,7 +5252,7 @@
                 }
 
                 renderRichContent(simbaBlock);
-                applyCodeButtons();
+                applyCodeButtons(simbaBlock);
                 playBlip();
 
                 simbaBlock.insertAdjacentHTML("beforeend", `
@@ -5807,7 +5813,7 @@
 
                 if (isTextReply && assistantContentDiv) {
                     renderRichContent(simbaBlock);
-                    applyCodeButtons();
+                    applyCodeButtons(simbaBlock);
                     playBlip();
                     simbaBlock.insertAdjacentHTML("beforeend", `
                         <textarea class="raw-data" style="display:none;">${escapeHtml(fullResponse)}</textarea>
@@ -5912,9 +5918,10 @@
 
         // ================= LIVE STATEMENT UPDATE =================
         function updateSystemStats() {
-            // This polls every 1s (see setInterval below) - without a timeout, a
-            // single stalled request would never resolve or reject, and every
-            // subsequent tick piles another hung fetch on top of it indefinitely.
+            // This polls every SYSTEM_STATS_INTERVAL_MS (see setInterval below) -
+            // without a timeout, a single stalled request would never resolve or
+            // reject, and every subsequent tick piles another hung fetch on top
+            // of it indefinitely.
             fetch('/system_stats/', { signal: AbortSignal.timeout(8000) })
                 .then(res => res.json())
                 .then(data => {
@@ -5942,8 +5949,28 @@
                 })
                 .catch(() => console.log("Re-establishing metrics link..."));
         }
-        let statsInterval = setInterval(updateSystemStats, 1000);
-        window.addEventListener("load", updateSystemStats);
+        // 5s instead of 1s (this is a decorative CPU/RAM gauge, not live
+        // telemetry - 1s bought no visible benefit but polled 5x more than
+        // needed) and paused entirely while the tab is backgrounded, so a
+        // pile of idle background tabs isn't each burning a request every
+        // second for a widget nobody's looking at.
+        const SYSTEM_STATS_INTERVAL_MS = 5000;
+        let statsInterval = null;
+        function startStatsPolling() {
+            if (statsInterval) return;
+            updateSystemStats();
+            statsInterval = setInterval(updateSystemStats, SYSTEM_STATS_INTERVAL_MS);
+        }
+        function stopStatsPolling() {
+            if (!statsInterval) return;
+            clearInterval(statsInterval);
+            statsInterval = null;
+        }
+        document.addEventListener("visibilitychange", () => {
+            if (document.hidden) stopStatsPolling();
+            else startStatsPolling();
+        });
+        if (!document.hidden) startStatsPolling();
 
 
         // ================= LIVE WEATHER API (SMART CACHE) =================

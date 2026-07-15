@@ -23,7 +23,7 @@ try:
 except ImportError:
     GPUtil_AVAILABLE = False
 
-from chat.models import ChatSession, ChatMessage, Message, UserProfile, UsageEvent, PasswordResetOTP, Broadcast
+from chat.models import ChatSession, Message, UserProfile, UsageEvent, PasswordResetOTP, Broadcast, UserSession, SecurityEvent
 from chat.services.ai_router import chat_stream, vision as ai_vision
 from chat.services.image_router import generate_image
 from chat.services.memory import get_conversation_history, build_messages, messages_to_history_dicts, SYSTEM_PROMPT
@@ -178,12 +178,50 @@ def profile_settings(request):
             return redirect(f'/?session={next_session_id}')
         return redirect('home')
 
+    from allauth.socialaccount.models import SocialAccount
+
     return render(request, 'profile.html', {
         'profile': profile,
         'models': list_available_models(),
         'theme_choices': UserProfile.THEME_CHOICES,
         'email_verified': verified,
+        'user_sessions': UserSession.objects.filter(user=request.user).order_by('-created_at'),
+        'current_session_key': request.session.session_key,
+        'recent_logins': SecurityEvent.objects.filter(user=request.user, event_type='login').order_by('-created_at')[:10],
+        'google_account': SocialAccount.objects.filter(user=request.user, provider='google').first(),
     })
+
+
+@login_required
+def logout_session(request, session_id):
+    """Ends one of the user's own OTHER sessions (a specific device/browser)
+    - looked up via UserSession rather than decoding the whole live Session
+    table, since this only ever needs one user's own sessions, which is
+    exactly what UserSession's user+session_key already index."""
+    if request.method != "POST":
+        return JsonResponse({"error": "Invalid request"}, status=400)
+    user_session = get_object_or_404(UserSession, id=session_id, user=request.user)
+    from django.contrib.sessions.models import Session
+    Session.objects.filter(session_key=user_session.session_key).delete()
+    user_session.delete()
+    return JsonResponse({"status": "success"})
+
+
+@login_required
+def logout_all_sessions(request):
+    """Ends every session for this user, including the one making this
+    request - matching the literal "logout all sessions" ask (a separate,
+    narrower "logout this device" is what the single-session button above
+    already covers). The current request still completes normally since its
+    session data is already loaded in memory; the next request from this
+    browser will be anonymous, same as any other logged-out session."""
+    if request.method != "POST":
+        return JsonResponse({"error": "Invalid request"}, status=400)
+    from django.contrib.sessions.models import Session
+    session_keys = list(UserSession.objects.filter(user=request.user).values_list('session_key', flat=True))
+    Session.objects.filter(session_key__in=session_keys).delete()
+    UserSession.objects.filter(user=request.user).delete()
+    return JsonResponse({"status": "success"})
 
 
 @login_required
@@ -203,7 +241,7 @@ def analytics_dashboard(request):
     from datetime import timedelta
 
     from django.db.models import Count, Sum, Avg, F
-    from django.db.models.functions import TruncDate
+    from django.db.models.functions import TruncDate, TruncMonth
     from django.utils import timezone
 
     from chat.services.model_registry import MODEL_REGISTRY
@@ -313,15 +351,36 @@ def analytics_dashboard(request):
         row = model_daily_map.get(key, {})
         model_stack_series.append({'date': key, **{m: row.get(m, 0) for m in model_stack_labels}})
 
-    # Weekly rollup (last 8 ISO weeks) and monthly rollup (last 6 months) -
-    # computed from the same 14-day query would be wrong, so these re-query.
+    # Weekly rollup (last 8 rolling 7-day windows) and monthly rollup (last 6
+    # months) - computed from the same 14-day query would be wrong, so these
+    # cover their own wider windows. Rolling weeks aren't calendar-aligned
+    # (they're anchored to "today", not Monday), so they can't use a
+    # TruncWeek aggregate - instead, one raw-timestamp fetch for the whole
+    # 8-week span replaces what used to be 8 separate .count() queries.
+    week_window_start = today - timedelta(days=7 * 8 - 1)
+    weekly_dates = [
+        timezone.localtime(ts).date()
+        for ts in events.filter(created_at__date__gte=week_window_start).values_list('created_at', flat=True)
+    ]
     weekly_series = []
     for i in range(7, -1, -1):
         week_end = today - timedelta(days=7 * i)
         week_start = week_end - timedelta(days=6)
-        count = events.filter(created_at__date__gte=week_start, created_at__date__lte=week_end).count()
+        count = sum(1 for d in weekly_dates if week_start <= d <= week_end)
         weekly_series.append({'label': week_start.strftime('%b %d'), 'requests': count})
 
+    # Monthly buckets ARE calendar-aligned (year/month), so TruncMonth can
+    # replace what used to be 6 separate .count() queries with one grouped
+    # query - bounded to the same ~6-month window rather than scanning the
+    # user's entire history.
+    monthly_window_start = now - timedelta(days=186)
+    monthly_qs = (
+        events.filter(created_at__gte=monthly_window_start)
+        .annotate(month=TruncMonth('created_at'))
+        .values('month')
+        .annotate(requests=Count('id'))
+    )
+    monthly_by_key = {row['month'].strftime('%Y-%m'): row['requests'] for row in monthly_qs if row['month']}
     monthly_series = []
     for i in range(5, -1, -1):
         # Compute the i-th month back from the current month, robust across
@@ -331,8 +390,8 @@ def analytics_dashboard(request):
         while month <= 0:
             month += 12
             year -= 1
-        count = events.filter(created_at__year=year, created_at__month=month).count()
-        monthly_series.append({'label': f'{year}-{month:02d}', 'requests': count})
+        key = f'{year}-{month:02d}'
+        monthly_series.append({'label': key, 'requests': monthly_by_key.get(key, 0)})
 
     # Hour-of-day x day-of-week heatmap and a latency histogram - both need
     # per-row timestamps/latencies, so pull the (small) raw pairs once rather
@@ -916,7 +975,12 @@ def system_stats(request):
     except Exception:
         gpu_usage = 0.0
     data = {
-        "cpu": psutil.cpu_percent(interval=0.1),
+        # interval=None (psutil's recommended mode for a repeatedly-polled
+        # endpoint like this one): compares against the last call instead of
+        # blocking the worker for interval*1000ms measuring a fresh sample -
+        # matters a lot here since every open tab polls this every few
+        # seconds, and a blocking sample ties up a whole worker each time.
+        "cpu": psutil.cpu_percent(interval=None),
         "ram": psutil.virtual_memory().percent,
         "gpu": round(gpu_usage, 1),
         "disk": psutil.disk_usage('/').percent
@@ -956,6 +1020,12 @@ def update_model_session(request):
 
 # ================= Email verification gating =================
 
+# Matches PasswordResetOTP.OTP_RESEND_COOLDOWN_SECONDS - same anti-spam
+# rationale, applied here since allauth's own send_confirmation() has no
+# built-in cooldown of its own.
+VERIFICATION_EMAIL_RESEND_COOLDOWN_SECONDS = 30
+
+
 @login_required
 def resend_verification_email(request):
     if request.method != "POST":
@@ -963,7 +1033,7 @@ def resend_verification_email(request):
     if not verification_required():
         return JsonResponse({"status": "not_required"})
 
-    from allauth.account.models import EmailAddress
+    from allauth.account.models import EmailAddress, EmailConfirmation
     email_address = (
         EmailAddress.objects.filter(user=request.user, primary=True).first()
         or EmailAddress.objects.filter(user=request.user).first()
@@ -977,6 +1047,18 @@ def resend_verification_email(request):
     if not email_address:
         return JsonResponse({"error": "No email on file for this account."}, status=400)
 
+    last_sent = (
+        EmailConfirmation.objects.filter(email_address=email_address)
+        .exclude(sent__isnull=True)
+        .order_by("-sent")
+        .first()
+    )
+    if last_sent:
+        seconds_since = (timezone.now() - last_sent.sent).total_seconds()
+        if seconds_since < VERIFICATION_EMAIL_RESEND_COOLDOWN_SECONDS:
+            wait = int(VERIFICATION_EMAIL_RESEND_COOLDOWN_SECONDS - seconds_since)
+            return JsonResponse({"error": f"Please wait {wait}s before requesting another email."}, status=429)
+
     email_address.send_confirmation(request)
     return JsonResponse({"status": "sent"})
 
@@ -987,6 +1069,17 @@ def verification_status(request):
         "verified": is_email_verified(request.user),
         "required": verification_required(),
     })
+
+
+@login_required
+def email_verified_success(request):
+    """Landing page for ACCOUNT_EMAIL_CONFIRMATION_AUTHENTICATED_REDIRECT_URL -
+    reached right after a signed-in user's email confirmation link succeeds
+    (see ACCOUNT_CONFIRM_EMAIL_ON_GET in settings.py). Not itself part of the
+    verification decision (is_email_verified is the source of truth) - purely
+    an acknowledgement page so confirming doesn't just silently drop the user
+    back on chat home with no feedback that anything happened."""
+    return render(request, 'account/email_verified_success.html')
 
 
 # ================= OTP-based password reset =================

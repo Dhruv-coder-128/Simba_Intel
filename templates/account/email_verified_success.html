@@ -1,0 +1,55 @@
+{% extends "account/base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "Email Verified" %}{% endblock %}
+
+{% block content %}
+    <div class="auth-header">
+        <div class="auth-logo" style="color: #2ecc71;">
+            <i class="fa-solid fa-circle-check"></i>
+            <h1>SIMBA_INTEL</h1>
+        </div>
+        <p class="auth-subtitle">{% trans "EMAIL VERIFIED" %}</p>
+    </div>
+
+    <p class="auth-footer" style="margin-bottom:28px; color: rgba(255,255,255,0.6); text-align: center;">
+        {% trans "Your email address is confirmed. Image generation, Vision, and Settings are now unlocked." %}
+    </p>
+
+    <a href="{% url 'home' %}" id="continueNowBtn" class="btn btn-primary btn-block" style="text-decoration:none;">
+        <i class="fa-solid fa-arrow-right"></i>
+        {% trans "CONTINUE TO SIMBA_INTEL" %}
+    </a>
+
+    <p class="auth-footer" style="margin-top:16px; font-size: 12px; color: rgba(255,255,255,0.4);" id="autoRedirectNote">
+        {% trans "Redirecting automatically in" %} <span id="redirectCountdown">4</span>s...
+    </p>
+
+    <script>
+        (function () {
+            let seconds = 4;
+            const countdownEl = document.getElementById('redirectCountdown');
+            const note = document.getElementById('autoRedirectNote');
+            const target = "{% url 'home' %}";
+            const timer = setInterval(function () {
+                seconds -= 1;
+                if (countdownEl) countdownEl.textContent = seconds;
+                if (seconds <= 0) {
+                    clearInterval(timer);
+                    window.location.href = target;
+                }
+            }, 1000);
+            // Cancel the auto-redirect if the user is actively interacting
+            // with the page (e.g. reading, or about to click elsewhere) -
+            // an unconditional redirect while someone's mid-read is exactly
+            // the kind of "beautiful" UI detail that isn't beautiful at all.
+            ['mousemove', 'keydown', 'touchstart'].forEach(function (evt) {
+                window.addEventListener(evt, function onInteract() {
+                    clearInterval(timer);
+                    if (note) note.style.display = 'none';
+                    window.removeEventListener(evt, onInteract);
+                }, { once: true });
+            });
+        })();
+    </script>
+{% endblock %}

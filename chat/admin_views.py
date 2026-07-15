@@ -13,12 +13,13 @@ from django.contrib.sessions.models import Session
 from django.core.paginator import Paginator
 from django.db import models as db_models
 from django.db.models import Count, Sum, Q
+from django.db.models.functions import TruncDate
 from django.http import JsonResponse
 from django.shortcuts import render, redirect, get_object_or_404
 from django.utils import timezone
 
 from chat.models import (
-    AdminAuditLog, Broadcast, ChatMessage, ChatSession, FailedLoginAttempt,
+    AdminAuditLog, Broadcast, ChatSession, FailedLoginAttempt,
     FeatureFlag, Message, SecurityEvent, UsageEvent, UserNote, UserProfile,
 )
 from chat.services.model_registry import MODEL_REGISTRY
@@ -81,15 +82,23 @@ def admin_dashboard(request):
         .order_by('-requests')
     )
 
-    cutoff7 = timezone.now() - timedelta(days=6)
-    daily_signups = []
+    # Single grouped query instead of 7 separate .count() calls, one per day.
     today = timezone.localdate()
-    for i in range(6, -1, -1):
-        day = today - timedelta(days=i)
-        daily_signups.append({
-            'date': day.isoformat(),
-            'count': User.objects.filter(date_joined__date=day).count(),
-        })
+    signup_window_start = today - timedelta(days=6)
+    signup_counts = dict(
+        User.objects.filter(date_joined__date__gte=signup_window_start)
+        .annotate(day=TruncDate('date_joined'))
+        .values('day')
+        .annotate(count=Count('id'))
+        .values_list('day', 'count')
+    )
+    daily_signups = [
+        {
+            'date': (today - timedelta(days=i)).isoformat(),
+            'count': signup_counts.get(today - timedelta(days=i), 0),
+        }
+        for i in range(6, -1, -1)
+    ]
 
     recent_errors = SecurityEvent.objects.filter(severity__in=['warning', 'critical']).order_by('-created_at')[:10]
     recent_audit = AdminAuditLog.objects.select_related('actor', 'target_user').order_by('-created_at')[:10]

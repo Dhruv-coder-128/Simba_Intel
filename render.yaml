@@ -20,20 +20,26 @@ services:
         value: https://simba-intel.onrender.com
       - key: SITE_ID
         value: "1"
+      # "optional": verification emails go out and are tracked, but login
+      # itself isn't blocked - chat/services/verification.py's in-app gate
+      # (image gen/Vision/Settings) is what actually enforces this. Requires
+      # EMAIL_HOST_USER/EMAIL_HOST_PASSWORD/DEFAULT_FROM_EMAIL below to be
+      # set to real values in Render's dashboard - with EMAIL_BACKEND still
+      # on console (or those left blank), verification emails are only ever
+      # printed to the Render log, never delivered, and no one can complete
+      # the flow.
       - key: ACCOUNT_EMAIL_VERIFICATION
-        value: none
+        value: optional
       - key: EMAIL_BACKEND
-        value: django.core.mail.backends.console.EmailBackend
+        value: django.core.mail.backends.smtp.EmailBackend
       - key: GROQ_API_KEY
         sync: false
       - key: MISTRAL_API_KEY
         sync: false
       - key: TAVILY_API_KEY
         sync: false
-      - key: GOOGLE_CLIENT_ID
-        sync: false
-      - key: GOOGLE_CLIENT_SECRET
-        sync: false
+      # Google OAuth Client ID/Secret are NOT env vars - allauth reads them
+      # from a SocialApp row in Django admin instead (see README.md).
       - key: EMAIL_HOST
         value: smtp.gmail.com
       - key: EMAIL_PORT

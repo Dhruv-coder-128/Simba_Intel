@@ -280,7 +280,12 @@ class UserProfileTests(TestCase):
         self.client.force_login(self.user)
 
     def test_profile_auto_created_on_chat_home(self):
-        self.assertFalse(UserProfile.objects.filter(user=self.user).exists())
+        # Login itself now creates the profile (chat/signals.py records a
+        # last-login IP/device/browser snapshot onto it), so by the time
+        # setUp's force_login() has run, one already exists - this asserts
+        # chat_home doesn't depend on the OLD lazy-creation-on-first-visit
+        # path (i.e. it still works fine when a profile already exists).
+        self.assertTrue(UserProfile.objects.filter(user=self.user).exists())
         response = self.client.get(reverse("home"))
         self.assertEqual(response.status_code, 200)
         self.assertTrue(UserProfile.objects.filter(user=self.user).exists())
@@ -311,7 +316,10 @@ class UserProfileTests(TestCase):
         self.assertFalse(profile.notifications_enabled)  # unchecked checkbox
 
     def test_settings_post_rejects_invalid_model_and_theme(self):
-        UserProfile.objects.create(user=self.user, default_model="cyber-max", theme="cyberpunk")
+        # update_or_create, not create: setUp's force_login already fired the
+        # login signal, which creates the profile itself now (to record a
+        # last-login snapshot on it).
+        UserProfile.objects.update_or_create(user=self.user, defaults={"default_model": "cyber-max", "theme": "cyberpunk"})
         self.client.post(reverse("profile_settings"), {
             "display_name": "",
             "default_model": "not-a-real-model",
@@ -322,12 +330,12 @@ class UserProfileTests(TestCase):
         self.assertEqual(profile.theme, "cyberpunk")
 
     def test_chat_home_uses_profile_default_model(self):
-        UserProfile.objects.create(user=self.user, default_model="sky-net")
+        UserProfile.objects.update_or_create(user=self.user, defaults={"default_model": "sky-net"})
         response = self.client.get(reverse("home"))
         self.assertEqual(response.context["selected_model"], "sky-net")
 
     def test_session_selection_still_overrides_profile_default(self):
-        UserProfile.objects.create(user=self.user, default_model="sky-net")
+        UserProfile.objects.update_or_create(user=self.user, defaults={"default_model": "sky-net"})
         session = self.client.session
         session["selected_model"] = "nova-mind"
         session.save()
@@ -335,7 +343,7 @@ class UserProfileTests(TestCase):
         self.assertEqual(response.context["selected_model"], "nova-mind")
 
     def test_theme_rendered_on_html_tag(self):
-        UserProfile.objects.create(user=self.user, theme="midnight-purple")
+        UserProfile.objects.update_or_create(user=self.user, defaults={"theme": "midnight-purple"})
         response = self.client.get(reverse("home"))
         self.assertContains(response, 'data-theme="midnight-purple"')
 

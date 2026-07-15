@@ -30,7 +30,7 @@
             <thead><tr><th>When</th><th>Email</th><th>IP</th></tr></thead>
             <tbody>
                 {% for f in failed_logins %}
-                <tr><td>{{ f.created_at|date:"M j, H:i:s" }}</td><td>{{ f.email_attempted|default:"(blank)" }}</td><td>{{ f.ip_address|default:"-" }}</td></tr>
+                <tr><td>{{ f.created_at|date:"M j, H:i:s" }}</td><td>{{ f.email_attempted|default:"(blank)" }}</td><td>{{ f.ip_address|default:"Unknown IP" }}</td></tr>
                 {% empty %}
                 <tr><td colspan="3" style="color:var(--text-dim);">None recorded.</td></tr>
                 {% endfor %}

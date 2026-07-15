@@ -255,6 +255,14 @@ AUTHENTICATION_BACKENDS = [
 # above is pointed at real SMTP - otherwise verification emails are only
 # printed to the console and no one can ever complete the flow.
 ACCOUNT_EMAIL_VERIFICATION = os.getenv('ACCOUNT_EMAIL_VERIFICATION', 'none')
+# Confirms on the GET request the emailed link itself points at, rather than
+# requiring an extra "click here to confirm" button-press on the landing
+# page first - a genuinely valid link should just work in one click, not two.
+ACCOUNT_CONFIRM_EMAIL_ON_GET = True
+# Where a signed-in user lands right after that GET confirms them - a
+# dedicated success page rather than dropping them straight back on chat
+# home with no acknowledgement that anything just happened.
+ACCOUNT_EMAIL_CONFIRMATION_AUTHENTICATED_REDIRECT_URL = '/accounts/email-verified/'
 ACCOUNT_LOGIN_METHODS = {'email'}
 ACCOUNT_SIGNUP_FIELDS = ['email*', 'password1*', 'password2*']
 LOGIN_REDIRECT_URL = "/"
@@ -272,6 +280,20 @@ ACCOUNT_FORMS = {
 # Auto Signup and Smooth Flow
 SOCIALACCOUNT_LOGIN_ON_GET = True
 SOCIALACCOUNT_AUTO_SIGNUP = True
+# EMAIL_AUTHENTICATION_AUTO_CONNECT alone does nothing without
+# EMAIL_AUTHENTICATION also being true somewhere - it only controls whether a
+# successful email-authenticated login also *connects* the social account,
+# not whether email-authentication is attempted at all. Without the
+# per-provider EMAIL_AUTHENTICATION below, a Google login matching an
+# existing local account's email was being bounced to the signup form
+# instead of logging into (and connecting to) that existing account - and
+# that signup would then fail outright on the unique-email constraint,
+# leaving the user unable to sign in with Google at all. Scoped to the
+# "google" provider specifically (not the global SOCIALACCOUNT_EMAIL_
+# AUTHENTICATION) because this trust decision is provider-specific: Google
+# verifies email ownership via OAuth, so a verified Google email is safe to
+# treat as proof of that account - an untrusted/self-hosted provider would
+# not get the same benefit of the doubt.
 SOCIALACCOUNT_EMAIL_AUTHENTICATION_AUTO_CONNECT = True
 
 # Explicit (not left to allauth's defaults) so the requested scope and PKCE
@@ -287,7 +309,18 @@ SOCIALACCOUNT_PROVIDERS = {
         "SCOPE": ["profile", "email"],
         "AUTH_PARAMS": {"access_type": "online"},
         "OAUTH_PKCE_ENABLED": True,
+        "EMAIL_AUTHENTICATION": True,
     }
+}
+
+# Login rate-limiting / temporary lockout. allauth applies these itself
+# (view-level, via Django's cache framework - no custom lockout code needed
+# here) - restated explicitly rather than left as an invisible default so
+# it's visible and tunable: 5 failed login attempts per identifier (email)
+# within 5 minutes triggers a temporary throttle, on top of a flat 10/minute
+# cap per source IP regardless of which account is being targeted.
+ACCOUNT_RATE_LIMITS = {
+    "login_failed": "10/m/ip,5/300s/key",
 }
 
 # Logging - there was no LOGGING dict at all before this, so Django's own
