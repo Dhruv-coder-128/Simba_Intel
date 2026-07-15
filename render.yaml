@@ -1,3 +1,8 @@
+databases:
+  - name: simba-intel-db
+    plan: starter
+    postgresMajorVersion: "16"
+
 services:
   - type: web
     name: simba-intel
@@ -39,10 +44,10 @@ services:
         sync: false
       - key: DEFAULT_FROM_EMAIL
         sync: false
-      # Render's filesystem is ephemeral - it's wiped on every deploy/restart.
-      # SQLite (this app's default) would silently lose all data on the next
-      # deploy without a real database behind it. Point this at a Render
-      # Postgres instance's connection string for real persistence; leaving
-      # it unset keeps SQLite for a quick first deploy/demo only.
+      # Wired to the managed Postgres instance declared above - Render injects
+      # its connection string automatically, no manual paste/rotation needed.
+      # simba_web/settings.py requires this var; there is no SQLite fallback.
       - key: DATABASE_URL
-        sync: false
+        fromDatabase:
+          name: simba-intel-db
+          property: connectionString

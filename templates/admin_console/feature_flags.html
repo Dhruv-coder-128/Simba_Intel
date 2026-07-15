@@ -1,0 +1,46 @@
+{% extends "admin_console/base.html" %}
+{% block title %}Feature Flags{% endblock %}
+{% block content %}
+<div class="admin-header"><h1><i class="fa-solid fa-flag"></i> FEATURE FLAGS</h1></div>
+
+<div class="glass-card" style="margin-bottom:16px;">
+    <p style="color:var(--text-dim); font-size:13px; margin:0 0 12px;">
+        The <code>maintenance_mode</code> flag is the emergency kill switch - when enabled, every non-superuser request
+        gets a maintenance page instead of the app. Create it below if it doesn't exist yet.
+    </p>
+    <form method="post" style="display:flex; gap:8px; flex-wrap:wrap;">
+        {% csrf_token %}<input type="hidden" name="action" value="create">
+        <input type="text" name="key" placeholder="flag_key" required style="width:180px;">
+        <input type="text" name="description" placeholder="Description (optional)" style="flex:1; min-width:200px;">
+        <button type="submit" class="btn primary"><i class="fa-solid fa-plus"></i> Create Flag</button>
+    </form>
+</div>
+
+<div class="glass-card">
+    <div class="table-scroll">
+    <table>
+        <thead><tr><th>Key</th><th>Description</th><th>Status</th><th>Updated</th><th></th></tr></thead>
+        <tbody>
+            {% for flag in flags %}
+            <tr>
+                <td><code>{{ flag.key }}</code></td>
+                <td>{{ flag.description|default:"-" }}</td>
+                <td>{% if flag.enabled %}<span class="badge ok">ENABLED</span>{% else %}<span class="badge bad">DISABLED</span>{% endif %}</td>
+                <td>{{ flag.updated_at|date:"M j, H:i" }}</td>
+                <td>
+                    <form method="post" style="display:inline;">
+                        {% csrf_token %}<input type="hidden" name="action" value="toggle"><input type="hidden" name="key" value="{{ flag.key }}">
+                        <button type="submit" class="btn {% if flag.key == 'maintenance_mode' and not flag.enabled %}danger{% endif %}">
+                            {% if flag.enabled %}Disable{% else %}Enable{% endif %}
+                        </button>
+                    </form>
+                </td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="5" style="color:var(--text-dim);">No feature flags yet.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    </div>
+</div>
+{% endblock %}

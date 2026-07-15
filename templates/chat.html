@@ -1049,6 +1049,41 @@
             padding: 2px 8px;
         }
 
+        /* ===== Broadcast banner (admin console -> Broadcasts) ===== */
+        .broadcast-banner {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 200;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 9px 44px 9px 16px;
+            font-size: 13px;
+            font-family: 'JetBrains Mono', monospace;
+            box-shadow: 0 2px 12px rgba(0, 0, 0, 0.3);
+        }
+
+        .broadcast-info { background: rgba(var(--accent-rgb), 0.14); color: var(--accent); border-bottom: 1px solid rgba(var(--accent-rgb), 0.3); }
+        .broadcast-warning { background: rgba(255, 184, 77, 0.14); color: #ffb84d; border-bottom: 1px solid rgba(255, 184, 77, 0.3); }
+        .broadcast-critical { background: rgba(255, 84, 112, 0.16); color: #ff5470; border-bottom: 1px solid rgba(255, 84, 112, 0.35); }
+
+        .broadcast-banner button {
+            position: absolute;
+            right: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            color: inherit;
+            opacity: 0.7;
+            cursor: pointer;
+            font-size: 13px;
+        }
+
+        .broadcast-banner button:hover { opacity: 1; }
+
         /* ===== Email verification modal ===== */
         .verify-email-overlay {
             display: flex;
@@ -2332,6 +2367,23 @@
                 overflow-wrap: break-word;
             }
 
+            .markdown-content .mermaid {
+                background: rgba(255, 255, 255, 0.02);
+                border: 1px solid var(--border-soft);
+                border-radius: var(--radius-md);
+                padding: 16px;
+                margin: 10px 0;
+                overflow-x: auto;
+                display: flex;
+                justify-content: center;
+            }
+
+            .markdown-content .katex-display {
+                overflow-x: auto;
+                overflow-y: hidden;
+                padding: 4px 0;
+            }
+
             /* Code blocks */
             pre {
                 max-width: 100%;
@@ -2687,6 +2739,9 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.1.6/purify.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.11/katex.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.11/katex.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
 
     <script
         src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/autoloader/prism-autoloader.min.js"></script>
@@ -2695,6 +2750,13 @@
 
 <body>
 
+    {% if active_broadcast %}
+    <div id="broadcastBanner" class="broadcast-banner broadcast-{{ active_broadcast.level }}">
+        <i class="fa-solid {% if active_broadcast.level == 'critical' %}fa-triangle-exclamation{% elif active_broadcast.level == 'warning' %}fa-circle-exclamation{% else %}fa-circle-info{% endif %}"></i>
+        <span>{{ active_broadcast.message }}</span>
+        <button type="button" onclick="document.getElementById('broadcastBanner').remove()" aria-label="Dismiss"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    {% endif %}
 
     <div id="lockdown-screen">
         <div id="lock-container">
@@ -2998,7 +3060,7 @@
 
             {% for m in messages %}
             <div class="chat-block user-block" data-message-id="{{ m.user_message_id }}">
-                <span class="msg-label">DHRUV_INPUT</span>
+                <span class="msg-label">{{m.user}}_INPUT</span>
                 <div class="content">{{ m.user_query }}</div>
                 <textarea class="raw-query" style="display:none;">{{ m.user_query }}</textarea>
                 {% if not m.extra_data %}
@@ -3032,6 +3094,9 @@
                             </div>
                         </div>
                         <div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center;">
+                            <button class="copy-btn favorite-btn" data-message-id="{{ m.id }}" onclick="toggleFavoriteImage(this)">
+                                <i class="fa-{% if m.extra_data.favorited %}solid{% else %}regular{% endif %} fa-star"></i> Favorite
+                            </button>
                             <button class="copy-btn" onclick="downloadImage('{{ m.extra_data.image_url }}', 'simba-intel-image.jpg')">
                                 <i class="fa-solid fa-download"></i> Download
                             </button>
@@ -3596,7 +3661,7 @@
                 const content = block.querySelector(".markdown-content");
                 if (raw && content && raw.value.trim() !== "") {
                     content.innerHTML = renderMarkdown(raw.value.trim());
-                    if (window.Prism) Prism.highlightAllUnder(content);
+                    renderRichContent(content);
                 }
             });
             applyCodeButtons();
@@ -3840,10 +3905,80 @@
             return div.innerHTML;
         }
 
-        // ================= Sanitize markdown-rendered HTML before it hits the DOM =================
+        // ================= LaTeX -> KaTeX, then markdown, then sanitize =================
+        // Math has to be pulled out and rendered *before* marked.parse() runs -
+        // markdown syntax chars (_, *, etc.) are also valid inside LaTeX
+        // (subscripts, multiplication), so parsing markdown first would mangle
+        // the math source. Rendered KaTeX HTML is swapped back in by placeholder
+        // token after marked.parse() finishes, then the whole thing is
+        // sanitized once at the end - DOMPurify's default allowlist covers
+        // KaTeX's span-based output fine as long as output:'html' skips its
+        // optional MathML annotation block, which isn't in that allowlist.
+        // Runs on every streamed token (cheap: regex only matches *complete*
+        // $...$/$$...$$ pairs, so incomplete LaTeX simply doesn't match yet
+        // and renders once the closing delimiter arrives) - unlike Mermaid
+        // diagrams below, which need the full response and real DOM nodes,
+        // so those stay a separate post-completion step.
         function renderMarkdown(text) {
-            const html = marked.parse(text);
+            const mathBlocks = [];
+            const stash = (expr, displayMode) => {
+                const idx = mathBlocks.length;
+                try {
+                    mathBlocks.push(katex.renderToString(expr.trim(), { throwOnError: false, output: 'html', displayMode }));
+                } catch (e) {
+                    mathBlocks.push(escapeHtml(displayMode ? `$$${expr}$$` : `$${expr}$`));
+                }
+                return `@@MATH_BLOCK_${idx}@@`;
+            };
+
+            let processed = text;
+            if (window.katex) {
+                processed = processed.replace(/\$\$([\s\S]+?)\$\$/g, (_, expr) => stash(expr, true));
+                processed = processed.replace(/\$([^\$\n]+?)\$/g, (_, expr) => stash(expr, false));
+            }
+
+            let html = marked.parse(processed);
+            html = html.replace(/@@MATH_BLOCK_(\d+)@@/g, (_, idx) => mathBlocks[parseInt(idx, 10)]);
+
             return window.DOMPurify ? DOMPurify.sanitize(html) : html;
+        }
+
+        if (window.mermaid) {
+            mermaid.initialize({ startOnLoad: false, theme: 'dark', securityLevel: 'strict' });
+        }
+
+        // Turns ```mermaid fenced code blocks (already rendered as
+        // <pre><code class="language-mermaid">) into live diagrams. Only
+        // called once a reply is fully streamed (see the renderRichContent()
+        // call sites) since a half-streamed diagram definition is usually
+        // invalid syntax.
+        function renderMermaidBlocks(container) {
+            if (!window.mermaid || !container) return;
+            const blocks = container.querySelectorAll('code.language-mermaid');
+            blocks.forEach(code => {
+                const pre = code.closest('pre');
+                if (!pre) return;
+                const div = document.createElement('div');
+                div.className = 'mermaid';
+                div.textContent = code.textContent;
+                pre.replaceWith(div);
+            });
+            try {
+                const targets = container.querySelectorAll('.mermaid');
+                if (targets.length) mermaid.run({ nodes: targets });
+            } catch (e) {
+                console.error('Mermaid render failed (non-fatal - shown as text instead):', e);
+            }
+        }
+
+        // Single place every "a reply just finished streaming" call site
+        // reaches for post-processing: syntax highlighting (existing),
+        // mermaid diagrams (new). Math is already handled inline by
+        // renderMarkdown() above, so it needs no separate pass here.
+        function renderRichContent(container) {
+            if (!container) return;
+            if (window.Prism) Prism.highlightAllUnder(container);
+            renderMermaidBlocks(container);
         }
 
         // ================= Plus button popover (Camera / Gallery / File Upload) =================
@@ -4373,6 +4508,9 @@
                                     </div>
                                 </div>
                                 <div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center;">
+                                    <button class="copy-btn favorite-btn" data-message-id="${data.message_id || ''}">
+                                        <i class="fa-regular fa-star"></i> Favorite
+                                    </button>
                                     <button class="copy-btn download-btn">
                                         <i class="fa-solid fa-download"></i> Download
                                     </button>
@@ -4439,10 +4577,12 @@
                             const openBtn = contentDiv.querySelector(".open-btn");
                             const copyPromptBtn = contentDiv.querySelector(".copy-prompt-btn");
                             const regenBtn = contentDiv.querySelector(".regen-btn");
+                            const favoriteBtn = contentDiv.querySelector(".favorite-btn");
                             if (downloadBtn) downloadBtn.addEventListener("click", () => downloadImage(data.url, "simba-intel-image.jpg"));
                             if (openBtn) openBtn.addEventListener("click", () => openImage(data.url));
                             if (copyPromptBtn) copyPromptBtn.addEventListener("click", function () { copyToClipboard(data.prompt, this); });
                             if (regenBtn) regenBtn.addEventListener("click", () => regenerateImage(data.prompt, data.prompt));
+                            if (favoriteBtn) favoriteBtn.addEventListener("click", function () { toggleFavoriteImage(this); });
                         }
 
                         setStatus("status-online", "CORE ONLINE");
@@ -4511,6 +4651,29 @@
         // ================= Function to open image =================
         function openImage(url) {
             window.open(url, '_blank');
+        }
+
+        // ================= Favorite a generated image =================
+        function toggleFavoriteImage(btn) {
+            const messageId = btn.dataset.messageId;
+            if (!messageId) {
+                console.error('Favorite button missing a message id (image not saved yet?)');
+                return;
+            }
+            btn.disabled = true;
+            fetch(`/messages/${messageId}/toggle-favorite/`, {
+                method: 'POST',
+                headers: { 'X-CSRFToken': csrfToken },
+                signal: AbortSignal.timeout(10000),
+            })
+                .then(res => res.json().then(data => ({ ok: res.ok, data })))
+                .then(({ ok, data }) => {
+                    if (!ok) { alert(data.message || 'Could not update favorite.'); return; }
+                    const icon = btn.querySelector('i');
+                    if (icon) icon.className = data.favorited ? 'fa-solid fa-star' : 'fa-regular fa-star';
+                })
+                .catch(() => alert('Network error - please try again.'))
+                .finally(() => { btn.disabled = false; });
         }
 
         // ================= Fullscreen image lightbox =================
@@ -4749,7 +4912,7 @@
                     if (data.type === "vision") {
                         if (contentDiv) {
                             contentDiv.innerHTML = `<div class="markdown-content">${renderMarkdown(data.response)}</div>`;
-                            if (window.Prism) Prism.highlightAllUnder(loader);
+                            renderRichContent(loader);
                             applyCodeButtons();
                         }
                         labelElement.innerText = "SIMBA_RESPONSE";
@@ -4861,8 +5024,8 @@
                     if (isAtBottom) cf.scrollTop = cf.scrollHeight;
                 }
 
-                // Highlight only once after full response complete
-                if (window.Prism) Prism.highlightAllUnder(loader);
+                // Highlight/diagram-render only once after full response complete
+                renderRichContent(loader);
                 applyCodeButtons();
                 playBlip();
                 // const latency =
@@ -5082,7 +5245,7 @@
                     return;
                 }
 
-                if (window.Prism) Prism.highlightAllUnder(simbaBlock);
+                renderRichContent(simbaBlock);
                 applyCodeButtons();
                 playBlip();
 
@@ -5132,11 +5295,11 @@
             } catch (e) {
                 if (e.name === "AbortError" && watchdogTimedOut) {
                     simbaBlock.innerHTML = previousContentHTML;
-                    if (window.Prism) Prism.highlightAllUnder(simbaBlock);
+                    renderRichContent(simbaBlock);
                     alert("Regenerate timed out - no response from the server. Please try again.");
                 } else if (e.name === "AbortError") {
                     simbaBlock.innerHTML = previousContentHTML;
-                    if (window.Prism) Prism.highlightAllUnder(simbaBlock);
+                    renderRichContent(simbaBlock);
                 } else {
                     console.error("Regenerate failed:", e);
                     simbaBlock.innerHTML = previousContentHTML;
@@ -5643,7 +5806,7 @@
                 editBtn.style.display = '';
 
                 if (isTextReply && assistantContentDiv) {
-                    if (window.Prism) Prism.highlightAllUnder(simbaBlock);
+                    renderRichContent(simbaBlock);
                     applyCodeButtons();
                     playBlip();
                     simbaBlock.insertAdjacentHTML("beforeend", `

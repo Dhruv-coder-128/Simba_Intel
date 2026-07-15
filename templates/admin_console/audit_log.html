@@ -1,0 +1,30 @@
+{% extends "admin_console/base.html" %}
+{% block title %}Audit Log{% endblock %}
+{% block content %}
+<div class="admin-header"><h1><i class="fa-solid fa-clipboard-list"></i> AUDIT LOG</h1></div>
+<div class="glass-card">
+    <div class="table-scroll">
+    <table>
+        <thead><tr><th>When</th><th>Actor</th><th>Action</th><th>Target</th><th>Detail</th></tr></thead>
+        <tbody>
+            {% for log in page %}
+            <tr>
+                <td>{{ log.created_at|date:"M j, Y H:i:s" }}</td>
+                <td>{{ log.actor.username|default:"system" }}</td>
+                <td><span class="badge warn">{{ log.action }}</span></td>
+                <td>{% if log.target_user %}<a href="{% url 'admin_user_detail' log.target_user.id %}" style="color:var(--accent);">{{ log.target_user.username }}</a>{% else %}-{% endif %}</td>
+                <td>{{ log.detail|truncatechars:80 }}</td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="5" style="color:var(--text-dim);">No admin actions recorded yet.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    </div>
+    <div class="pagination">
+        {% if page.has_previous %}<a href="?page={{ page.previous_page_number }}">Previous</a>{% endif %}
+        <span class="current">{{ page.number }} / {{ page.paginator.num_pages }}</span>
+        {% if page.has_next %}<a href="?page={{ page.next_page_number }}">Next</a>{% endif %}
+    </div>
+</div>
+{% endblock %}

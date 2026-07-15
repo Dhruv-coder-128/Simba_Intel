@@ -1,0 +1,61 @@
+{% extends "admin_console/base.html" %}
+{% block title %}Users{% endblock %}
+{% block content %}
+<div class="admin-header">
+    <h1><i class="fa-solid fa-users"></i> USERS ({{ total_users }})</h1>
+</div>
+
+<div class="glass-card" style="margin-bottom:16px;">
+    <form method="get" style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+        <input type="text" name="q" value="{{ query }}" placeholder="Search username or email..." style="flex:1; min-width:220px;">
+        <select name="status">
+            <option value="" {% if not status_filter %}selected{% endif %}>All statuses</option>
+            <option value="active" {% if status_filter == 'active' %}selected{% endif %}>Active</option>
+            <option value="inactive" {% if status_filter == 'inactive' %}selected{% endif %}>Blocked</option>
+            <option value="suspended" {% if status_filter == 'suspended' %}selected{% endif %}>Suspended</option>
+            <option value="banned" {% if status_filter == 'banned' %}selected{% endif %}>Banned</option>
+            <option value="staff" {% if status_filter == 'staff' %}selected{% endif %}>Staff/Admin</option>
+        </select>
+        <button type="submit" class="btn primary"><i class="fa-solid fa-magnifying-glass"></i> Search</button>
+    </form>
+</div>
+
+<div class="glass-card">
+    <div class="table-scroll">
+    <table>
+        <thead>
+            <tr><th>User</th><th>Email</th><th>Status</th><th>Joined</th><th>Last Login</th><th></th></tr>
+        </thead>
+        <tbody>
+            {% for u in page %}
+            <tr>
+                <td>{{ u.username }}{% if u.is_superuser %} <span class="badge ok">SUPERUSER</span>{% elif u.is_staff %} <span class="badge warn">STAFF</span>{% endif %}</td>
+                <td>{{ u.email }}</td>
+                <td>
+                    {% if u.profile.is_banned %}<span class="badge bad">BANNED</span>
+                    {% elif u.profile.is_suspended %}<span class="badge warn">SUSPENDED</span>
+                    {% elif not u.is_active %}<span class="badge bad">BLOCKED</span>
+                    {% else %}<span class="badge ok">ACTIVE</span>{% endif %}
+                </td>
+                <td>{{ u.date_joined|date:"M j, Y" }}</td>
+                <td>{{ u.last_login|date:"M j, Y H:i"|default:"Never" }}</td>
+                <td><a href="{% url 'admin_user_detail' u.id %}" class="btn">View <i class="fa-solid fa-chevron-right"></i></a></td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="6" style="color:var(--text-dim);">No users match this search.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    </div>
+
+    <div class="pagination">
+        {% if page.has_previous %}
+        <a href="?q={{ query }}&status={{ status_filter }}&page={{ page.previous_page_number }}">Previous</a>
+        {% endif %}
+        <span class="current">{{ page.number }} / {{ page.paginator.num_pages }}</span>
+        {% if page.has_next %}
+        <a href="?q={{ query }}&status={{ status_filter }}&page={{ page.next_page_number }}">Next</a>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

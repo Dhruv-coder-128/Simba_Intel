@@ -1,0 +1,167 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Console - {% block title %}{% endblock %}</title>
+    <link rel="icon" type="image/png" href="{% static 'favicon2.png' %}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500&family=Outfit:wght@300;400;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #0a0b0d;
+            --sidebar: #101113;
+            --accent: #ff5470;
+            --accent-rgb: 255, 84, 112;
+            --accent-dim: rgba(255, 84, 112, 0.08);
+            --accent-soft: rgba(255, 84, 112, 0.5);
+            --good: #39ff88;
+            --warn: #ffb84d;
+            --border-soft: rgba(255, 255, 255, 0.08);
+            --glass: rgba(255, 255, 255, 0.03);
+            --text: #e4e4e7;
+            --text-dim: #8b8b92;
+            --radius-sm: 8px;
+            --radius-md: 12px;
+        }
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            font-family: 'Outfit', sans-serif;
+            background: radial-gradient(circle at 15% 0%, rgba(var(--accent-rgb), 0.06), transparent 40%), var(--bg);
+            color: var(--text);
+            display: flex;
+            min-height: 100vh;
+        }
+        .admin-sidebar {
+            width: 220px;
+            flex-shrink: 0;
+            background: var(--sidebar);
+            border-right: 1px solid var(--border-soft);
+            padding: 20px 14px;
+            position: sticky;
+            top: 0;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        .admin-brand {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 14px;
+            letter-spacing: 1px;
+            color: var(--accent);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 6px;
+            text-shadow: 0 0 16px rgba(var(--accent-rgb), 0.4);
+        }
+        .admin-brand-sub {
+            font-size: 10px;
+            color: var(--text-dim);
+            letter-spacing: 2px;
+            margin-bottom: 24px;
+            font-family: 'JetBrains Mono', monospace;
+        }
+        .admin-nav { display: flex; flex-direction: column; gap: 2px; }
+        .admin-nav a {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 9px 12px;
+            border-radius: var(--radius-sm);
+            color: var(--text-dim);
+            text-decoration: none;
+            font-size: 13px;
+            transition: background 0.15s ease, color 0.15s ease;
+        }
+        .admin-nav a i { width: 16px; text-align: center; }
+        .admin-nav a:hover { background: rgba(255,255,255,0.04); color: var(--text); }
+        .admin-nav a.active { background: var(--accent-dim); color: var(--accent); font-weight: 600; }
+        .admin-nav-footer { margin-top: auto; }
+        .admin-nav-footer a {
+            display: flex; align-items: center; gap: 8px;
+            color: var(--text-dim); text-decoration: none; font-size: 12px; padding: 8px 12px;
+        }
+        .admin-nav-footer a:hover { color: var(--text); }
+        .admin-main { flex: 1; padding: 28px 32px; min-width: 0; }
+        .admin-header {
+            display: flex; align-items: center; justify-content: space-between;
+            margin-bottom: 24px; flex-wrap: wrap; gap: 12px;
+        }
+        .admin-header h1 {
+            font-family: 'JetBrains Mono', monospace; font-size: 19px; margin: 0;
+            display: flex; align-items: center; gap: 10px;
+        }
+        .glass-card {
+            background: var(--glass);
+            backdrop-filter: blur(14px);
+            border: 1px solid var(--border-soft);
+            border-radius: var(--radius-md);
+            padding: 20px;
+        }
+        .stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; margin-bottom: 20px; }
+        .stat-card { padding: 16px 18px; }
+        .stat-label { font-family: 'JetBrains Mono', monospace; font-size: 10px; letter-spacing: 1px; text-transform: uppercase; color: var(--text-dim); margin-bottom: 6px; }
+        .stat-value { font-size: 24px; font-weight: 600; }
+        table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        th, td { text-align: left; padding: 9px 8px; border-bottom: 1px solid var(--border-soft); }
+        th { font-family: 'JetBrains Mono', monospace; font-size: 10px; letter-spacing: 0.6px; text-transform: uppercase; color: var(--text-dim); }
+        tr:last-child td { border-bottom: none; }
+        .table-scroll { overflow-x: auto; }
+        .badge { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 10.5px; font-family: 'JetBrains Mono', monospace; border: 1px solid; }
+        .badge.ok { color: var(--good); border-color: var(--good); background: rgba(57,255,136,0.08); }
+        .badge.warn { color: var(--warn); border-color: var(--warn); background: rgba(255,184,77,0.08); }
+        .badge.bad { color: var(--accent); border-color: var(--accent); background: var(--accent-dim); }
+        .btn {
+            display: inline-flex; align-items: center; gap: 6px;
+            padding: 8px 14px; border-radius: var(--radius-sm); border: 1px solid var(--border-soft);
+            background: transparent; color: var(--text); font-family: 'JetBrains Mono', monospace;
+            font-size: 12px; cursor: pointer; text-decoration: none; transition: all 0.15s ease;
+        }
+        .btn:hover { border-color: var(--accent-soft); color: var(--accent); }
+        .btn.danger { border-color: rgba(255,84,112,0.4); color: var(--accent); }
+        .btn.danger:hover { background: var(--accent-dim); }
+        .btn.primary { background: var(--accent-dim); border-color: var(--accent); color: var(--accent); }
+        input[type="text"], input[type="number"], input[type="email"], select, textarea {
+            background: var(--bg); border: 1px solid var(--border-soft); border-radius: var(--radius-sm);
+            color: var(--text); padding: 9px 12px; font-family: 'Outfit', sans-serif; font-size: 13px; outline: none;
+        }
+        input:focus, select:focus, textarea:focus { border-color: var(--accent-soft); }
+        .pagination { display: flex; gap: 6px; margin-top: 16px; }
+        .pagination a, .pagination span {
+            padding: 6px 11px; border-radius: var(--radius-sm); border: 1px solid var(--border-soft);
+            color: var(--text-dim); text-decoration: none; font-size: 12px; font-family: 'JetBrains Mono', monospace;
+        }
+        .pagination a:hover { color: var(--accent); border-color: var(--accent-soft); }
+        .pagination .current { background: var(--accent-dim); color: var(--accent); border-color: var(--accent); }
+        @media (max-width: 860px) {
+            body { flex-direction: column; }
+            .admin-sidebar { width: 100%; height: auto; position: static; }
+            .admin-nav { flex-direction: row; overflow-x: auto; }
+        }
+    </style>
+    {% block extra_head %}{% endblock %}
+</head>
+<body>
+    <div class="admin-sidebar">
+        <div class="admin-brand"><i class="fa-solid fa-shield-halved"></i> SIMBA_INTEL</div>
+        <div class="admin-brand-sub">ADMIN CONSOLE</div>
+        <nav class="admin-nav">
+            <a href="{% url 'admin_dashboard' %}" class="{% if active_nav == 'dashboard' %}active{% endif %}"><i class="fa-solid fa-gauge"></i> Dashboard</a>
+            <a href="{% url 'admin_users_list' %}" class="{% if active_nav == 'users' %}active{% endif %}"><i class="fa-solid fa-users"></i> Users</a>
+            <a href="{% url 'admin_audit_log' %}" class="{% if active_nav == 'audit' %}active{% endif %}"><i class="fa-solid fa-clipboard-list"></i> Audit Log</a>
+            <a href="{% url 'admin_security' %}" class="{% if active_nav == 'security' %}active{% endif %}"><i class="fa-solid fa-lock"></i> Security</a>
+            <a href="{% url 'admin_feature_flags' %}" class="{% if active_nav == 'flags' %}active{% endif %}"><i class="fa-solid fa-flag"></i> Feature Flags</a>
+            <a href="{% url 'admin_broadcasts' %}" class="{% if active_nav == 'broadcasts' %}active{% endif %}"><i class="fa-solid fa-bullhorn"></i> Broadcasts</a>
+        </nav>
+        <div class="admin-nav-footer">
+            <a href="/"><i class="fa-solid fa-arrow-left"></i> Back to app</a>
+        </div>
+    </div>
+    <div class="admin-main">
+        {% block content %}{% endblock %}
+    </div>
+</body>
+</html>

@@ -1,0 +1,103 @@
+{% extends "admin_console/base.html" %}
+{% block title %}Dashboard{% endblock %}
+{% block extra_head %}<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>{% endblock %}
+{% block content %}
+<div class="admin-header">
+    <h1><i class="fa-solid fa-gauge"></i> PLATFORM DASHBOARD</h1>
+    {% if maintenance_mode %}<span class="badge bad"><i class="fa-solid fa-triangle-exclamation"></i> MAINTENANCE MODE ACTIVE</span>{% endif %}
+</div>
+
+<div class="stat-grid">
+    <div class="glass-card stat-card"><div class="stat-label">Total Users</div><div class="stat-value">{{ total_users }}</div></div>
+    <div class="glass-card stat-card"><div class="stat-label">Online Now (~5min)</div><div class="stat-value">{{ online_users }}</div></div>
+    <div class="glass-card stat-card"><div class="stat-label">Active Users</div><div class="stat-value">{{ active_users }}</div></div>
+    <div class="glass-card stat-card"><div class="stat-label">Banned</div><div class="stat-value">{{ banned_users }}</div></div>
+    <div class="glass-card stat-card"><div class="stat-label">New Today</div><div class="stat-value">{{ new_today }}</div></div>
+    <div class="glass-card stat-card"><div class="stat-label">New This Week</div><div class="stat-value">{{ new_this_week }}</div></div>
+    <div class="glass-card stat-card"><div class="stat-label">Total Chats</div><div class="stat-value">{{ total_sessions }}</div></div>
+    <div class="glass-card stat-card"><div class="stat-label">Total Messages</div><div class="stat-value">{{ total_messages }}</div></div>
+    <div class="glass-card stat-card"><div class="stat-label">API Requests</div><div class="stat-value">{{ total_requests }}</div></div>
+    <div class="glass-card stat-card"><div class="stat-label">Total Tokens</div><div class="stat-value">{{ total_tokens }}</div></div>
+    <div class="glass-card stat-card"><div class="stat-label">Estimated API Cost</div><div class="stat-value">${{ total_cost|floatformat:4 }}</div></div>
+    <div class="glass-card stat-card"><div class="stat-label">Images Generated</div><div class="stat-value">{{ images_generated }}</div></div>
+    <div class="glass-card stat-card"><div class="stat-label">Vision Calls</div><div class="stat-value">{{ vision_calls }}</div></div>
+    <div class="glass-card stat-card"><div class="stat-label">Registered Models</div><div class="stat-value">{{ model_count }}</div></div>
+</div>
+
+<div style="display:grid; grid-template-columns: 1.4fr 1fr; gap:16px; margin-bottom:20px;">
+    <div class="glass-card">
+        <h2 style="font-family:'JetBrains Mono',monospace; font-size:12px; text-transform:uppercase; color:var(--text-dim); margin:0 0 14px;">New Signups - Last 7 Days</h2>
+        <div style="height:220px; position:relative;"><canvas id="signupsChart"></canvas></div>
+    </div>
+    <div class="glass-card">
+        <h2 style="font-family:'JetBrains Mono',monospace; font-size:12px; text-transform:uppercase; color:var(--text-dim); margin:0 0 14px;">Provider Usage</h2>
+        <table>
+            <thead><tr><th>Provider</th><th>Requests</th><th>Cost</th></tr></thead>
+            <tbody>
+                {% for p in by_provider %}
+                <tr><td>{{ p.provider }}</td><td>{{ p.requests }}</td><td>${{ p.cost|floatformat:4 }}</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div style="display:grid; grid-template-columns: 1fr 1fr; gap:16px;">
+    <div class="glass-card">
+        <h2 style="font-family:'JetBrains Mono',monospace; font-size:12px; text-transform:uppercase; color:var(--text-dim); margin:0 0 14px;">Recent Security Events</h2>
+        <div class="table-scroll">
+        <table>
+            <thead><tr><th>When</th><th>Severity</th><th>Type</th></tr></thead>
+            <tbody>
+                {% for ev in recent_errors %}
+                <tr><td>{{ ev.created_at|date:"M j, H:i" }}</td><td><span class="badge {% if ev.severity == 'critical' %}bad{% else %}warn{% endif %}">{{ ev.severity }}</span></td><td>{{ ev.event_type }}</td></tr>
+                {% empty %}
+                <tr><td colspan="3" style="color:var(--text-dim);">No warnings or critical events recorded.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        </div>
+    </div>
+    <div class="glass-card">
+        <h2 style="font-family:'JetBrains Mono',monospace; font-size:12px; text-transform:uppercase; color:var(--text-dim); margin:0 0 14px;">Recent Admin Actions</h2>
+        <div class="table-scroll">
+        <table>
+            <thead><tr><th>When</th><th>Actor</th><th>Action</th><th>Target</th></tr></thead>
+            <tbody>
+                {% for log in recent_audit %}
+                <tr><td>{{ log.created_at|date:"M j, H:i" }}</td><td>{{ log.actor.username|default:"-" }}</td><td>{{ log.action }}</td><td>{{ log.target_user.username|default:"-" }}</td></tr>
+                {% empty %}
+                <tr><td colspan="4" style="color:var(--text-dim);">No admin actions yet.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        </div>
+    </div>
+</div>
+
+<script>
+    const signups = {{ daily_signups_json|safe }};
+    new Chart(document.getElementById('signupsChart'), {
+        type: 'bar',
+        data: {
+            labels: signups.map(d => d.date.slice(5)),
+            datasets: [{
+                label: 'Signups',
+                data: signups.map(d => d.count),
+                backgroundColor: 'rgba(255, 84, 112, 0.6)',
+                borderRadius: 6,
+            }],
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: { mode: 'index', intersect: false },
+            plugins: { legend: { display: false } },
+            scales: {
+                x: { grid: { display: false }, ticks: { color: '#8b8b92', font: { family: 'JetBrains Mono' } } },
+                y: { grid: { color: 'rgba(255,255,255,0.06)' }, beginAtZero: true, ticks: { precision: 0, color: '#8b8b92' } },
+            },
+        },
+    });
+</script>
+{% endblock %}

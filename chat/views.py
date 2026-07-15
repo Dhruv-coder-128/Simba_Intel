@@ -23,7 +23,7 @@ try:
 except ImportError:
     GPUtil_AVAILABLE = False
 
-from chat.models import ChatSession, ChatMessage, Message, UserProfile, UsageEvent, PasswordResetOTP
+from chat.models import ChatSession, ChatMessage, Message, UserProfile, UsageEvent, PasswordResetOTP, Broadcast
 from chat.services.ai_router import chat_stream, vision as ai_vision
 from chat.services.image_router import generate_image
 from chat.services.memory import get_conversation_history, build_messages, messages_to_history_dicts, SYSTEM_PROMPT
@@ -126,6 +126,7 @@ def chat_home(request):
             current_session = None
     selected_model = request.session.get("selected_model", profile.default_model)
     models = list_available_models()
+    active_broadcast = Broadcast.objects.filter(active=True).order_by('-created_at').first()
     return render(request, 'chat.html', {
         'sessions': sessions,
         'messages': messages,
@@ -135,6 +136,7 @@ def chat_home(request):
         'profile': profile,
         'email_verified': is_email_verified(request.user),
         'verification_required': verification_required(),
+        'active_broadcast': active_broadcast,
     })
 
 
@@ -859,6 +861,23 @@ def switch_branch(request, message_id):
         "message_id": leaf.id,
         "user_message_id": leaf.parent_id if leaf.role == "assistant" else leaf.id,
     })
+
+
+@login_required
+def toggle_favorite_image(request, message_id):
+    """Generated images live entirely inside Message.extra_data (there's no
+    separate Image model) - favoriting just flips a flag in that same JSON
+    blob rather than introducing a new table for what's a single boolean."""
+    if request.method != "POST":
+        return JsonResponse({"error": "Invalid request"}, status=400)
+
+    msg = get_object_or_404(Message, id=message_id, session__user=request.user, role="assistant")
+    if not msg.extra_data or msg.extra_data.get("type") != "image":
+        return JsonResponse({"type": "error", "message": "Not an image message."}, status=400)
+
+    msg.extra_data["favorited"] = not msg.extra_data.get("favorited", False)
+    msg.save(update_fields=["extra_data"])
+    return JsonResponse({"status": "success", "favorited": msg.extra_data["favorited"]})
 
 
 @login_required

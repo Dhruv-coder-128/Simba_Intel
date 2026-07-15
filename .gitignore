@@ -11,6 +11,11 @@ __pycache__/
 
 # Database
 db.sqlite3
+*.sqlite3
+
+# Data migration exports - contain real user data (emails, chat content,
+# security/session records); never commit these
+legacy_data.json
 
 # VS Code
 .vscode/

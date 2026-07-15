@@ -1,0 +1,64 @@
+{% extends "admin_console/base.html" %}
+{% block title %}Security{% endblock %}
+{% block content %}
+<div class="admin-header"><h1><i class="fa-solid fa-lock"></i> SECURITY</h1></div>
+
+<div class="stat-grid">
+    <div class="glass-card stat-card"><div class="stat-label">Failed Logins (24h)</div><div class="stat-value">{{ failed_last_24h }}</div></div>
+</div>
+
+<div style="display:grid; grid-template-columns: 1fr 1fr; gap:16px;">
+    <div class="glass-card">
+        <h2 style="font-family:'JetBrains Mono',monospace; font-size:12px; text-transform:uppercase; color:var(--text-dim); margin:0 0 14px;">Most Targeted Emails (24h)</h2>
+        <div class="table-scroll">
+        <table>
+            <thead><tr><th>Email attempted</th><th>Attempts</th></tr></thead>
+            <tbody>
+                {% for row in top_targeted_emails %}
+                <tr><td>{{ row.email_attempted|default:"(blank)" }}</td><td>{{ row.attempts }}</td></tr>
+                {% empty %}
+                <tr><td colspan="2" style="color:var(--text-dim);">No failed logins in the last 24 hours.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        </div>
+    </div>
+    <div class="glass-card">
+        <h2 style="font-family:'JetBrains Mono',monospace; font-size:12px; text-transform:uppercase; color:var(--text-dim); margin:0 0 14px;">Recent Failed Logins</h2>
+        <div class="table-scroll">
+        <table>
+            <thead><tr><th>When</th><th>Email</th><th>IP</th></tr></thead>
+            <tbody>
+                {% for f in failed_logins %}
+                <tr><td>{{ f.created_at|date:"M j, H:i:s" }}</td><td>{{ f.email_attempted|default:"(blank)" }}</td><td>{{ f.ip_address|default:"-" }}</td></tr>
+                {% empty %}
+                <tr><td colspan="3" style="color:var(--text-dim);">None recorded.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        </div>
+    </div>
+</div>
+
+<div class="glass-card" style="margin-top:16px;">
+    <h2 style="font-family:'JetBrains Mono',monospace; font-size:12px; text-transform:uppercase; color:var(--text-dim); margin:0 0 14px;">Security Events</h2>
+    <div class="table-scroll">
+    <table>
+        <thead><tr><th>When</th><th>User</th><th>Type</th><th>Severity</th><th>Detail</th></tr></thead>
+        <tbody>
+            {% for ev in security_events %}
+            <tr>
+                <td>{{ ev.created_at|date:"M j, H:i:s" }}</td>
+                <td>{{ ev.user.username|default:"-" }}</td>
+                <td>{{ ev.event_type }}</td>
+                <td><span class="badge {% if ev.severity == 'critical' %}bad{% elif ev.severity == 'warning' %}warn{% else %}ok{% endif %}">{{ ev.severity }}</span></td>
+                <td>{{ ev.detail|truncatechars:60 }}</td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="5" style="color:var(--text-dim);">No security events recorded yet.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    </div>
+</div>
+{% endblock %}

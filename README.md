@@ -62,7 +62,7 @@
 
 ### Database
 
-* SQLite (dev). See "Future Improvements" for PostgreSQL.
+* PostgreSQL (local dev and production — see [Installation](#-installation) and [Deployment](#-deployment)).
 
 ---
 
@@ -154,25 +154,49 @@ EMAIL_HOST=smtp.gmail.com
 EMAIL_PORT=587
 EMAIL_HOST_USER=your-email@gmail.com
 EMAIL_HOST_PASSWORD=your-gmail-app-password
+
+# Database - PostgreSQL only, no SQLite fallback. Either set DATABASE_URL
+# directly, or leave it unset and use the POSTGRES_* vars below against a
+# local Postgres instance (defaults match Postgres's own local conventions):
+# DATABASE_URL=postgres://user:password@host:5432/dbname
+POSTGRES_DB=simba_intel
+POSTGRES_USER=postgres
+POSTGRES_PASSWORD=postgres
+POSTGRES_HOST=localhost
+POSTGRES_PORT=5432
 ```
 
 **Never commit a real `.env`.** Always generate your own `DJANGO_SECRET_KEY` — the app refuses to start with `DEBUG=False` while the placeholder key from `.env.example` is still in use.
 
 Pollinations image generation needs no API key.
 
-### 5. Run Migrations
+### 5. Create the Database
+
+Requires a local PostgreSQL server ([postgresql.org/download](https://www.postgresql.org/download/) or `choco install postgresql`/`brew install postgresql`). Create a database matching `POSTGRES_DB` above:
+
+```bash
+createdb simba_intel
+```
+
+### 6. Run Migrations
 
 ```bash
 python manage.py migrate
 ```
 
-### 6. Run Tests
+### 7. Create an Admin User
+
+```bash
+python manage.py createsuperuser
+```
+
+### 8. Run Tests
 
 ```bash
 python manage.py test
 ```
 
-### 7. Start Development Server
+### 9. Start Development Server
 
 ```bash
 python manage.py runserver
@@ -214,7 +238,7 @@ gunicorn simba_web.wsgi:application
 
 ## 📈 Future Improvements
 
-* PostgreSQL + pgvector-backed long-term memory (semantic recall across sessions)
+* pgvector-backed long-term memory (semantic recall across sessions)
 * Message-tree schema for regeneration / edit-and-branch
 * File Search & Knowledge Base
 * AI Agent / tool-calling workflows

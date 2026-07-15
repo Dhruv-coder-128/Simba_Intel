@@ -66,6 +66,9 @@ MIDDLEWARE = [
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
+    # Needs request.user (set by AuthenticationMiddleware above) to let
+    # superusers through during an active kill switch.
+    'chat.middleware.MaintenanceModeMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'allauth.account.middleware.AccountMiddleware',
@@ -91,32 +94,62 @@ TEMPLATES = [
 WSGI_APPLICATION = 'simba_web.wsgi.application'
 
 
-# Database
+# Database - PostgreSQL only. SQLite was the original default (still
+# reachable in git history) but is dropped entirely here: it doesn't support
+# concurrent writers across processes, which the admin console's audit log +
+# usage tracking + regular chat traffic all hit simultaneously under any
+# real multi-worker deployment, and Render's filesystem is ephemeral anyway
+# (SQLite's on-disk file would just vanish on every redeploy).
+#
+# DATABASE_URL is the primary path - this is what Render's managed Postgres
+# (and every other hosted Postgres: Supabase, Neon, Heroku, ElephantSQL)
+# hands you directly, one env var, no assembly required. conn_max_age=600
+# and conn_health_checks=True are Django's own connection-reuse mechanism
+# (a real, if modest, form of "pooling" - a WSGI worker keeps its connection
+# open across requests for up to 10 minutes instead of reconnecting every
+# time, with a health check before reuse so a dropped connection doesn't
+# surface as a request-time error). For a heavier pooling need under real
+# concurrent load, put PgBouncer in front (Render's Postgres add-on offers
+# managed connection pooling - enabling it just changes the connection
+# string DATABASE_URL points at, no code change needed here).
+#
+# ssl_require=True whenever DATABASE_URL is used: nobody sets this env var
+# to point at a plaintext local socket - it's always a remote managed
+# instance, which is exactly the case that needs SSL enforced.
+#
 # https://docs.djangoproject.com/en/6.0/ref/settings/#databases
+import dj_database_url
 
-DATABASES = {
-    'default': {
-        # SQLite by default - zero configuration, fine for a single Render
-        # instance without a persistent disk concern. Set DATABASE_URL to
-        # switch to Postgres (needed the moment there's more than one web
-        # worker/instance, since SQLite doesn't support concurrent writers
-        # across processes) without touching this file again.
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
-    }
-}
+DATABASE_URL = os.getenv('DATABASE_URL')
 
-_database_url = os.getenv('DATABASE_URL')
-if _database_url:
-    try:
-        import dj_database_url
-        DATABASES['default'] = dj_database_url.parse(_database_url, conn_max_age=600)
-    except ImportError:
-        raise RuntimeError(
-            "DATABASE_URL is set but dj-database-url isn't installed. "
-            "Add dj-database-url and psycopg[binary] to requirements.txt, "
-            "or unset DATABASE_URL to keep using SQLite."
+if DATABASE_URL:
+    DATABASES = {
+        'default': dj_database_url.parse(
+            DATABASE_URL,
+            conn_max_age=600,
+            conn_health_checks=True,
+            ssl_require=True,
         )
+    }
+else:
+    # No DATABASE_URL: local development. Still genuinely PostgreSQL, never
+    # SQLite - point these at a local `createdb simba_intel` (see README /
+    # .env.example). Defaults match Postgres's own out-of-the-box local
+    # conventions (superuser "postgres", localhost:5432) purely for
+    # first-run convenience; they are not production credentials and are
+    # never used once DATABASE_URL is set.
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.postgresql',
+            'NAME': os.getenv('POSTGRES_DB', 'simba_intel'),
+            'USER': os.getenv('POSTGRES_USER', 'postgres'),
+            'PASSWORD': os.getenv('POSTGRES_PASSWORD', 'postgres'),
+            'HOST': os.getenv('POSTGRES_HOST', 'localhost'),
+            'PORT': os.getenv('POSTGRES_PORT', '5432'),
+            'CONN_MAX_AGE': 600,
+            'CONN_HEALTH_CHECKS': True,
+        }
+    }
 
 
 # Password validation

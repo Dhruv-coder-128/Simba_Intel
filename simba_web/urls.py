@@ -3,7 +3,7 @@ from django.db import connection
 from django.http import JsonResponse
 from django.urls import path, include
 from django.views.generic.base import RedirectView
-from chat import views
+from chat import views, admin_views
 
 
 def health_check(request):
@@ -22,6 +22,17 @@ def health_check(request):
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('health/', health_check, name='health_check'),
+    # Custom Super Admin Console - superuser-gated (see chat/admin_views.py's
+    # superuser_required), deliberately separate from django.contrib.admin
+    # above (left in place for direct DB inspection, but not what operators
+    # use day-to-day).
+    path('admin-console/', admin_views.admin_dashboard, name='admin_dashboard'),
+    path('admin-console/users/', admin_views.admin_users_list, name='admin_users_list'),
+    path('admin-console/users/<int:user_id>/', admin_views.admin_user_detail, name='admin_user_detail'),
+    path('admin-console/audit-log/', admin_views.admin_audit_log, name='admin_audit_log'),
+    path('admin-console/security/', admin_views.admin_security, name='admin_security'),
+    path('admin-console/feature-flags/', admin_views.admin_feature_flags, name='admin_feature_flags'),
+    path('admin-console/broadcasts/', admin_views.admin_broadcasts, name='admin_broadcasts'),
     path('favicon.ico', RedirectView.as_view(url='/static/favicon2.png', permanent=True)),
     # OTP password reset (additional to allauth's own link-based reset flow
     # below, which is untouched) - registered before the allauth include so
@@ -49,4 +60,5 @@ urlpatterns = [
     path('messages/<int:message_id>/regenerate/', views.regenerate_message, name='regenerate_message'),
     path('messages/<int:message_id>/edit/', views.edit_message, name='edit_message'),
     path('messages/<int:message_id>/switch-branch/', views.switch_branch, name='switch_branch'),
+    path('messages/<int:message_id>/toggle-favorite/', views.toggle_favorite_image, name='toggle_favorite_image'),
 ]
