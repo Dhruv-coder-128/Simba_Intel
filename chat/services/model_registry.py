@@ -16,7 +16,7 @@ MODEL_REGISTRY: Dict[str, ModelConfig] = {
     "cyber-max": ModelConfig(
         display_name="Cyber Max",
         provider="groq",
-        actual_model="meta-llama/llama-4-scout-17b-16e-instruct"
+        actual_model="llama-3.3-70b-versatile"
     ),
     "nova-mind": ModelConfig(
         display_name="Nova Mind",
@@ -56,6 +56,12 @@ def get_model_config(model_id: str) -> ModelConfig:
 
 def list_available_models() -> list[dict]:
     return [
-        {"id": mid, "display_name": config.display_name, "provider": config.provider}
+        {
+            "id": mid,
+            "display_name": config.display_name,
+            "provider": config.provider,
+            "supports_vision": config.supports_vision,
+            "supports_image_gen": config.supports_image_gen,
+        }
         for mid, config in MODEL_REGISTRY.items()
     ]

@@ -1,0 +1,48 @@
+services:
+  - type: web
+    name: simba-intel
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /health/
+    envVars:
+      - key: DEBUG
+        value: "False"
+      - key: DJANGO_SECRET_KEY
+        generateValue: true
+      - key: ALLOWED_HOSTS
+        value: simba-intel.onrender.com
+      - key: CSRF_TRUSTED_ORIGINS
+        value: https://simba-intel.onrender.com
+      - key: SITE_ID
+        value: "1"
+      - key: ACCOUNT_EMAIL_VERIFICATION
+        value: none
+      - key: EMAIL_BACKEND
+        value: django.core.mail.backends.console.EmailBackend
+      - key: GROQ_API_KEY
+        sync: false
+      - key: MISTRAL_API_KEY
+        sync: false
+      - key: TAVILY_API_KEY
+        sync: false
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: EMAIL_HOST
+        value: smtp.gmail.com
+      - key: EMAIL_PORT
+        value: "587"
+      - key: EMAIL_HOST_USER
+        sync: false
+      - key: EMAIL_HOST_PASSWORD
+        sync: false
+      - key: DEFAULT_FROM_EMAIL
+        sync: false
+      # Render's filesystem is ephemeral - it's wiped on every deploy/restart.
+      # SQLite (this app's default) would silently lose all data on the next
+      # deploy without a real database behind it. Point this at a Render
+      # Postgres instance's connection string for real persistence; leaving
+      # it unset keeps SQLite for a quick first deploy/demo only.
+      - key: DATABASE_URL
+        sync: false

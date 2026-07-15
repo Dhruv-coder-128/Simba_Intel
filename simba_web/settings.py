@@ -96,11 +96,27 @@ WSGI_APPLICATION = 'simba_web.wsgi.application'
 
 DATABASES = {
     'default': {
-        # Using SQLite for high stability and zero configuration
+        # SQLite by default - zero configuration, fine for a single Render
+        # instance without a persistent disk concern. Set DATABASE_URL to
+        # switch to Postgres (needed the moment there's more than one web
+        # worker/instance, since SQLite doesn't support concurrent writers
+        # across processes) without touching this file again.
         'ENGINE': 'django.db.backends.sqlite3',
         'NAME': BASE_DIR / 'db.sqlite3',
     }
 }
+
+_database_url = os.getenv('DATABASE_URL')
+if _database_url:
+    try:
+        import dj_database_url
+        DATABASES['default'] = dj_database_url.parse(_database_url, conn_max_age=600)
+    except ImportError:
+        raise RuntimeError(
+            "DATABASE_URL is set but dj-database-url isn't installed. "
+            "Add dj-database-url and psycopg[binary] to requirements.txt, "
+            "or unset DATABASE_URL to keep using SQLite."
+        )
 
 
 # Password validation
@@ -157,17 +173,35 @@ if not DEBUG:
     X_FRAME_OPTIONS = 'DENY'
     SECURE_CONTENT_TYPE_NOSNIFF = True
 
+    # HSTS - starts at 1 hour rather than the usual 1-year recommendation,
+    # specifically because it's new here: a wrong HTTPS assumption under a
+    # year-long HSTS policy is very hard to walk back for anyone who visited
+    # while it was broken. Raise SECURE_HSTS_SECONDS once this has run
+    # cleanly in production for a while.
+    SECURE_HSTS_SECONDS = int(os.getenv('SECURE_HSTS_SECONDS', '3600'))
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_HSTS_PRELOAD = False
+
     # CSRF Trusted Origins
     CSRF_TRUSTED_ORIGINS = os.getenv('CSRF_TRUSTED_ORIGINS', 'http://localhost:8000,https://simba-intel.onrender.com').split(',')
 
 # Email Configuration
-EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
+# Was hardcoded to the console backend regardless of environment, which
+# meant OTP/verification emails could never be delivered no matter what SMTP
+# credentials were configured below - only ever printed to stdout. Now it's
+# env-driven, but deliberately still *defaults* to console rather than
+# inferring SMTP from the mere presence of EMAIL_HOST_USER/PASSWORD - this
+# repo's own .env already has those set for local dev, and silently starting
+# to send real mail through them the moment this shipped would be a surprise
+# nobody asked for. Set EMAIL_BACKEND=django.core.mail.backends.smtp.EmailBackend
+# explicitly (e.g. in Render's environment) to actually send in production.
 EMAIL_HOST = os.getenv('EMAIL_HOST', 'smtp.gmail.com')
 EMAIL_PORT = int(os.getenv('EMAIL_PORT', '587'))
 EMAIL_USE_TLS = True
 EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER', '')
 EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD', '')
 DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', EMAIL_HOST_USER)
+EMAIL_BACKEND = os.getenv('EMAIL_BACKEND', 'django.core.mail.backends.console.EmailBackend')
 
 EMAIL_TIMEOUT = 30
 SERVER_EMAIL = DEFAULT_FROM_EMAIL
@@ -179,7 +213,15 @@ AUTHENTICATION_BACKENDS = [
 ]
 
 # Account Settings
-ACCOUNT_EMAIL_VERIFICATION = os.getenv('ACCOUNT_EMAIL_VERIFICATION', 'none')  # For production, set to "mandatory"
+# "mandatory" blocks LOGIN ITSELF for unverified users (allauth redirects them
+# to a holding page instead of ever completing authentication) - that's a
+# stricter product than this app implements. The in-app gate (chat/services/
+# verification.py) is built for "optional": users can log in and chat, but
+# image generation/Vision/Settings stay locked until they verify. For
+# production, set this to "optional" (not "mandatory") once EMAIL_BACKEND
+# above is pointed at real SMTP - otherwise verification emails are only
+# printed to the console and no one can ever complete the flow.
+ACCOUNT_EMAIL_VERIFICATION = os.getenv('ACCOUNT_EMAIL_VERIFICATION', 'none')
 ACCOUNT_LOGIN_METHODS = {'email'}
 ACCOUNT_SIGNUP_FIELDS = ['email*', 'password1*', 'password2*']
 LOGIN_REDIRECT_URL = "/"
@@ -198,3 +240,74 @@ ACCOUNT_FORMS = {
 SOCIALACCOUNT_LOGIN_ON_GET = True
 SOCIALACCOUNT_AUTO_SIGNUP = True
 SOCIALACCOUNT_EMAIL_AUTHENTICATION_AUTO_CONNECT = True
+
+# Explicit (not left to allauth's defaults) so the requested scope and PKCE
+# are guaranteed regardless of allauth version upgrades. The actual Client
+# ID/Secret still live in a SocialApp row (Django admin) tied to SITE_ID
+# above, not here - this block only controls *how* the OAuth handshake runs.
+# On Render: SECURE_PROXY_SSL_HEADER (set above, only when DEBUG=False) is
+# what makes Django build the callback URL as https:// instead of http://
+# behind Render's TLS-terminating proxy - without it, Google's "redirect_uri
+# mismatch" error is the usual symptom, not a Google-side misconfiguration.
+SOCIALACCOUNT_PROVIDERS = {
+    "google": {
+        "SCOPE": ["profile", "email"],
+        "AUTH_PARAMS": {"access_type": "online"},
+        "OAUTH_PKCE_ENABLED": True,
+    }
+}
+
+# Logging - there was no LOGGING dict at all before this, so Django's own
+# request/server errors (500s, broken pipe, etc.) only ever went wherever the
+# process's stdout/stderr happened to be captured, with no control over
+# format or level. chat/utils/logger.py's own AI-request logging is separate
+# and untouched by this.
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'verbose': {
+            'format': '{asctime} {levelname} {name}: {message}',
+            'style': '{',
+        },
+    },
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+            'formatter': 'verbose',
+        },
+    },
+    'root': {
+        'handlers': ['console'],
+        'level': 'INFO',
+    },
+    'loggers': {
+        'django': {
+            'handlers': ['console'],
+            'level': os.getenv('DJANGO_LOG_LEVEL', 'INFO'),
+            'propagate': False,
+        },
+        'django.request': {
+            'handlers': ['console'],
+            'level': 'ERROR',
+            'propagate': False,
+        },
+    },
+}
+
+# Error tracking (optional) - only activates if both SENTRY_DSN is set and
+# sentry-sdk is installed, so it's a no-op for anyone who hasn't opted in
+# rather than a hard new dependency.
+SENTRY_DSN = os.getenv('SENTRY_DSN')
+if SENTRY_DSN:
+    try:
+        import sentry_sdk
+        from sentry_sdk.integrations.django import DjangoIntegration
+        sentry_sdk.init(
+            dsn=SENTRY_DSN,
+            integrations=[DjangoIntegration()],
+            traces_sample_rate=float(os.getenv('SENTRY_TRACES_SAMPLE_RATE', '0.0')),
+            send_default_pii=False,
+        )
+    except ImportError:
+        pass

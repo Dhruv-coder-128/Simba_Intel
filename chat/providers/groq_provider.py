@@ -1,5 +1,5 @@
 
-from typing import Generator, Dict, Any, Optional
+from typing import Callable, Generator, Dict, Any, Optional
 from groq import Groq
 from .base import BaseProvider
 
@@ -22,7 +22,18 @@ class GroqProvider(BaseProvider):
         )
         return response.choices[0].message.content
 
-    def chat_stream(self, messages: list[Dict[str, Any]], model: str, **kwargs) -> Generator[str, None, None]:
+    def chat_stream(
+        self,
+        messages: list[Dict[str, Any]],
+        model: str,
+        on_usage: Optional[Callable[[dict], None]] = None,
+        **kwargs
+    ) -> Generator[str, None, None]:
+        # Verified empirically: the installed Groq SDK raises TypeError on
+        # stream_options={"include_usage": True} - it's not supported at all
+        # here (unlike Mistral's OpenAI-compatible endpoint), so `on_usage`
+        # is accepted for interface parity but intentionally never called;
+        # callers fall back to a token-count estimate for this provider.
         stream = self.client.chat.completions.create(
             model=model,
             messages=messages,

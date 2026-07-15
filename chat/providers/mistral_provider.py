@@ -1,5 +1,5 @@
 import os
-from typing import Generator, Dict, Any
+from typing import Callable, Generator, Dict, Any, Optional
 
 from openai import OpenAI
 
@@ -43,17 +43,28 @@ class MistralProvider(BaseProvider):
         self,
         messages: list[Dict[str, Any]],
         model: str,
+        on_usage: Optional[Callable[[dict], None]] = None,
         **kwargs,
     ) -> Generator[str, None, None]:
 
+        # Verified empirically: Mistral's OpenAI-compatible endpoint honors
+        # stream_options and returns a final usage-bearing chunk with real
+        # token counts (unlike the Groq SDK, which rejects this kwarg
+        # outright) - so real usage capture is only attempted here.
         stream = self.client.chat.completions.create(
             model=model,
             messages=messages,
             stream=True,
+            stream_options={"include_usage": True},
             **kwargs,
         )
 
         for chunk in stream:
+            if getattr(chunk, "usage", None) and on_usage:
+                on_usage({
+                    "prompt_tokens": chunk.usage.prompt_tokens,
+                    "completion_tokens": chunk.usage.completion_tokens,
+                })
 
             if (
                 chunk.choices
@@ -66,6 +77,7 @@ class MistralProvider(BaseProvider):
         self,
         messages,
         model="pixtral-large-latest",
+        on_usage: Optional[Callable[[dict], None]] = None,
         **kwargs,
     ):
 
@@ -74,6 +86,12 @@ class MistralProvider(BaseProvider):
             messages=messages,
             **kwargs,
         )
+
+        if getattr(response, "usage", None) and on_usage:
+            on_usage({
+                "prompt_tokens": response.usage.prompt_tokens,
+                "completion_tokens": response.usage.completion_tokens,
+            })
 
         return response.choices[0].message.content
 

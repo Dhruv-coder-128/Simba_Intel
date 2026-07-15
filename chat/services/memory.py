@@ -1,25 +1,47 @@
 
-from chat.models import ChatSession, ChatMessage
+from chat.models import ChatSession, Message
+from chat.services.message_tree import walk_active_chain
 from typing import List, Dict
 
 
-def get_conversation_history(session: ChatSession, limit: int = 10) -> List[Dict[str, str]]:
-    messages = ChatMessage.objects.filter(session=session).order_by('timestamp')[:limit]
-    history = []
-    for msg in messages:
-        history.append({"role": "user", "content": msg.user_query})
+def messages_to_history_dicts(chain: List[Message], limit: int = 10) -> List[Dict[str, str]]:
+    """Convert a chronological chain of Message nodes into the role/content
+    dict shape providers expect. Shared by the normal send flow (walking the
+    session's active leaf) and by regenerate/edit (walking from an arbitrary
+    historical message's parent, which may not be the current active leaf).
+    """
+    # Each turn is one user node + one assistant node, so `limit` turns is
+    # `limit * 2` nodes - preserves the exact semantics of the old
+    # ChatMessage-based implementation this replaces (including taking the
+    # OLDEST `limit` turns, not the most recent - unchanged on purpose here;
+    # a separate concern from the schema migration).
+    chain = chain[:limit * 2]
 
-        ai_response = msg.ai_response.strip() if msg.ai_response else ""
-        if not ai_response:
+    history = []
+    for msg in chain:
+        if msg.role == "user":
+            history.append({"role": "user", "content": msg.content or ""})
+            continue
+
+        if msg.role != "assistant":
+            continue
+
+        content = (msg.content or "").strip()
+        if not content:
             # Image-generation turns store no text response; describe what
             # happened instead of sending an empty assistant message upstream.
             if isinstance(msg.extra_data, dict) and msg.extra_data.get("type") == "image":
-                prompt = msg.extra_data.get("prompt", msg.user_query)
-                ai_response = f"[Generated an image for: {prompt}]"
+                fallback_prompt = msg.parent.content if msg.parent else ""
+                prompt = msg.extra_data.get("prompt") or fallback_prompt
+                content = f"[Generated an image for: {prompt}]"
             else:
                 continue
-        history.append({"role": "assistant", "content": ai_response})
+        history.append({"role": "assistant", "content": content})
     return history
+
+
+def get_conversation_history(session: ChatSession, limit: int = 10) -> List[Dict[str, str]]:
+    return messages_to_history_dicts(walk_active_chain(session), limit=limit)
 
 
 SYSTEM_PROMPT = """You are Simba, a professional, friendly AI assistant created by Dhruv.

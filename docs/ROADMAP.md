@@ -82,30 +82,115 @@ constraints, infra decisions) that need action from the project owner, not just 
   OpenAI/DeepSeek/OpenRouter can share one OpenAI-compatible adapter class; Gemini needs the
   `google-genai` SDK.
 
-### Phase 3 - Message schema evolution
+### Phase 3 - Message schema evolution — DONE (July 2026)
 
-The current `ChatMessage` model is one row per user+assistant turn pair - it cannot represent branching
-(two answers to one question) without hacks. Add a new `Message` model (role, content, `parent` self-FK,
-`extra_data`) **alongside** the existing `ChatMessage` table (never touched/deleted - permanent rollback
-copy). A one-time data migration walks existing sessions and reproduces today's linear history as a single
-branch with no siblings. `chat_home` gets a small adapter that re-pairs the active-leaf chain into objects
-exposing the same field names `chat.html`'s render loop already expects, so the template needs no changes for
-the read path. `chat/services/memory.py:get_conversation_history` gets rewritten to walk the active-leaf
-chain - every later context-injection feature (memory, knowledge base, fetched pages, research agent steps)
-plugs in here.
+Shipped exactly as designed, verified against real production chat history (22 sessions, 97 legacy turns):
 
-### Phase 4 - Usage & cost tracking, rate limiting
+- `Message` model (role, content, `parent` self-FK, `extra_data`, `latency`) + `ChatSession.active_leaf`,
+  migrations `0009` (schema) + `0010` (data backfill, `chat/migrations/0010_backfill_message_tree.py`).
+  `ChatMessage` is untouched and permanently intact as an audit/rollback copy - confirmed byte-for-byte
+  unmodified after migration (97 rows before and after). A `db.sqlite3.pre-phase3-backup-*` snapshot was
+  also taken before running the migration against the real dev DB, as a second safety net.
+- `chat/services/message_tree.py` (new): `walk_chain_from`/`walk_active_chain`, `build_display_messages`
+  (the chat_home read-adapter - re-pairs the tree into ChatMessage-shaped objects so `chat.html`'s render
+  loop needed zero changes), `append_turn`, `regenerate_assistant_reply`. This is the module every later
+  phase needing tree access (compare, research agent, multi-agent discussion) will import from.
+- `chat/services/memory.py:get_conversation_history` now walks `active_leaf` instead of querying
+  `ChatMessage` - `messages_to_history_dicts` is the shared chain-to-provider-format converter, reused by
+  regenerate/edit for building context as-of an arbitrary historical message (not just the current leaf).
+- `ask_ai`'s three write paths (text streaming, image-gen, vision) all write `Message` rows via
+  `append_turn` now, not `ChatMessage.objects.create`.
+- New endpoints with **real** sibling-branch semantics (not a "new turn" approximation):
+  `POST /messages/<id>/regenerate/` and `POST /messages/<id>/edit/` both create a sibling under the
+  original parent and move `active_leaf` there - the old branch stays in the DB, just off the active path.
+  `GET /session/<id>/active-leaf/` lets the frontend learn a just-streamed message's real id (streaming
+  responses can't carry a trailing id once the body has started).
+- Frontend: `regenerateText()` and the new `editUserMessage()`/`submitEditedMessage()` replace a bubble's
+  content in place via the new endpoints when a real message id is available (history-rendered messages
+  always have one; live-streamed messages get one via the active-leaf fetch immediately after streaming
+  completes, so branching works without a reload). Falls back to the old "append a new turn" behavior if
+  no id is present, so regenerate never just breaks.
+- Real bug caught by testing before it shipped: `append_turn`'s `parent=None` default couldn't distinguish
+  "caller omitted the argument" from "caller explicitly wants a root-level parent," which broke editing the
+  *first* message in a conversation (silently reparented under the wrong node). Fixed with a proper sentinel.
+  Second bug caught the same way: `regenerateText`'s DOM update only touched `.content`'s children, leaving
+  the old footer (copy/share/regenerate buttons + raw-data textarea) as untouched siblings - every
+  regenerate was silently accumulating a duplicate footer. Both caught by writing/running tests and a live
+  Playwright pass before declaring the phase done, not by inspection.
+- Verified end-to-end in a real browser against the real Groq API: send -> regenerate (new sibling, old
+  preserved, footer not duplicated) -> edit (new user+assistant branch, old preserved) -> page reload
+  (history renders correctly via the adapter, ids correct) -> image generation (unaffected code path,
+  confirmed still writes to the Message tree correctly). Zero console errors throughout. 52/52 automated
+  tests passing (12 new: 6 migration correctness, 4 write-flow, 8 regenerate/edit endpoint - some overlap
+  categories).
 
-New `UsageEvent` model (provider, model, tokens, estimated cost, latency). Both `groq_provider.py` and
-`mistral_provider.py` are OpenAI-compatible and support `stream_options={"include_usage": True}` to get real
-token counts from streaming responses - currently discarded. A static per-model cost table gives estimated
-USD cost. Rate limiting is DB-backed (sliding window against `UsageEvent`) rather than pulling in a
-Redis-based limiter prematurely - revisit once Phase 14 introduces Redis anyway.
+### Phase 4 - Usage & cost tracking, rate limiting — DONE (July 2026)
 
-### Phase 5 - Analytics dashboard
+Corrected a wrong assumption from this section's original draft before writing any code: tested
+`stream_options={"include_usage": True}` directly against both real APIs first. **Mistral's OpenAI-compatible
+endpoint supports it and returns real token counts** (`CompletionUsage(prompt_tokens=5, completion_tokens=21,
+...)`), but **the installed Groq SDK rejects the kwarg outright** (`TypeError: Completions.create() got an
+unexpected keyword argument 'stream_options'`) - not "returns nothing," a hard error. Usage capture is
+therefore provider-aware, not uniform:
 
-Pure read-side view over Phase 4's `UsageEvent` data - cost/token breakdown by model/provider/day. Use the
-`dataviz` skill when actually building the charts.
+- `UsageEvent` model (`chat/models.py`): user, session, provider, model_id, event_type (chat/vision/image),
+  prompt_tokens, completion_tokens, estimated_cost_usd, `tokens_are_estimated` flag, latency, created_at.
+  Migration `0011_usageevent`.
+- `chat/services/cost_table.py`: static per-model USD/1k-token rates (approximate public list prices, not
+  wired to a live pricing API - directional cost, not a billing-grade figure. Flagged in-file and in the
+  analytics UI). `image-studio` (Pollinations) is a flat $0 - it's free.
+- `chat/services/usage.py`: `estimate_tokens()` (`len(text)//4` heuristic), `record_usage()` (prefers real
+  provider-supplied usage when given, falls back to the estimate otherwise), `check_rate_limit()` (DB-backed
+  sliding window against `UsageEvent`, 30 requests/minute/user - no Redis, per this doc's original note to
+  defer that until Phase 14 introduces it anyway).
+- Real usage capture wired via an optional `on_usage` callback threaded through `chat_stream()`/`vision()`:
+  `MistralProvider` calls it with real token counts from `stream_options`; `GroqProvider` accepts the same
+  parameter (interface parity) but never calls it, so callers transparently fall back to the estimate - no
+  branching logic needed at the call sites in `views.py`.
+  `ai_router.supports_real_usage(model_id)` exists as a capability check if a future caller needs it directly.
+- `UsageEvent.objects.create(...)` (via `record_usage`) wired into all 5 AI call sites: text streaming (main
+  send + regenerate + edit), vision, and image generation.
+  429 rate-limit responses added to `ask_ai`, `regenerate_message`, `edit_message`.
+- 17 new tests (cost table, usage service, wiring at all 5 call sites, rate-limit enforcement). All passing
+  against real Groq/Mistral calls, same pattern as Phase 3.
+
+### Phase 5 - Analytics dashboard — DONE (July 2026)
+
+Pure read-side view over Phase 4's `UsageEvent` data (`/analytics/`, `analytics_dashboard` view +
+`templates/analytics.html`) - no writes happen here, so it's safe to hit as often as the user likes.
+
+- Stat tiles (total requests, total tokens, estimated cost, avg latency), a 14-day requests line chart, a
+  by-event-type doughnut, a by-model breakdown table, and a 20-row recent-activity table. Chart.js via CDN
+  (consistent with this template's existing CDN usage for marked.js/DOMPurify/html2pdf).
+  A footnote discloses when token counts shown are estimated vs. real, so the cost figures aren't mistaken
+  for exact billing.
+- Linked from the chat sidebar and the settings page. Reuses the same `data-theme` CSS custom-property
+  scheme as `profile.html` so it matches whichever of the 4 themes the user has selected.
+- 5 new tests (empty state, per-user isolation, aggregation correctness, estimated-token footnote logic).
+  Verified live in a real browser with seeded data across all 4 themes and both light/dark rendering paths -
+  zero console errors, charts render correctly.
+
+### New UI features (outside the phase sequence, user-requested alongside Phase 4/5)
+
+- **Command palette (Ctrl+K / Cmd+K)**: Raycast/Linear-style overlay, fuzzy-filterable list built live from
+  the DOM each time it opens (new chat, analytics, settings, focus composer, focus search, log out, one
+  entry per model in the dropdown, one entry per chat session in the sidebar) - no separate hardcoded data
+  source to fall out of sync with what's actually on the page. Arrow keys + Enter + Escape, click-to-run.
+- **Branch/sibling switcher**: Phase 3 gave regenerate/edit real sibling-branch semantics, but there was no
+  UI to see or switch between the branches it created - this closes that gap. `build_display_messages()`
+  now attaches sibling ids/index/count for both the assistant reply and the user turn (single extra query
+  per session, not per-turn, via one bulk fetch + in-memory grouping). A `‹ 2/3 ›`-style pill appears in the
+  reply footer (assistant siblings) and next to an edited user bubble (user siblings); clicking it calls the
+  new `POST /messages/<id>/switch-branch/` endpoint, which moves `active_leaf` to the chosen sibling (or, for
+  a user-message sibling, to its assistant child) and reloads to redraw the turn.
+  New `GET /messages/<id>/siblings/` endpoint lets `regenerateText()`/`submitEditedMessage()` refresh the
+  pill immediately after their in-place DOM patch, without a page reload - caught via a live Playwright check
+  that the pill was otherwise silently missing until a manual refresh (server-side sibling data alone isn't
+  enough when the frontend patches the DOM instead of re-rendering the template).
+- 12 new backend tests (sibling-count correctness in `build_display_messages`, switch-branch endpoint
+  semantics/ownership, siblings endpoint). Verified live end-to-end against the real Groq API: send ->
+  regenerate -> switcher pill appears immediately showing 2/2 -> click switch -> lands back on 1/2 -> zero
+  console errors.
 
 ### Phase 6 - Postgres migration
 

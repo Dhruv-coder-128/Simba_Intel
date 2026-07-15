@@ -8,6 +8,11 @@ class SimbaLogger:
     def __init__(self, name: str = "simba_intel"):
         self.logger = logging.getLogger(name)
         self.logger.setLevel(logging.INFO)
+        # This logger manages its own handler/formatter below - without
+        # propagate=False, every record also bubbles up to Django's root
+        # logger (see simba_web/settings.py's LOGGING config) and gets
+        # printed a second time through its handler too.
+        self.logger.propagate = False
         if not self.logger.handlers:
             handler = logging.StreamHandler()
             formatter = logging.Formatter(

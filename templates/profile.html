@@ -16,47 +16,51 @@
             --bg: #0b0c10;
             --sidebar: #101217;
             --accent: #00e5ff;
+            --accent-rgb: 0, 229, 255;
             --accent-soft: rgba(0, 229, 255, 0.55);
             --accent-dim: rgba(0, 229, 255, 0.08);
             --border: #1c1f26;
             --border-soft: rgba(255, 255, 255, 0.06);
-            --card: #12151b;
+            --card: rgba(255, 255, 255, 0.02);
+            --surface: #12151b;
             --text: #d8dbe1;
             --text-dim: #8b93a3;
             --radius-sm: 6px;
             --radius-md: 10px;
+            --radius-lg: 16px;
             --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.45);
         }
 
-        html[data-theme="midnight-purple"] {
-            --accent: #b084f5;
-            --accent-soft: rgba(176, 132, 245, 0.55);
-            --accent-dim: rgba(176, 132, 245, 0.08);
-        }
-
-        html[data-theme="matrix-green"] {
-            --accent: #39ff88;
-            --accent-soft: rgba(57, 255, 136, 0.55);
-            --accent-dim: rgba(57, 255, 136, 0.08);
-        }
-
+        html[data-theme="midnight-purple"] { --accent: #b084f5; --accent-rgb: 176,132,245; --accent-soft: rgba(176,132,245,0.55); --accent-dim: rgba(176,132,245,0.08); }
+        html[data-theme="matrix-green"] { --accent: #39ff88; --accent-rgb: 57,255,136; --accent-soft: rgba(57,255,136,0.55); --accent-dim: rgba(57,255,136,0.08); }
+        html[data-theme="nord"] { --bg:#242933; --sidebar:#2e3440; --accent:#88c0d0; --accent-rgb:136,192,208; --border:#3b4252; --card: rgba(255,255,255,0.02); --surface:#262b35; --text:#eceff4; --text-dim:#9aa5b1; --accent-soft: rgba(136,192,208,0.55); --accent-dim: rgba(136,192,208,0.08); }
+        html[data-theme="synthwave"] { --bg:#170b28; --sidebar:#1f1033; --accent:#ff2e97; --accent-rgb:255,46,151; --border:#35204f; --card: rgba(255,255,255,0.03); --surface:#1c0f38; --text:#f5e9ff; --text-dim:#b79fd4; --accent-soft: rgba(255,46,151,0.55); --accent-dim: rgba(255,46,151,0.08); }
+        html[data-theme="purple-neon"] { --bg:#140a24; --sidebar:#1c1035; --accent:#a855f7; --accent-rgb:168,85,247; --border:#2f1c4a; --card: rgba(255,255,255,0.03); --surface:#190e2e; --text:#f0e6ff; --text-dim:#a793c4; --accent-soft: rgba(168,85,247,0.55); --accent-dim: rgba(168,85,247,0.08); }
+        html[data-theme="ocean"] { --bg:#071a24; --sidebar:#0d2635; --accent:#22d3ee; --accent-rgb:34,211,238; --border:#123244; --card: rgba(255,255,255,0.02); --surface:#0a212e; --text:#e0f7fa; --text-dim:#8fb8c4; --accent-soft: rgba(34,211,238,0.55); --accent-dim: rgba(34,211,238,0.08); }
+        html[data-theme="minimal-dark"] { --bg:#18181b; --sidebar:#1f1f23; --accent:#60a5fa; --accent-rgb:96,165,250; --border:#29292e; --card: rgba(255,255,255,0.02); --surface:#1c1c20; --text:#e4e4e7; --text-dim:#8b8b92; --accent-soft: rgba(96,165,250,0.55); --accent-dim: rgba(96,165,250,0.08); }
+        html[data-theme="graphite"] { --bg:#1c1b1a; --sidebar:#232220; --accent:#f0a868; --accent-rgb:240,168,104; --border:#322f2c; --card: rgba(255,255,255,0.025); --surface:#201f1d; --text:#e8e4df; --text-dim:#9c948a; --accent-soft: rgba(240,168,104,0.55); --accent-dim: rgba(240,168,104,0.08); }
         html[data-theme="light"] {
             --bg: #f4f5f7;
             --sidebar: #ffffff;
             --accent: #0091a8;
+            --accent-rgb: 0, 145, 168;
             --accent-soft: rgba(0, 145, 168, 0.6);
             --accent-dim: rgba(0, 145, 168, 0.08);
             --border: #dfe3e8;
             --border-soft: rgba(0, 0, 0, 0.08);
-            --card: #ffffff;
+            --card: rgba(0, 0, 0, 0.02);
+            --surface: #ffffff;
             --text: #1c1f26;
             --text-dim: #5b6472;
             --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.08);
         }
 
-        * {
-            box-sizing: border-box;
-        }
+        * { box-sizing: border-box; }
+
+        ::-webkit-scrollbar { width: 10px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(var(--accent-rgb), 0.2); border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(var(--accent-rgb), 0.5); }
 
         body {
             font-family: 'Outfit', sans-serif;
@@ -64,20 +68,12 @@
             color: var(--text);
             margin: 0;
             min-height: 100vh;
-            display: flex;
-            justify-content: center;
-            padding: 40px 16px;
         }
 
-        .settings-card {
-            width: 100%;
-            max-width: 560px;
-            background: var(--card);
-            border: 1px solid var(--border-soft);
-            border-radius: var(--radius-md);
-            box-shadow: var(--shadow-md);
-            padding: 28px;
-            height: fit-content;
+        .settings-shell {
+            max-width: 980px;
+            margin: 0 auto;
+            padding: 28px 20px 60px;
         }
 
         .settings-header {
@@ -85,6 +81,21 @@
             align-items: center;
             justify-content: space-between;
             margin-bottom: 24px;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+
+        .settings-locked-banner {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 12px 16px;
+            margin-bottom: 20px;
+            background: rgba(255, 184, 77, 0.08);
+            border: 1px solid rgba(255, 184, 77, 0.35);
+            border-radius: var(--radius-sm);
+            color: #ffb84d;
+            font-size: 13px;
         }
 
         .settings-header h1 {
@@ -93,6 +104,15 @@
             letter-spacing: 1.5px;
             color: var(--accent);
             margin: 0;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .header-links {
+            display: flex;
+            align-items: center;
+            gap: 16px;
         }
 
         .back-link {
@@ -105,13 +125,109 @@
             transition: color 0.15s ease;
         }
 
-        .back-link:hover {
-            color: var(--accent);
+        .back-link:hover { color: var(--accent); }
+
+        .settings-layout {
+            display: grid;
+            grid-template-columns: 200px 1fr;
+            gap: 20px;
+            align-items: start;
         }
 
-        .field {
-            margin-bottom: 20px;
+        @media (max-width: 760px) {
+            .settings-layout { grid-template-columns: 1fr; }
         }
+
+        .tab-nav {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            position: sticky;
+            top: 28px;
+        }
+
+        @media (max-width: 760px) {
+            .tab-nav {
+                flex-direction: row;
+                overflow-x: auto;
+                position: static;
+                padding-bottom: 6px;
+                gap: 6px;
+            }
+        }
+
+        .tab-nav-btn {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 9px 12px;
+            border: 1px solid transparent;
+            border-radius: var(--radius-sm);
+            background: transparent;
+            color: var(--text-dim);
+            font-family: 'Outfit', sans-serif;
+            font-size: 13px;
+            text-align: left;
+            cursor: pointer;
+            transition: background 0.15s ease, color 0.15s ease;
+            white-space: nowrap;
+        }
+
+        .tab-nav-btn i { width: 16px; text-align: center; }
+
+        .tab-nav-btn:hover {
+            background: rgba(255, 255, 255, 0.04);
+            color: var(--text);
+        }
+
+        .tab-nav-btn.active {
+            background: var(--accent-dim);
+            color: var(--accent);
+            border-color: var(--accent-soft);
+            font-weight: 600;
+        }
+
+        .tab-panel {
+            display: none;
+            animation: tabIn 0.18s ease;
+        }
+
+        .tab-panel.active { display: block; }
+
+        @keyframes tabIn {
+            from { opacity: 0; transform: translateY(4px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .settings-card {
+            background: var(--surface);
+            border: 1px solid var(--border-soft);
+            border-radius: var(--radius-md);
+            box-shadow: var(--shadow-md);
+            padding: 22px;
+            margin-bottom: 16px;
+        }
+
+        .card-title {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 15px;
+            font-weight: 600;
+            margin: 0 0 4px;
+        }
+
+        .card-title i { color: var(--accent); }
+
+        .card-desc {
+            font-size: 12.5px;
+            color: var(--text-dim);
+            margin: 0 0 18px;
+            line-height: 1.5;
+        }
+
+        .field { margin-bottom: 18px; }
+        .field:last-child { margin-bottom: 0; }
 
         .field label {
             display: block;
@@ -139,9 +255,7 @@
         }
 
         .field input[type="text"]:focus,
-        .field select:focus {
-            border-color: var(--accent-soft);
-        }
+        .field select:focus { border-color: var(--accent-soft); }
 
         .toggle-row {
             display: flex;
@@ -151,19 +265,9 @@
             border-bottom: 1px solid var(--border-soft);
         }
 
-        .toggle-row:last-of-type {
-            border-bottom: none;
-        }
-
-        .toggle-row .toggle-label {
-            font-size: 14px;
-        }
-
-        .toggle-row .toggle-hint {
-            font-size: 12px;
-            color: var(--text-dim);
-            margin-top: 2px;
-        }
+        .toggle-row:last-child { border-bottom: none; }
+        .toggle-row .toggle-label { font-size: 14px; }
+        .toggle-row .toggle-hint { font-size: 12px; color: var(--text-dim); margin-top: 2px; }
 
         .toggle-row input[type="checkbox"] {
             width: 18px;
@@ -174,20 +278,12 @@
 
         .theme-grid {
             display: grid;
-            grid-template-columns: repeat(2, 1fr);
+            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
             gap: 10px;
         }
 
-        .theme-option {
-            position: relative;
-            cursor: pointer;
-        }
-
-        .theme-option input {
-            position: absolute;
-            opacity: 0;
-            pointer-events: none;
-        }
+        .theme-option { position: relative; cursor: pointer; }
+        .theme-option input { position: absolute; opacity: 0; pointer-events: none; }
 
         .theme-swatch {
             display: flex;
@@ -200,7 +296,7 @@
             font-size: 13px;
         }
 
-        .theme-option input:checked+.theme-swatch {
+        .theme-option input:checked + .theme-swatch {
             border-color: var(--accent);
             background: var(--accent-dim);
         }
@@ -210,11 +306,91 @@
             height: 16px;
             border-radius: 50%;
             flex-shrink: 0;
+            box-shadow: 0 0 8px currentColor;
         }
+
+        .theme-preview-note {
+            font-size: 11.5px;
+            color: var(--text-dim);
+            margin-top: 12px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+            gap: 12px;
+        }
+
+        .info-tile {
+            background: var(--bg);
+            border: 1px solid var(--border-soft);
+            border-radius: var(--radius-sm);
+            padding: 14px;
+        }
+
+        .info-tile-title {
+            font-size: 13.5px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+        }
+
+        .info-badge {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 10px;
+            padding: 2px 7px;
+            border-radius: 999px;
+            background: var(--accent-dim);
+            color: var(--accent);
+            border: 1px solid var(--accent-soft);
+        }
+
+        .info-tile-meta {
+            font-size: 11.5px;
+            color: var(--text-dim);
+            margin-top: 6px;
+        }
+
+        .shortcut-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 9px 0;
+            border-bottom: 1px solid var(--border-soft);
+            font-size: 13px;
+        }
+
+        .shortcut-row:last-child { border-bottom: none; }
+
+        .shortcut-row kbd {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 11px;
+            color: var(--text-dim);
+            border: 1px solid var(--border-soft);
+            border-radius: 4px;
+            padding: 2px 8px;
+        }
+
+        .kv-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid var(--border-soft);
+            font-size: 13px;
+        }
+
+        .kv-row:last-child { border-bottom: none; }
+        .kv-row span:first-child { color: var(--text-dim); }
+        .kv-row span:last-child { font-family: 'JetBrains Mono', monospace; }
 
         .save-btn {
             width: 100%;
-            margin-top: 24px;
+            margin-top: 4px;
             padding: 12px;
             background: var(--accent-dim);
             border: 1px solid var(--accent);
@@ -227,84 +403,292 @@
             transition: background 0.2s ease, color 0.2s ease;
         }
 
-        .save-btn:hover {
-            background: var(--accent);
-            color: var(--bg);
+        .save-btn:hover { background: var(--accent); color: var(--bg); }
+
+        .danger-note {
+            font-size: 12px;
+            color: var(--text-dim);
+            background: var(--bg);
+            border: 1px dashed var(--border-soft);
+            border-radius: var(--radius-sm);
+            padding: 12px;
+            line-height: 1.5;
         }
+
+        .logout-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 16px;
+            border: 1px solid var(--accent-dim);
+            border-radius: var(--radius-sm);
+            background: var(--bg);
+            color: var(--accent);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 13px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .logout-btn:hover { background: var(--accent); color: var(--bg); }
     </style>
 </head>
 
 <body>
-    <div class="settings-card">
+    <div class="settings-shell">
         <div class="settings-header">
             <h1><i class="fa-solid fa-gear"></i> SETTINGS</h1>
-            <a href="/" class="back-link"><i class="fa-solid fa-arrow-left"></i> Back to chat</a>
+            <div class="header-links">
+                <a href="{% url 'analytics_dashboard' %}" class="back-link" id="analyticsLink"><i class="fa-solid fa-chart-line"></i> Analytics</a>
+                <a href="/" class="back-link" id="backToChatLink"><i class="fa-solid fa-arrow-left"></i> Back to chat</a>
+            </div>
         </div>
 
-        <form method="post">
-            {% csrf_token %}
+        {% if not email_verified %}
+        <div class="settings-locked-banner">
+            <i class="fa-solid fa-lock"></i>
+            Settings are read-only until you verify your email. Changes below won't be saved.
+        </div>
+        {% endif %}
 
-            <div class="field">
-                <label for="display_name">Display name</label>
-                <input type="text" id="display_name" name="display_name" maxlength="100"
-                    value="{{ profile.display_name }}" placeholder="{{ request.user.username }}">
-            </div>
+        <div class="settings-layout">
+            <nav class="tab-nav" id="settingsTabNav">
+                <button type="button" class="tab-nav-btn active" data-tab="general" onclick="switchSettingsTab('general')"><i class="fa-solid fa-sliders"></i> General</button>
+                <button type="button" class="tab-nav-btn" data-tab="appearance" onclick="switchSettingsTab('appearance')"><i class="fa-solid fa-palette"></i> Appearance</button>
+                <button type="button" class="tab-nav-btn" data-tab="models" onclick="switchSettingsTab('models')"><i class="fa-solid fa-microchip"></i> AI Models</button>
+                <button type="button" class="tab-nav-btn" data-tab="image-studio" onclick="switchSettingsTab('image-studio')"><i class="fa-solid fa-image"></i> Image Studio</button>
+                <button type="button" class="tab-nav-btn" data-tab="vision" onclick="switchSettingsTab('vision')"><i class="fa-solid fa-eye"></i> Vision</button>
+                <button type="button" class="tab-nav-btn" data-tab="shortcuts" onclick="switchSettingsTab('shortcuts')"><i class="fa-solid fa-keyboard"></i> Shortcuts</button>
+                <button type="button" class="tab-nav-btn" data-tab="notifications" onclick="switchSettingsTab('notifications')"><i class="fa-solid fa-bell"></i> Notifications</button>
+                <button type="button" class="tab-nav-btn" data-tab="privacy" onclick="switchSettingsTab('privacy')"><i class="fa-solid fa-shield-halved"></i> Privacy</button>
+                <button type="button" class="tab-nav-btn" data-tab="account" onclick="switchSettingsTab('account')"><i class="fa-solid fa-user"></i> Account</button>
+                <button type="button" class="tab-nav-btn" data-tab="developer" onclick="switchSettingsTab('developer')"><i class="fa-solid fa-code"></i> Developer</button>
+                <button type="button" class="tab-nav-btn" data-tab="about" onclick="switchSettingsTab('about')"><i class="fa-solid fa-circle-info"></i> About</button>
+            </nav>
 
-            <div class="field">
-                <label for="default_model">Default model</label>
-                <select id="default_model" name="default_model">
-                    {% for m in models %}
-                    <option value="{{ m.id }}" {% if profile.default_model == m.id %}selected{% endif %}>
-                        {{ m.display_name }}
-                    </option>
-                    {% endfor %}
-                </select>
-            </div>
+            <form method="post" id="settingsForm">
+                {% csrf_token %}
+                <input type="hidden" name="next_session_id" id="next-session-id" value="">
+                <fieldset {% if not email_verified %}disabled{% endif %} style="border:none; padding:0; margin:0;">
 
-            <div class="field">
-                <label>Theme</label>
-                <div class="theme-grid">
-                    {% for value, name in theme_choices %}
-                    <label class="theme-option">
-                        <input type="radio" name="theme" value="{{ value }}"
-                            {% if profile.theme == value %}checked{% endif %}
-                            onchange="document.documentElement.setAttribute('data-theme', this.value)">
-                        <span class="theme-swatch">
-                            <span class="swatch-dot" style="background:
-                                {% if value == 'cyberpunk' %}#00e5ff
-                                {% elif value == 'midnight-purple' %}#b084f5
-                                {% elif value == 'matrix-green' %}#39ff88
-                                {% else %}#f4f5f7; border: 1px solid #999
-                                {% endif %};"></span>
-                            {{ name }}
-                        </span>
-                    </label>
-                    {% endfor %}
-                </div>
-            </div>
+                <div class="tab-panel active" data-tab="general">
+                    <div class="settings-card">
+                        <h2 class="card-title"><i class="fa-solid fa-sliders"></i> General</h2>
+                        <p class="card-desc">Your identity and default behavior across new conversations.</p>
 
-            <div class="field">
-                <label>Preferences</label>
-                <div class="toggle-row">
-                    <div>
-                        <div class="toggle-label">Memory</div>
-                        <div class="toggle-hint">Cross-chat recall (activates in a later update)</div>
+                        <div class="field">
+                            <label for="display_name">Display name</label>
+                            <input type="text" id="display_name" name="display_name" maxlength="100"
+                                value="{{ profile.display_name }}" placeholder="{{ request.user.username }}">
+                        </div>
+
+                        <div class="field">
+                            <label for="default_model">Default model</label>
+                            <select id="default_model" name="default_model">
+                                {% for m in models %}
+                                <option value="{{ m.id }}" {% if profile.default_model == m.id %}selected{% endif %}>
+                                    {{ m.display_name }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <div class="toggle-row">
+                            <div>
+                                <div class="toggle-label">Memory</div>
+                                <div class="toggle-hint">Cross-chat recall (activates in a later update)</div>
+                            </div>
+                            <input type="checkbox" name="memory_enabled" {% if profile.memory_enabled %}checked{% endif %}>
+                        </div>
                     </div>
-                    <input type="checkbox" name="memory_enabled" {% if profile.memory_enabled %}checked{% endif %}>
                 </div>
-                <div class="toggle-row">
-                    <div>
-                        <div class="toggle-label">Notifications</div>
-                        <div class="toggle-hint">Sound on response complete</div>
-                    </div>
-                    <input type="checkbox" name="notifications_enabled"
-                        {% if profile.notifications_enabled %}checked{% endif %}>
-                </div>
-            </div>
 
-            <button type="submit" class="save-btn"><i class="fa-solid fa-check"></i> SAVE SETTINGS</button>
-        </form>
+                <div class="tab-panel" data-tab="appearance">
+                    <div class="settings-card">
+                        <h2 class="card-title"><i class="fa-solid fa-palette"></i> Theme</h2>
+                        <p class="card-desc">Click any theme to preview it instantly across this page - it only saves when you press Save.</p>
+                        <div class="theme-grid">
+                            {% for value, name in theme_choices %}
+                            <label class="theme-option">
+                                <input type="radio" name="theme" value="{{ value }}" data-theme-name="{{ name }}"
+                                    {% if profile.theme == value %}checked{% endif %}
+                                    onchange="document.documentElement.setAttribute('data-theme', this.value); updateThemePreviewNote(this.value, this.dataset.themeName);">
+                                <span class="theme-swatch">
+                                    <span class="swatch-dot" style="background: {% if value == 'cyberpunk' %}#00e5ff{% elif value == 'midnight-purple' %}#b084f5{% elif value == 'matrix-green' %}#39ff88{% elif value == 'nord' %}#88c0d0{% elif value == 'synthwave' %}#ff2e97{% elif value == 'purple-neon' %}#a855f7{% elif value == 'ocean' %}#22d3ee{% elif value == 'minimal-dark' %}#60a5fa{% elif value == 'graphite' %}#f0a868{% else %}#0091a8{% endif %}; color: {% if value == 'cyberpunk' %}#00e5ff{% elif value == 'midnight-purple' %}#b084f5{% elif value == 'matrix-green' %}#39ff88{% elif value == 'nord' %}#88c0d0{% elif value == 'synthwave' %}#ff2e97{% elif value == 'purple-neon' %}#a855f7{% elif value == 'ocean' %}#22d3ee{% elif value == 'minimal-dark' %}#60a5fa{% elif value == 'graphite' %}#f0a868{% else %}#0091a8{% endif %};"></span>
+                                    {{ name }}
+                                </span>
+                            </label>
+                            {% endfor %}
+                        </div>
+                        <div class="theme-preview-note" id="themePreviewNote"><i class="fa-solid fa-circle-info"></i> Previewing "{{ profile.theme|default:'cyberpunk' }}" (saved). Pick another swatch to preview it live.</div>
+                    </div>
+                </div>
+
+                <div class="tab-panel" data-tab="models">
+                    <div class="settings-card">
+                        <h2 class="card-title"><i class="fa-solid fa-microchip"></i> AI Models</h2>
+                        <p class="card-desc">Every model currently wired into Simba Intel, and what it can do.</p>
+                        <div class="info-grid">
+                            {% for m in models %}
+                            <div class="info-tile">
+                                <div class="info-tile-title">{{ m.display_name }} <span class="info-badge">{{ m.provider }}</span></div>
+                                <div class="info-tile-meta">
+                                    {% if m.supports_vision %}<i class="fa-solid fa-eye"></i> Vision{% endif %}
+                                    {% if m.supports_image_gen %}<i class="fa-solid fa-image"></i> Image generation{% endif %}
+                                    {% if not m.supports_vision and not m.supports_image_gen %}<i class="fa-solid fa-message"></i> Text chat{% endif %}
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+
+                <div class="tab-panel" data-tab="image-studio">
+                    <div class="settings-card">
+                        <h2 class="card-title"><i class="fa-solid fa-image"></i> Image Studio</h2>
+                        <p class="card-desc">Powered by Pollinations AI. Aspect ratio and prompt are chosen per-generation in the composer - there's no separate config needed here.</p>
+                        <div class="kv-row"><span>Model</span><span>Image Studio</span></div>
+                        <div class="kv-row"><span>Aspect ratios</span><span>1:1, 16:9, 9:16</span></div>
+                        <div class="kv-row"><span>Cost</span><span>Free</span></div>
+                    </div>
+                </div>
+
+                <div class="tab-panel" data-tab="vision">
+                    <div class="settings-card">
+                        <h2 class="card-title"><i class="fa-solid fa-eye"></i> Vision</h2>
+                        <p class="card-desc">Attach an image to any message on a vision-capable model to have it described or analyzed.</p>
+                        <div class="kv-row"><span>Vision-capable models</span><span>{% for m in models %}{% if m.supports_vision %}{{ m.display_name }} {% endif %}{% endfor %}</span></div>
+                        <div class="kv-row"><span>Supported formats</span><span>JPG, PNG, WEBP, GIF, BMP</span></div>
+                        <div class="kv-row"><span>Max file size</span><span>10 MB / file</span></div>
+                        <div class="kv-row"><span>Max attachments</span><span>6 per message</span></div>
+                    </div>
+                </div>
+
+                <div class="tab-panel" data-tab="shortcuts">
+                    <div class="settings-card">
+                        <h2 class="card-title"><i class="fa-solid fa-keyboard"></i> Keyboard Shortcuts</h2>
+                        <p class="card-desc">The same shortcuts are always available from the command palette on the chat page.</p>
+                        <div class="shortcut-row"><span>Open command palette</span><kbd>Ctrl / Cmd + K</kbd></div>
+                        <div class="shortcut-row"><span>Send message</span><kbd>Enter</kbd></div>
+                        <div class="shortcut-row"><span>New line in message</span><kbd>Shift + Enter</kbd></div>
+                        <div class="shortcut-row"><span>Navigate palette</span><kbd>&uarr; / &darr;</kbd></div>
+                        <div class="shortcut-row"><span>Run selected command</span><kbd>Enter</kbd></div>
+                        <div class="shortcut-row"><span>Close palette / dialogs</span><kbd>Esc</kbd></div>
+                    </div>
+                </div>
+
+                <div class="tab-panel" data-tab="notifications">
+                    <div class="settings-card">
+                        <h2 class="card-title"><i class="fa-solid fa-bell"></i> Notifications</h2>
+                        <p class="card-desc">Local, in-browser notifications only - nothing is emailed or pushed.</p>
+                        <div class="toggle-row">
+                            <div>
+                                <div class="toggle-label">Sound on response complete</div>
+                                <div class="toggle-hint">Plays a short chime when Simba finishes replying</div>
+                            </div>
+                            <input type="checkbox" name="notifications_enabled" {% if profile.notifications_enabled %}checked{% endif %}>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="tab-panel" data-tab="privacy">
+                    <div class="settings-card">
+                        <h2 class="card-title"><i class="fa-solid fa-shield-halved"></i> Privacy</h2>
+                        <p class="card-desc">What Simba Intel stores about your account.</p>
+                        <div class="kv-row"><span>Conversation history</span><span>Stored until you delete it</span></div>
+                        <div class="kv-row"><span>Cross-chat memory</span><span>{% if profile.memory_enabled %}Enabled{% else %}Disabled{% endif %}</span></div>
+                        <div class="kv-row"><span>Usage analytics</span><span>Visible only to you, at /analytics/</span></div>
+                        <div class="danger-note"><i class="fa-solid fa-triangle-exclamation"></i> Individual conversations can be deleted from the sidebar's conversation menu - there's no bulk-delete yet.</div>
+                    </div>
+                </div>
+
+                <div class="tab-panel" data-tab="account">
+                    <div class="settings-card">
+                        <h2 class="card-title"><i class="fa-solid fa-user"></i> Account</h2>
+                        <div class="kv-row"><span>Username</span><span>{{ request.user.username }}</span></div>
+                        <div class="kv-row"><span>Email</span><span>{{ request.user.email }}</span></div>
+                        <div class="kv-row"><span>Member since</span><span>{{ request.user.date_joined|date:"M j, Y" }}</span></div>
+                        <div style="margin-top:16px;">
+                            <button type="button" class="logout-btn" onclick="document.getElementById('logout-form-settings').submit()">
+                                <i class="fa-solid fa-sign-out-alt"></i> LOG OUT
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="tab-panel" data-tab="developer">
+                    <div class="settings-card">
+                        <h2 class="card-title"><i class="fa-solid fa-code"></i> Developer</h2>
+                        <p class="card-desc">Diagnostic info - useful when reporting a bug.</p>
+                        <div class="kv-row"><span>Active theme</span><span id="devActiveTheme">-</span></div>
+                        <div class="kv-row"><span>Viewport</span><span id="devViewport">-</span></div>
+                        <div class="kv-row"><span>User agent</span><span id="devUserAgent" style="max-width:60%; text-align:right; word-break:break-word;">-</span></div>
+                        <div class="kv-row"><span>Registered models</span><span>{{ models|length }}</span></div>
+                        <div class="kv-row"><span>Page rendered at</span><span>{% now "Y-m-d H:i:s" %}</span></div>
+                    </div>
+                </div>
+
+                <div class="tab-panel" data-tab="about">
+                    <div class="settings-card">
+                        <h2 class="card-title"><i class="fa-solid fa-circle-info"></i> About Simba Intel</h2>
+                        <p class="card-desc">A personal multi-model AI assistant - chat, vision, and image generation in one place.</p>
+                        <div class="kv-row"><span>Providers</span><span>Groq, Mistral, Pollinations</span></div>
+                        <div class="kv-row"><span>Built with</span><span>Django</span></div>
+                    </div>
+                </div>
+
+                <button type="submit" class="save-btn"><i class="fa-solid fa-check"></i> SAVE SETTINGS</button>
+                </fieldset>
+            </form>
+        </div>
     </div>
+
+    <form method="post" action="{% url 'account_logout' %}" id="logout-form-settings" style="display:none;">
+        {% csrf_token %}
+    </form>
+
+    <script>
+        function updateThemePreviewNote(value, name) {
+            const note = document.getElementById('themePreviewNote');
+            if (!note) return;
+            note.innerHTML = `<i class="fa-solid fa-circle-info"></i> Previewing "${name}" - press Save to keep it, or leave without saving to discard the preview.`;
+        }
+
+        function switchSettingsTab(tab) {
+            document.querySelectorAll('.tab-nav-btn').forEach(btn => btn.classList.toggle('active', btn.dataset.tab === tab));
+            document.querySelectorAll('.tab-panel').forEach(panel => panel.classList.toggle('active', panel.dataset.tab === tab));
+            if (history.replaceState) history.replaceState(null, '', '#' + tab);
+        }
+
+        (function initialTabFromHash() {
+            const hash = (window.location.hash || '').replace('#', '');
+            if (hash && document.querySelector(`.tab-nav-btn[data-tab="${hash}"]`)) {
+                switchSettingsTab(hash);
+            }
+        })();
+
+        // Chat-state round trip: read the session id saved by chat.html
+        // before it navigated here, so "Back to chat" and "Save" both
+        // return to that exact conversation instead of a blank home page.
+        (function wireReturnToChat() {
+            let sessionId = '';
+            try {
+                const raw = sessionStorage.getItem('simba_chat_state');
+                if (raw) sessionId = JSON.parse(raw).sessionId || '';
+            } catch (e) { /* ignore malformed/blocked storage */ }
+
+            const backLink = document.getElementById('backToChatLink');
+            const nextSessionField = document.getElementById('next-session-id');
+            if (sessionId) {
+                if (backLink) backLink.href = '/?session=' + encodeURIComponent(sessionId);
+                if (nextSessionField) nextSessionField.value = sessionId;
+            }
+        })();
+
+        document.getElementById('devActiveTheme').textContent = document.documentElement.getAttribute('data-theme') || 'cyberpunk';
+        document.getElementById('devViewport').textContent = window.innerWidth + ' x ' + window.innerHeight;
+        document.getElementById('devUserAgent').textContent = navigator.userAgent;
+    </script>
 </body>
 
 </html>

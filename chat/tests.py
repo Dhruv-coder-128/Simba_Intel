@@ -1,16 +1,27 @@
+import importlib
+from datetime import timedelta
 from unittest.mock import patch
 
+from django.apps import apps as live_apps
 from django.contrib.auth import get_user_model
+from django.core import mail
 from django.core.files.uploadedfile import SimpleUploadedFile
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.urls import reverse
+from django.utils import timezone
 
-from chat.models import ChatMessage, ChatSession, UserProfile
+from chat.models import ChatMessage, ChatSession, Message, PasswordResetOTP, UsageEvent, UserProfile
 from chat.providers.pollinations_image_provider import PollinationsImageProvider
+from chat.services.cost_table import estimate_cost
 from chat.services.memory import get_conversation_history
+from chat.services.message_tree import append_turn, build_display_messages, walk_active_chain
 from chat.services.model_registry import get_model_config, list_available_models
+from chat.services.usage import RATE_LIMIT_MAX_REQUESTS, check_rate_limit, estimate_tokens, record_usage
+from chat.services.verification import is_email_verified, verification_required
 
 User = get_user_model()
+
+_backfill_migration = importlib.import_module("chat.migrations.0010_backfill_message_tree")
 
 
 class ModelRegistryTests(TestCase):
@@ -52,12 +63,16 @@ class PollinationsImageProviderTests(TestCase):
 
 
 class ConversationHistoryTests(TestCase):
+    """get_conversation_history now reads the Message tree (via
+    session.active_leaf), not the legacy ChatMessage table - fixtures here
+    build the tree directly with append_turn, same as ask_ai does."""
+
     def setUp(self):
         self.user = User.objects.create_user(username="dhruv", password="testpass123")
         self.session = ChatSession.objects.create(user=self.user, title="Test session")
 
     def test_text_turn_round_trips(self):
-        ChatMessage.objects.create(session=self.session, user_query="hi", ai_response="hello")
+        append_turn(self.session, "hi", "hello")
         history = get_conversation_history(self.session)
         self.assertEqual(history, [
             {"role": "user", "content": "hi"},
@@ -65,11 +80,9 @@ class ConversationHistoryTests(TestCase):
         ])
 
     def test_image_turn_never_yields_empty_assistant_content(self):
-        ChatMessage.objects.create(
-            session=self.session,
-            user_query="draw a cat",
-            ai_response="",
-            extra_data={"type": "image", "prompt": "draw a cat"},
+        append_turn(
+            self.session, "draw a cat", "",
+            assistant_extra_data={"type": "image", "prompt": "draw a cat"},
         )
         history = get_conversation_history(self.session)
         assistant_turns = [m for m in history if m["role"] == "assistant"]
@@ -77,10 +90,25 @@ class ConversationHistoryTests(TestCase):
         self.assertTrue(assistant_turns[0]["content"].strip())
 
     def test_stray_empty_assistant_turn_is_skipped_not_sent_blank(self):
-        ChatMessage.objects.create(session=self.session, user_query="hi", ai_response="")
+        append_turn(self.session, "hi", "")
         history = get_conversation_history(self.session)
+        self.assertEqual(history, [{"role": "user", "content": "hi"}])
         for msg in history:
             self.assertNotEqual(msg, {"role": "assistant", "content": ""})
+
+    def test_history_respects_turn_limit_from_oldest(self):
+        for i in range(5):
+            append_turn(self.session, f"q{i}", f"a{i}")
+        history = get_conversation_history(self.session, limit=2)
+        self.assertEqual(history, [
+            {"role": "user", "content": "q0"},
+            {"role": "assistant", "content": "a0"},
+            {"role": "user", "content": "q1"},
+            {"role": "assistant", "content": "a1"},
+        ])
+
+    def test_history_empty_for_session_with_no_active_leaf(self):
+        self.assertEqual(get_conversation_history(self.session), [])
 
 
 class AskAiViewTests(TestCase):
@@ -310,3 +338,772 @@ class UserProfileTests(TestCase):
         UserProfile.objects.create(user=self.user, theme="midnight-purple")
         response = self.client.get(reverse("home"))
         self.assertContains(response, 'data-theme="midnight-purple"')
+
+
+class MessageBackfillMigrationTests(TestCase):
+    """Phase 3: the data migration that reproduces ChatMessage history as a
+    Message tree. Tested directly against the real migration function -
+    not a reimplementation - since this is the highest-risk part of the
+    whole phase (it runs against real production chat history)."""
+
+    def setUp(self):
+        self.user = User.objects.create_user(username="dhruv", password="testpass123")
+        self.session = ChatSession.objects.create(user=self.user, title="Legacy session")
+
+    def _run_backfill(self):
+        _backfill_migration.backfill_messages(live_apps, None)
+
+    def test_backfill_reproduces_linear_history_in_order(self):
+        ChatMessage.objects.create(session=self.session, user_query="hi", ai_response="hello")
+        ChatMessage.objects.create(session=self.session, user_query="how are you", ai_response="good")
+
+        self._run_backfill()
+        self.session.refresh_from_db()
+
+        self.assertIsNotNone(self.session.active_leaf)
+        self.assertEqual(self.session.active_leaf.role, "assistant")
+        self.assertEqual(self.session.active_leaf.content, "good")
+
+        chain = []
+        node = self.session.active_leaf
+        while node is not None:
+            chain.append((node.role, node.content))
+            node = node.parent
+        chain.reverse()
+        self.assertEqual(chain, [
+            ("user", "hi"), ("assistant", "hello"),
+            ("user", "how are you"), ("assistant", "good"),
+        ])
+
+    def test_backfill_is_idempotent_once_active_leaf_set(self):
+        ChatMessage.objects.create(session=self.session, user_query="hi", ai_response="hello")
+        self._run_backfill()
+        count_after_first = Message.objects.filter(session=self.session).count()
+        self._run_backfill()  # active_leaf is now set, should be a no-op
+        count_after_second = Message.objects.filter(session=self.session).count()
+        self.assertEqual(count_after_first, count_after_second)
+        self.assertEqual(count_after_first, 2)
+
+    def test_backfill_preserves_image_extra_data_empty_content_and_latency(self):
+        ChatMessage.objects.create(
+            session=self.session, user_query="draw a cat", ai_response="",
+            extra_data={"type": "image", "image_url": "http://example.com/x.jpg"},
+            latency=2.5,
+        )
+        self._run_backfill()
+        self.session.refresh_from_db()
+        leaf = self.session.active_leaf
+        self.assertEqual(leaf.role, "assistant")
+        self.assertEqual(leaf.content, "")
+        self.assertEqual(leaf.extra_data["type"], "image")
+        self.assertEqual(leaf.latency, 2.5)
+
+    def test_backfill_skips_sessions_with_no_messages(self):
+        empty_session = ChatSession.objects.create(user=self.user, title="Empty")
+        self._run_backfill()
+        empty_session.refresh_from_db()
+        self.assertIsNone(empty_session.active_leaf)
+
+    def test_backfill_does_not_touch_chatmessage_rows(self):
+        ChatMessage.objects.create(session=self.session, user_query="hi", ai_response="hello")
+        count_before = ChatMessage.objects.count()
+        self._run_backfill()
+        self.assertEqual(ChatMessage.objects.count(), count_before)
+        # and the original row is unmodified
+        cm = ChatMessage.objects.get(session=self.session)
+        self.assertEqual(cm.user_query, "hi")
+        self.assertEqual(cm.ai_response, "hello")
+
+    def test_backfill_multiple_sessions_independently(self):
+        session2 = ChatSession.objects.create(user=self.user, title="Second")
+        ChatMessage.objects.create(session=self.session, user_query="a", ai_response="b")
+        ChatMessage.objects.create(session=session2, user_query="c", ai_response="d")
+
+        self._run_backfill()
+        self.session.refresh_from_db()
+        session2.refresh_from_db()
+
+        self.assertEqual(self.session.active_leaf.content, "b")
+        self.assertEqual(session2.active_leaf.content, "d")
+        # No cross-session parent leakage
+        self.assertEqual(self.session.active_leaf.parent.session_id, self.session.id)
+        self.assertEqual(session2.active_leaf.parent.session_id, session2.id)
+
+
+class MessageTreeWriteFlowTests(TestCase):
+    """Phase 3: ask_ai now writes Message rows (not ChatMessage), and
+    chat_home reads them back via build_display_messages. Covers the actual
+    write paths, not just the tree helpers in isolation."""
+
+    def setUp(self):
+        self.user = User.objects.create_user(username="dhruv", password="testpass123")
+        self.client.force_login(self.user)
+
+    def _consume(self, response):
+        return b"".join(response.streaming_content).decode()
+
+    @patch("chat.views.chat_stream")
+    def test_text_send_writes_message_tree_not_chatmessage(self, mock_chat_stream):
+        mock_chat_stream.return_value = iter(["Hello there"])
+        response = self.client.post(reverse("ask_ai"), {"query": "hi", "model_id": "cyber-max"})
+        self.assertEqual(response.status_code, 200)
+        self._consume(response)
+
+        self.assertEqual(ChatMessage.objects.count(), 0)
+        session = ChatSession.objects.get(user=self.user)
+        self.assertIsNotNone(session.active_leaf)
+        self.assertEqual(session.active_leaf.role, "assistant")
+        self.assertEqual(session.active_leaf.content, "Hello there")
+        self.assertEqual(session.active_leaf.parent.role, "user")
+        self.assertEqual(session.active_leaf.parent.content, "hi")
+
+    @patch("chat.views.chat_stream")
+    def test_second_turn_chains_under_first(self, mock_chat_stream):
+        mock_chat_stream.return_value = iter(["one"])
+        r1 = self.client.post(reverse("ask_ai"), {"query": "first", "model_id": "cyber-max"})
+        self._consume(r1)
+        session_id = r1["X-Session-ID"]
+
+        mock_chat_stream.return_value = iter(["two"])
+        r2 = self.client.post(reverse("ask_ai"), {
+            "query": "second", "model_id": "cyber-max", "session_id": session_id,
+        })
+        self._consume(r2)
+
+        session = ChatSession.objects.get(id=session_id)
+        self.assertEqual(Message.objects.filter(session=session).count(), 4)
+        self.assertEqual(session.active_leaf.content, "two")
+        self.assertEqual(session.active_leaf.parent.parent.parent.content, "first")
+
+    def test_chat_home_renders_message_tree_history(self):
+        session = ChatSession.objects.create(user=self.user, title="T")
+        append_turn(session, "hi", "hello")
+        response = self.client.get(reverse("home") + f"?session={session.id}")
+        self.assertEqual(response.status_code, 200)
+        messages = list(response.context["messages"])
+        self.assertEqual(len(messages), 1)
+        self.assertEqual(messages[0].user_query, "hi")
+        self.assertEqual(messages[0].ai_response, "hello")
+
+
+class RegenerateEditEndpointTests(TestCase):
+    """Phase 3: real sibling-branch semantics - regenerate/edit create a new
+    sibling and move active_leaf, the old branch stays in the DB untouched."""
+
+    def setUp(self):
+        self.user = User.objects.create_user(username="dhruv", password="testpass123")
+        self.other_user = User.objects.create_user(username="mallory", password="testpass123")
+        self.client.force_login(self.user)
+        self.session = ChatSession.objects.create(user=self.user, title="T")
+        self.user_msg, self.assistant_msg = append_turn(self.session, "hi", "hello")
+
+    def _consume(self, response):
+        return b"".join(response.streaming_content).decode()
+
+    def test_session_active_leaf_returns_current_message_id(self):
+        response = self.client.get(reverse("session_active_leaf", args=[self.session.id]))
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["message_id"], self.assistant_msg.id)
+
+    def test_session_active_leaf_requires_login(self):
+        self.client.logout()
+        response = self.client.get(reverse("session_active_leaf", args=[self.session.id]))
+        self.assertEqual(response.status_code, 302)
+
+    def test_session_active_leaf_blocks_other_users_session(self):
+        other_session = ChatSession.objects.create(user=self.other_user, title="private")
+        response = self.client.get(reverse("session_active_leaf", args=[other_session.id]))
+        self.assertEqual(response.status_code, 404)
+
+    @patch("chat.views.chat_stream")
+    def test_regenerate_creates_sibling_and_preserves_old(self, mock_chat_stream):
+        mock_chat_stream.return_value = iter(["a better answer"])
+        response = self.client.post(
+            reverse("regenerate_message", args=[self.assistant_msg.id]),
+            {"model_id": "cyber-max"},
+        )
+        self.assertEqual(response.status_code, 200)
+        self._consume(response)
+
+        self.session.refresh_from_db()
+        self.assistant_msg.refresh_from_db()
+
+        # Old message untouched
+        self.assertEqual(self.assistant_msg.content, "hello")
+        # New sibling under the SAME parent
+        self.assertNotEqual(self.session.active_leaf_id, self.assistant_msg.id)
+        self.assertEqual(self.session.active_leaf.parent_id, self.assistant_msg.parent_id)
+        self.assertEqual(self.session.active_leaf.content, "a better answer")
+        # Both siblings still exist
+        siblings = Message.objects.filter(parent=self.user_msg, role="assistant")
+        self.assertEqual(siblings.count(), 2)
+
+    def test_regenerate_requires_assistant_role(self):
+        response = self.client.post(
+            reverse("regenerate_message", args=[self.user_msg.id]), {"model_id": "cyber-max"}
+        )
+        self.assertEqual(response.status_code, 404)
+
+    def test_regenerate_blocks_other_users_message(self):
+        other_session = ChatSession.objects.create(user=self.other_user, title="private")
+        _u, other_assistant = append_turn(other_session, "secret", "reply")
+        response = self.client.post(
+            reverse("regenerate_message", args=[other_assistant.id]), {"model_id": "cyber-max"}
+        )
+        self.assertEqual(response.status_code, 404)
+
+    @patch("chat.views.chat_stream")
+    def test_edit_creates_sibling_user_turn_and_fresh_reply(self, mock_chat_stream):
+        mock_chat_stream.return_value = iter(["hi yourself"])
+        response = self.client.post(
+            reverse("edit_message", args=[self.user_msg.id]),
+            {"content": "hi (edited)", "model_id": "cyber-max"},
+        )
+        self.assertEqual(response.status_code, 200)
+        self._consume(response)
+
+        self.session.refresh_from_db()
+        self.user_msg.refresh_from_db()
+
+        # Old user message and its old reply untouched
+        self.assertEqual(self.user_msg.content, "hi")
+        # New branch: sibling user node (same parent as the edited one) -> fresh assistant reply
+        new_leaf = self.session.active_leaf
+        self.assertEqual(new_leaf.role, "assistant")
+        self.assertEqual(new_leaf.content, "hi yourself")
+        new_user_node = new_leaf.parent
+        self.assertEqual(new_user_node.content, "hi (edited)")
+        self.assertEqual(new_user_node.parent_id, self.user_msg.parent_id)
+        self.assertNotEqual(new_user_node.id, self.user_msg.id)
+
+        # Old branch still fully in the DB
+        siblings = Message.objects.filter(parent=self.user_msg.parent, role="user")
+        self.assertEqual(siblings.count(), 2)
+
+    def test_edit_rejects_empty_content(self):
+        response = self.client.post(
+            reverse("edit_message", args=[self.user_msg.id]), {"content": "   ", "model_id": "cyber-max"}
+        )
+        self.assertEqual(response.status_code, 400)
+
+    def test_edit_requires_user_role(self):
+        response = self.client.post(
+            reverse("edit_message", args=[self.assistant_msg.id]),
+            {"content": "new", "model_id": "cyber-max"},
+        )
+        self.assertEqual(response.status_code, 404)
+
+
+class BranchSwitcherTests(TestCase):
+    """New UI feature: navigate between sibling branches created by
+    regenerate/edit, via build_display_messages' sibling metadata and the
+    /messages/<id>/switch-branch/ endpoint."""
+
+    def setUp(self):
+        self.user = User.objects.create_user(username="dhruv", password="testpass123")
+        self.other_user = User.objects.create_user(username="mallory", password="testpass123")
+        self.client.force_login(self.user)
+        self.session = ChatSession.objects.create(user=self.user, title="T")
+        self.user_msg, self.assistant_msg = append_turn(self.session, "hi", "hello")
+
+    def _consume(self, response):
+        return b"".join(response.streaming_content).decode()
+
+    def test_single_reply_has_no_sibling_switcher_data(self):
+        display = build_display_messages(self.session)
+        self.assertEqual(len(display), 1)
+        self.assertEqual(display[0].assistant_sibling_count, 1)
+        self.assertEqual(display[0].user_sibling_count, 1)
+
+    @patch("chat.views.chat_stream")
+    def test_regenerate_produces_two_assistant_siblings_in_display(self, mock_chat_stream):
+        mock_chat_stream.return_value = iter(["a better answer"])
+        self._consume(self.client.post(
+            reverse("regenerate_message", args=[self.assistant_msg.id]), {"model_id": "cyber-max"}
+        ))
+        self.session.refresh_from_db()
+        display = build_display_messages(self.session)
+        self.assertEqual(len(display), 1)
+        self.assertEqual(display[0].assistant_sibling_count, 2)
+        self.assertEqual(display[0].assistant_sibling_index, 2)
+        self.assertEqual(len(display[0].assistant_sibling_ids), 2)
+
+    @patch("chat.views.chat_stream")
+    def test_edit_produces_two_user_siblings_in_display(self, mock_chat_stream):
+        mock_chat_stream.return_value = iter(["hi yourself"])
+        self._consume(self.client.post(
+            reverse("edit_message", args=[self.user_msg.id]),
+            {"content": "hi (edited)", "model_id": "cyber-max"},
+        ))
+        self.session.refresh_from_db()
+        display = build_display_messages(self.session)
+        self.assertEqual(len(display), 1)
+        self.assertEqual(display[0].user_sibling_count, 2)
+        self.assertEqual(display[0].user_sibling_index, 2)
+
+    @patch("chat.views.chat_stream")
+    def test_switch_branch_moves_active_leaf_to_old_assistant_sibling(self, mock_chat_stream):
+        mock_chat_stream.return_value = iter(["a better answer"])
+        self._consume(self.client.post(
+            reverse("regenerate_message", args=[self.assistant_msg.id]), {"model_id": "cyber-max"}
+        ))
+        self.session.refresh_from_db()
+        self.assertNotEqual(self.session.active_leaf_id, self.assistant_msg.id)
+
+        response = self.client.post(reverse("switch_branch", args=[self.assistant_msg.id]))
+        self.assertEqual(response.status_code, 200)
+        self.session.refresh_from_db()
+        self.assertEqual(self.session.active_leaf_id, self.assistant_msg.id)
+        self.assertEqual(response.json()["message_id"], self.assistant_msg.id)
+
+    @patch("chat.views.chat_stream")
+    def test_switch_branch_on_user_message_moves_to_its_assistant_child(self, mock_chat_stream):
+        mock_chat_stream.return_value = iter(["hi yourself"])
+        self._consume(self.client.post(
+            reverse("edit_message", args=[self.user_msg.id]),
+            {"content": "hi (edited)", "model_id": "cyber-max"},
+        ))
+        self.session.refresh_from_db()
+        new_leaf_id = self.session.active_leaf_id
+
+        # Switch back to the ORIGINAL user turn - should land on its original assistant reply.
+        response = self.client.post(reverse("switch_branch", args=[self.user_msg.id]))
+        self.assertEqual(response.status_code, 200)
+        self.session.refresh_from_db()
+        self.assertEqual(self.session.active_leaf_id, self.assistant_msg.id)
+        self.assertEqual(response.json()["user_message_id"], self.user_msg.id)
+        self.assertNotEqual(self.session.active_leaf_id, new_leaf_id)
+
+    def test_switch_branch_requires_login(self):
+        self.client.logout()
+        response = self.client.post(reverse("switch_branch", args=[self.assistant_msg.id]))
+        self.assertEqual(response.status_code, 302)
+
+    def test_switch_branch_blocks_other_users_message(self):
+        other_session = ChatSession.objects.create(user=self.other_user, title="private")
+        _u, other_assistant = append_turn(other_session, "secret", "reply")
+        response = self.client.post(reverse("switch_branch", args=[other_assistant.id]))
+        self.assertEqual(response.status_code, 404)
+
+    def test_switch_branch_rejects_get(self):
+        response = self.client.get(reverse("switch_branch", args=[self.assistant_msg.id]))
+        self.assertEqual(response.status_code, 400)
+
+    def test_siblings_endpoint_returns_single_sibling_before_regenerate(self):
+        response = self.client.get(reverse("message_siblings", args=[self.assistant_msg.id]))
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data["sibling_ids"], [self.assistant_msg.id])
+        self.assertEqual(data["role"], "assistant")
+
+    @patch("chat.views.chat_stream")
+    def test_siblings_endpoint_reflects_new_sibling_after_regenerate(self, mock_chat_stream):
+        mock_chat_stream.return_value = iter(["a better answer"])
+        self._consume(self.client.post(
+            reverse("regenerate_message", args=[self.assistant_msg.id]), {"model_id": "cyber-max"}
+        ))
+        self.session.refresh_from_db()
+        new_leaf_id = self.session.active_leaf_id
+        response = self.client.get(reverse("message_siblings", args=[new_leaf_id]))
+        data = response.json()
+        self.assertEqual(len(data["sibling_ids"]), 2)
+        self.assertIn(self.assistant_msg.id, data["sibling_ids"])
+        self.assertEqual(data["current_id"], new_leaf_id)
+
+    def test_siblings_endpoint_requires_login(self):
+        self.client.logout()
+        response = self.client.get(reverse("message_siblings", args=[self.assistant_msg.id]))
+        self.assertEqual(response.status_code, 302)
+
+    def test_siblings_endpoint_blocks_other_users_message(self):
+        other_session = ChatSession.objects.create(user=self.other_user, title="private")
+        _u, other_assistant = append_turn(other_session, "secret", "reply")
+        response = self.client.get(reverse("message_siblings", args=[other_assistant.id]))
+        self.assertEqual(response.status_code, 404)
+
+
+class CostTableTests(TestCase):
+    """Phase 4: cost estimation is a pure function of (model, tokens)."""
+
+    def test_known_model_uses_its_rates(self):
+        cost = estimate_cost("sky-net", prompt_tokens=1000, completion_tokens=1000)
+        self.assertAlmostEqual(cost, 0.002 + 0.006)
+
+    def test_flat_cost_model_ignores_token_counts(self):
+        self.assertEqual(estimate_cost("image-studio", prompt_tokens=999999, completion_tokens=999999), 0.0)
+
+    def test_unknown_model_defaults_to_zero(self):
+        self.assertEqual(estimate_cost("some-future-model", prompt_tokens=500, completion_tokens=500), 0.0)
+
+
+class UsageServiceTests(TestCase):
+    """Phase 4: token estimation, usage recording, and rate limiting."""
+
+    def setUp(self):
+        self.user = User.objects.create_user(username="dhruv", password="testpass123")
+        self.session = ChatSession.objects.create(user=self.user, title="T")
+
+    def test_estimate_tokens_heuristic(self):
+        self.assertEqual(estimate_tokens("a" * 40), 10)
+        self.assertEqual(estimate_tokens(""), 0)
+        self.assertEqual(estimate_tokens("hi"), 1)  # floor of 1 for any non-empty text
+
+    def test_record_usage_falls_back_to_estimate_when_no_captured_usage(self):
+        event = record_usage(
+            self.user, self.session, "groq", "cyber-max", "chat",
+            prompt_text="a" * 40, completion_text="b" * 80,
+            captured_usage={}, latency=1.2,
+        )
+        self.assertTrue(event.tokens_are_estimated)
+        self.assertEqual(event.prompt_tokens, 10)
+        self.assertEqual(event.completion_tokens, 20)
+
+    def test_record_usage_prefers_real_captured_usage(self):
+        event = record_usage(
+            self.user, self.session, "mistral", "sky-net", "chat",
+            prompt_text="a" * 40, completion_text="b" * 80,
+            captured_usage={"prompt_tokens": 5, "completion_tokens": 26}, latency=1.2,
+        )
+        self.assertFalse(event.tokens_are_estimated)
+        self.assertEqual(event.prompt_tokens, 5)
+        self.assertEqual(event.completion_tokens, 26)
+
+    def test_record_usage_computes_cost_from_cost_table(self):
+        event = record_usage(
+            self.user, self.session, "mistral", "sky-net", "chat",
+            captured_usage={"prompt_tokens": 1000, "completion_tokens": 1000},
+        )
+        self.assertAlmostEqual(float(event.estimated_cost_usd), 0.008)
+
+    def test_rate_limit_allows_under_cap(self):
+        for _ in range(RATE_LIMIT_MAX_REQUESTS - 1):
+            UsageEvent.objects.create(user=self.user, provider="groq", model_id="cyber-max", event_type="chat")
+        self.assertTrue(check_rate_limit(self.user))
+
+    def test_rate_limit_blocks_at_cap(self):
+        for _ in range(RATE_LIMIT_MAX_REQUESTS):
+            UsageEvent.objects.create(user=self.user, provider="groq", model_id="cyber-max", event_type="chat")
+        self.assertFalse(check_rate_limit(self.user))
+
+    def test_rate_limit_is_per_user(self):
+        other = User.objects.create_user(username="mallory", password="testpass123")
+        for _ in range(RATE_LIMIT_MAX_REQUESTS):
+            UsageEvent.objects.create(user=self.user, provider="groq", model_id="cyber-max", event_type="chat")
+        self.assertTrue(check_rate_limit(other))
+
+
+class UsageWiringTests(TestCase):
+    """Phase 4: every successful AI call site writes exactly one UsageEvent,
+    and rate limiting rejects requests once the cap is hit."""
+
+    def setUp(self):
+        self.user = User.objects.create_user(username="dhruv", password="testpass123")
+        self.client.force_login(self.user)
+        self.session = ChatSession.objects.create(user=self.user, title="T")
+
+    def _consume(self, response):
+        return b"".join(response.streaming_content).decode()
+
+    @patch("chat.views.chat_stream")
+    def test_text_send_records_usage_event(self, mock_chat_stream):
+        mock_chat_stream.return_value = iter(["hello there"])
+        response = self.client.post(
+            reverse("ask_ai"),
+            {"query": "hi", "model_id": "cyber-max", "session_id": self.session.id},
+        )
+        self._consume(response)
+        events = UsageEvent.objects.filter(user=self.user, event_type="chat")
+        self.assertEqual(events.count(), 1)
+        self.assertEqual(events.first().provider, "groq")
+        self.assertTrue(events.first().tokens_are_estimated)
+
+    @patch("chat.views.chat_stream")
+    def test_text_send_captures_real_usage_when_provider_supplies_it(self, mock_chat_stream):
+        def fake_stream(model_id, messages, on_usage=None, **kwargs):
+            if on_usage:
+                on_usage({"prompt_tokens": 5, "completion_tokens": 26})
+            return iter(["hello there"])
+        mock_chat_stream.side_effect = fake_stream
+        response = self.client.post(
+            reverse("ask_ai"),
+            {"query": "hi", "model_id": "sky-net", "session_id": self.session.id},
+        )
+        self._consume(response)
+        event = UsageEvent.objects.filter(user=self.user, event_type="chat").first()
+        self.assertFalse(event.tokens_are_estimated)
+        self.assertEqual(event.prompt_tokens, 5)
+        self.assertEqual(event.completion_tokens, 26)
+
+    @patch("chat.views.generate_image")
+    def test_image_generation_records_usage_event(self, mock_generate_image):
+        mock_generate_image.return_value = {
+            "success": True, "image_url": "http://example.com/a.png",
+            "model_used": "Pollinations AI", "prompt": "a cat", "width": 1024, "height": 1024,
+        }
+        response = self.client.post(
+            reverse("ask_ai"),
+            {"query": "a cat", "model_id": "image-studio", "session_id": self.session.id},
+        )
+        self.assertEqual(response.status_code, 200)
+        events = UsageEvent.objects.filter(user=self.user, event_type="image")
+        self.assertEqual(events.count(), 1)
+        self.assertEqual(float(events.first().estimated_cost_usd), 0.0)
+
+    @patch("chat.views.ai_vision")
+    def test_vision_call_records_usage_event(self, mock_vision):
+        mock_vision.return_value = "A red apple."
+        image = SimpleUploadedFile("apple.png", b"fake-bytes", content_type="image/png")
+        response = self.client.post(
+            reverse("ask_ai"),
+            {"query": "what is this", "model_id": "sky-net", "session_id": self.session.id, "attachment": image},
+        )
+        self.assertEqual(response.status_code, 200)
+        events = UsageEvent.objects.filter(user=self.user, event_type="vision")
+        self.assertEqual(events.count(), 1)
+
+    @patch("chat.views.chat_stream")
+    def test_ask_ai_blocked_once_rate_limit_hit(self, mock_chat_stream):
+        mock_chat_stream.return_value = iter(["ok"])
+        for _ in range(RATE_LIMIT_MAX_REQUESTS):
+            UsageEvent.objects.create(user=self.user, provider="groq", model_id="cyber-max", event_type="chat")
+        response = self.client.post(
+            reverse("ask_ai"),
+            {"query": "hi", "model_id": "cyber-max", "session_id": self.session.id},
+        )
+        self.assertEqual(response.status_code, 429)
+        mock_chat_stream.assert_not_called()
+
+    @patch("chat.views.chat_stream")
+    def test_regenerate_records_usage_event(self, mock_chat_stream):
+        user_msg, assistant_msg = append_turn(self.session, "hi", "hello")
+        mock_chat_stream.return_value = iter(["a better answer"])
+        response = self.client.post(
+            reverse("regenerate_message", args=[assistant_msg.id]), {"model_id": "cyber-max"}
+        )
+        self._consume(response)
+        self.assertEqual(UsageEvent.objects.filter(user=self.user, event_type="chat").count(), 1)
+
+    @patch("chat.views.chat_stream")
+    def test_edit_records_usage_event(self, mock_chat_stream):
+        user_msg, assistant_msg = append_turn(self.session, "hi", "hello")
+        mock_chat_stream.return_value = iter(["hi yourself"])
+        response = self.client.post(
+            reverse("edit_message", args=[user_msg.id]),
+            {"content": "hi (edited)", "model_id": "cyber-max"},
+        )
+        self._consume(response)
+        self.assertEqual(UsageEvent.objects.filter(user=self.user, event_type="chat").count(), 1)
+
+
+class AnalyticsDashboardTests(TestCase):
+    """Phase 5: analytics is a pure read-side view over UsageEvent."""
+
+    def setUp(self):
+        self.user = User.objects.create_user(username="dhruv", password="testpass123")
+        self.other_user = User.objects.create_user(username="mallory", password="testpass123")
+        self.client.force_login(self.user)
+
+    def test_requires_login(self):
+        self.client.logout()
+        response = self.client.get(reverse("analytics_dashboard"))
+        self.assertEqual(response.status_code, 302)
+
+    def test_renders_empty_state_with_no_usage(self):
+        response = self.client.get(reverse("analytics_dashboard"))
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["total_requests"], 0)
+        self.assertContains(response, "No usage recorded yet")
+
+    def test_aggregates_totals_and_per_model_breakdown(self):
+        UsageEvent.objects.create(
+            user=self.user, provider="groq", model_id="cyber-max", event_type="chat",
+            prompt_tokens=10, completion_tokens=20, estimated_cost_usd="0.001000", latency=1.0,
+        )
+        UsageEvent.objects.create(
+            user=self.user, provider="mistral", model_id="sky-net", event_type="chat",
+            prompt_tokens=5, completion_tokens=26, estimated_cost_usd="0.008000", latency=2.0,
+        )
+        response = self.client.get(reverse("analytics_dashboard"))
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["total_requests"], 2)
+        self.assertEqual(response.context["total_tokens"], 61)
+        self.assertAlmostEqual(response.context["total_cost"], 0.009)
+        by_model = {row["model_id"]: row for row in response.context["by_model"]}
+        self.assertEqual(by_model["cyber-max"]["requests"], 1)
+        self.assertEqual(by_model["sky-net"]["tokens"], 31)
+
+    def test_only_shows_current_users_events(self):
+        UsageEvent.objects.create(
+            user=self.other_user, provider="groq", model_id="cyber-max", event_type="chat",
+            prompt_tokens=10, completion_tokens=20,
+        )
+        response = self.client.get(reverse("analytics_dashboard"))
+        self.assertEqual(response.context["total_requests"], 0)
+
+    def test_estimated_footnote_shown_only_when_estimates_present(self):
+        UsageEvent.objects.create(
+            user=self.user, provider="mistral", model_id="sky-net", event_type="chat",
+            prompt_tokens=5, completion_tokens=26, tokens_are_estimated=False,
+        )
+        response = self.client.get(reverse("analytics_dashboard"))
+        self.assertFalse(response.context["has_estimated_tokens"])
+
+        UsageEvent.objects.create(
+            user=self.user, provider="groq", model_id="cyber-max", event_type="chat",
+            prompt_tokens=10, completion_tokens=20, tokens_are_estimated=True,
+        )
+        response = self.client.get(reverse("analytics_dashboard"))
+        self.assertTrue(response.context["has_estimated_tokens"])
+
+
+class PasswordResetOTPModelTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(username="dhruv", password="testpass123", email="dhruv@example.com")
+
+    def test_generated_code_is_six_digits(self):
+        otp = PasswordResetOTP.generate_for(self.user)
+        self.assertEqual(len(otp.code), 6)
+        self.assertTrue(otp.code.isdigit())
+
+    def test_fresh_code_is_valid(self):
+        otp = PasswordResetOTP.generate_for(self.user)
+        self.assertTrue(otp.is_valid())
+
+    def test_used_code_is_invalid(self):
+        otp = PasswordResetOTP.generate_for(self.user)
+        otp.used = True
+        otp.save()
+        self.assertFalse(otp.is_valid())
+
+    def test_expired_code_is_invalid(self):
+        otp = PasswordResetOTP.generate_for(self.user)
+        PasswordResetOTP.objects.filter(id=otp.id).update(
+            created_at=timezone.now() - timedelta(minutes=PasswordResetOTP.OTP_VALID_MINUTES + 1)
+        )
+        otp.refresh_from_db()
+        self.assertFalse(otp.is_valid())
+
+    def test_generating_a_new_code_invalidates_the_previous_one(self):
+        first = PasswordResetOTP.generate_for(self.user)
+        second = PasswordResetOTP.generate_for(self.user)
+        first.refresh_from_db()
+        self.assertTrue(first.used)
+        self.assertTrue(second.is_valid())
+
+
+class OTPPasswordResetFlowTests(TestCase):
+    """Forgot Password -> Email OTP -> Verify OTP -> New Password -> Login."""
+
+    def setUp(self):
+        self.user = User.objects.create_user(username="dhruv", password="OldPass123!", email="dhruv@example.com")
+
+    def test_forgot_password_sends_email_for_real_account(self):
+        response = self.client.post(reverse("forgot_password"), {"email": "dhruv@example.com"})
+        self.assertRedirects(response, reverse("verify_otp"))
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertIn("dhruv@example.com", mail.outbox[0].to)
+        self.assertTrue(PasswordResetOTP.objects.filter(user=self.user).exists())
+
+    def test_forgot_password_does_not_leak_whether_email_exists(self):
+        response = self.client.post(reverse("forgot_password"), {"email": "nobody@example.com"})
+        # Same immediate redirect target either way - the endpoint must not
+        # reveal account existence. (verify_otp itself then bounces back to
+        # forgot_password since no OTP session was ever set up for a
+        # nonexistent account - not followed here, that's a separate concern.)
+        self.assertRedirects(response, reverse("verify_otp"), fetch_redirect_response=False)
+        self.assertEqual(len(mail.outbox), 0)
+
+    def test_full_flow_reset_password_and_login_with_new_password(self):
+        self.client.post(reverse("forgot_password"), {"email": "dhruv@example.com"})
+        otp = PasswordResetOTP.objects.get(user=self.user)
+
+        verify_response = self.client.post(reverse("verify_otp"), {"code": otp.code})
+        self.assertRedirects(verify_response, reverse("reset_password_otp"))
+
+        reset_response = self.client.post(reverse("reset_password_otp"), {
+            "password1": "BrandNewPass456!", "password2": "BrandNewPass456!",
+        })
+        self.assertRedirects(reset_response, reverse("account_login"))
+
+        self.user.refresh_from_db()
+        self.assertTrue(self.user.check_password("BrandNewPass456!"))
+
+        login_ok = self.client.login(username="dhruv", password="BrandNewPass456!")
+        self.assertTrue(login_ok)
+
+    def test_wrong_code_is_rejected(self):
+        self.client.post(reverse("forgot_password"), {"email": "dhruv@example.com"})
+        response = self.client.post(reverse("verify_otp"), {"code": "000000"})
+        self.assertContains(response, "invalid or has expired")
+
+    def test_used_code_cannot_be_reused(self):
+        self.client.post(reverse("forgot_password"), {"email": "dhruv@example.com"})
+        otp = PasswordResetOTP.objects.get(user=self.user)
+        self.client.post(reverse("verify_otp"), {"code": otp.code})
+
+        # Start a fresh session and try the same (now-used) code again.
+        self.client.session.flush()
+        self.client.post(reverse("forgot_password"), {"email": "dhruv@example.com"})
+        response = self.client.post(reverse("verify_otp"), {"code": otp.code})
+        self.assertContains(response, "invalid or has expired")
+
+    def test_resend_otp_respects_cooldown(self):
+        self.client.post(reverse("forgot_password"), {"email": "dhruv@example.com"})
+        response = self.client.post(reverse("resend_otp"))
+        self.assertEqual(response.status_code, 429)
+
+    def test_reset_password_rejects_mismatched_passwords(self):
+        self.client.post(reverse("forgot_password"), {"email": "dhruv@example.com"})
+        otp = PasswordResetOTP.objects.get(user=self.user)
+        self.client.post(reverse("verify_otp"), {"code": otp.code})
+        response = self.client.post(reverse("reset_password_otp"), {
+            "password1": "BrandNewPass456!", "password2": "SomethingElse789!",
+        })
+        self.assertContains(response, "Those passwords don")  # avoids the apostrophe, HTML-escaped in the response
+        self.user.refresh_from_db()
+        self.assertTrue(self.user.check_password("OldPass123!"))
+
+    def test_cannot_reset_password_without_verifying_first(self):
+        response = self.client.get(reverse("reset_password_otp"))
+        self.assertRedirects(response, reverse("forgot_password"))
+
+
+class EmailVerificationGatingTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(username="dhruv", password="testpass123", email="dhruv@example.com")
+        self.client.force_login(self.user)
+
+    def test_verification_not_required_by_default(self):
+        self.assertFalse(verification_required())
+        self.assertTrue(is_email_verified(self.user))
+
+    @override_settings(ACCOUNT_EMAIL_VERIFICATION="optional")
+    def test_verification_required_when_optional_mode_enabled(self):
+        self.assertTrue(verification_required())
+        self.assertFalse(is_email_verified(self.user))
+
+    @override_settings(ACCOUNT_EMAIL_VERIFICATION="optional")
+    def test_verified_email_address_passes_gate(self):
+        from allauth.account.models import EmailAddress
+        EmailAddress.objects.create(user=self.user, email=self.user.email, verified=True, primary=True)
+        self.assertTrue(is_email_verified(self.user))
+
+    @override_settings(ACCOUNT_EMAIL_VERIFICATION="optional")
+    def test_image_generation_blocked_for_unverified_user(self):
+        response = self.client.post(reverse("ask_ai"), {"query": "a cat", "model_id": "image-studio"})
+        data = response.json()
+        self.assertEqual(data.get("type"), "error")
+        self.assertTrue(data.get("requires_verification"))
+
+    @override_settings(ACCOUNT_EMAIL_VERIFICATION="optional")
+    def test_settings_save_blocked_for_unverified_user(self):
+        response = self.client.post(reverse("profile_settings"), {"display_name": "Should Not Save"})
+        self.assertEqual(response.status_code, 403)
+        profile = UserProfile.objects.get(user=self.user)
+        self.assertEqual(profile.display_name, "")
+
+    def test_settings_save_works_normally_when_verification_not_required(self):
+        response = self.client.post(reverse("profile_settings"), {"display_name": "Saved Fine"})
+        self.assertEqual(response.status_code, 302)
+        profile = UserProfile.objects.get(user=self.user)
+        self.assertEqual(profile.display_name, "Saved Fine")

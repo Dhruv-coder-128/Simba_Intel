@@ -1,12 +1,38 @@
 from django.contrib import admin
+from django.db import connection
+from django.http import JsonResponse
 from django.urls import path, include
 from django.views.generic.base import RedirectView
 from chat import views
 
+
+def health_check(request):
+    """Unauthenticated, dependency-light endpoint for Render's health check
+    and any external uptime monitor - confirms the app process AND the
+    database connection are both actually up, not just that Gunicorn is
+    listening."""
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT 1")
+        return JsonResponse({"status": "ok"})
+    except Exception as e:
+        return JsonResponse({"status": "error", "detail": str(e)}, status=503)
+
+
 urlpatterns = [
     path('admin/', admin.site.urls),
+    path('health/', health_check, name='health_check'),
     path('favicon.ico', RedirectView.as_view(url='/static/favicon2.png', permanent=True)),
+    # OTP password reset (additional to allauth's own link-based reset flow
+    # below, which is untouched) - registered before the allauth include so
+    # these exact paths always resolve here first.
+    path('accounts/forgot-password/', views.forgot_password, name='forgot_password'),
+    path('accounts/verify-otp/', views.verify_otp, name='verify_otp'),
+    path('accounts/resend-otp/', views.resend_otp, name='resend_otp'),
+    path('accounts/reset-password-otp/', views.reset_password_otp, name='reset_password_otp'),
     path('accounts/', include('allauth.urls')),
+    path('verification/resend/', views.resend_verification_email, name='resend_verification_email'),
+    path('verification/status/', views.verification_status, name='verification_status'),
     path('', views.chat_home, name='home'),
     path('ask/', views.ask_ai, name='ask'),
     path('pin_session/<int:session_id>/', views.pin_session, name='pin_session'),
@@ -17,4 +43,10 @@ urlpatterns = [
     path('system_stats/', views.system_stats, name='system_stats'),
     path("upload/", views.upload_file),
     path('settings/', views.profile_settings, name='profile_settings'),
+    path('analytics/', views.analytics_dashboard, name='analytics_dashboard'),
+    path('session/<int:session_id>/active-leaf/', views.session_active_leaf, name='session_active_leaf'),
+    path('messages/<int:message_id>/siblings/', views.message_siblings, name='message_siblings'),
+    path('messages/<int:message_id>/regenerate/', views.regenerate_message, name='regenerate_message'),
+    path('messages/<int:message_id>/edit/', views.edit_message, name='edit_message'),
+    path('messages/<int:message_id>/switch-branch/', views.switch_branch, name='switch_branch'),
 ]
