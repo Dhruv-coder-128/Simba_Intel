@@ -122,6 +122,26 @@ class UserProfile(models.Model):
     suspended_until = models.DateTimeField(null=True, blank=True)
     suspend_reason = models.TextField(blank=True)
 
+    # Soft delete: the account row itself is never removed (chat history,
+    # usage records, and audit trail all still need somewhere to point) -
+    # deletion just means blocked login + hidden from the default user list,
+    # exactly reversible via "Restore User".
+    is_deleted = models.BooleanField(default=False)
+    deleted_at = models.DateTimeField(null=True, blank=True)
+
+    # --- Per-user usage limits (admin console prep) ---
+    # Daily caps, reset at local midnight (checked against created_at__date,
+    # not a rolling 24h window) - separate from and on top of
+    # chat/services/usage.py's check_rate_limit, which guards against short
+    # bursts (30/minute) regardless of these daily totals. unlimited_usage
+    # bypasses all four caps below entirely for accounts that need it
+    # (internal testing, VIP accounts) without deleting/faking limit values.
+    unlimited_usage = models.BooleanField(default=False)
+    daily_chat_limit = models.PositiveIntegerField(default=50)
+    daily_image_limit = models.PositiveIntegerField(default=10)
+    daily_vision_limit = models.PositiveIntegerField(default=10)
+    daily_token_limit = models.PositiveIntegerField(default=100000)
+
     def __str__(self):
         return f"Profile({self.user})"
 
@@ -233,14 +253,22 @@ class AdminAuditLog(models.Model):
         ("change_role", "change_role"),
         ("add_note", "add_note"),
         ("feature_flag_toggle", "feature_flag_toggle"),
+        ("feature_flag_create", "feature_flag_create"),
         ("broadcast_create", "broadcast_create"),
         ("broadcast_deactivate", "broadcast_deactivate"),
+        ("delete_account", "delete_account"),
+        ("restore_account", "restore_account"),
+        ("export_user_data", "export_user_data"),
+        ("update_usage_limits", "update_usage_limits"),
     ]
 
     actor = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name='admin_actions_taken')
     action = models.CharField(max_length=30, choices=ACTION_CHOICES)
     target_user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name='admin_actions_received')
     detail = models.TextField(blank=True)
+    ip_address = models.GenericIPAddressField(null=True, blank=True)
+    browser = models.CharField(max_length=100, blank=True, default='Unknown Browser')
+    success = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -419,7 +447,14 @@ class UserSession(models.Model):
 class Broadcast(models.Model):
     """A single active banner shown to every logged-in user - maintenance
     notices, incident updates, announcements. Only one is meant to be
-    .active at a time; the admin console enforces that on save."""
+    .active at a time; the admin console enforces that on save.
+
+    starts_at/ends_at are optional scheduling bounds layered on top of the
+    existing `active` flag rather than replacing it: `active=False` is still
+    an immediate, unconditional off-switch (what the admin console's
+    "Deactivate" button flips), while starts_at/ends_at let a broadcast be
+    created now but only actually show (or stop showing) at a specific time
+    without an admin needing to be online to flip it."""
 
     LEVEL_CHOICES = [
         ("info", "info"),
@@ -430,6 +465,8 @@ class Broadcast(models.Model):
     message = models.TextField()
     level = models.CharField(max_length=10, choices=LEVEL_CHOICES, default="info")
     active = models.BooleanField(default=True)
+    starts_at = models.DateTimeField(null=True, blank=True)
+    ends_at = models.DateTimeField(null=True, blank=True)
     created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name='+')
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -438,3 +475,21 @@ class Broadcast(models.Model):
 
     def __str__(self):
         return f"[{self.level}] {self.message[:50]}"
+
+    @property
+    def status(self):
+        """One of "expired", "scheduled", "inactive", "active" - the single
+        source of truth the admin console and the live-site banner both use,
+        so "is this actually showing right now" is never computed two
+        different ways in two different places."""
+        if not self.active:
+            return "inactive"
+        now = timezone.now()
+        if self.ends_at and now >= self.ends_at:
+            return "expired"
+        if self.starts_at and now < self.starts_at:
+            return "scheduled"
+        return "active"
+
+    def is_currently_visible(self):
+        return self.status == "active"

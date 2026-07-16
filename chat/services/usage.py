@@ -9,15 +9,23 @@ estimate, not intended as an exact figure. `tokens_are_estimated` on
 UsageEvent records which one happened so the analytics UI can label it.
 """
 from datetime import timedelta
-from typing import Optional
+from typing import Optional, Tuple
 
+from django.db.models import F, Sum
 from django.utils import timezone
 
-from chat.models import UsageEvent
+from chat.models import UsageEvent, UserProfile
 from chat.services.cost_table import estimate_cost
 
 RATE_LIMIT_WINDOW_MINUTES = 1
 RATE_LIMIT_MAX_REQUESTS = 30
+
+# event_type -> (UserProfile field name, human label for the error message)
+DAILY_LIMIT_FIELDS = {
+    "chat": ("daily_chat_limit", "chat messages"),
+    "image": ("daily_image_limit", "image generations"),
+    "vision": ("daily_vision_limit", "Vision requests"),
+}
 
 
 def estimate_tokens(text: str) -> int:
@@ -71,3 +79,33 @@ def check_rate_limit(user) -> bool:
     cutoff = timezone.now() - timedelta(minutes=RATE_LIMIT_WINDOW_MINUTES)
     count = UsageEvent.objects.filter(user=user, created_at__gte=cutoff).count()
     return count < RATE_LIMIT_MAX_REQUESTS
+
+
+def check_daily_limit(user, event_type: str) -> Tuple[bool, Optional[str]]:
+    """(allowed, reason). A separate, complementary check from
+    check_rate_limit: that one guards against short bursts (30/minute)
+    regardless of daily totals; this one enforces the per-user daily quota
+    (chat/image/vision counts and a combined token cap) admins configure on
+    UserProfile, reset at local midnight. Returns (True, None) immediately
+    for unlimited_usage accounts without running any of the count queries."""
+    profile = UserProfile.get_or_create_for(user)
+    if profile.unlimited_usage:
+        return True, None
+
+    today = timezone.localdate()
+    todays_events = UsageEvent.objects.filter(user=user, created_at__date=today)
+
+    limit_field, label = DAILY_LIMIT_FIELDS.get(event_type, (None, None))
+    if limit_field:
+        limit = getattr(profile, limit_field)
+        used = todays_events.filter(event_type=event_type).count()
+        if used >= limit:
+            return False, f"Daily limit reached ({limit} {label}/day). Try again tomorrow."
+
+    tokens_used = todays_events.aggregate(
+        total=Sum(F('prompt_tokens') + F('completion_tokens'))
+    )['total'] or 0
+    if tokens_used >= profile.daily_token_limit:
+        return False, f"Daily token limit reached ({profile.daily_token_limit:,}/day). Try again tomorrow."
+
+    return True, None

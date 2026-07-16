@@ -24,7 +24,7 @@
 
     {% get_providers as socialaccount_providers %}
 
-    {% if socialaccount_providers %}
+    {% if socialaccount_providers and google_login_enabled %}
         {% for provider in socialaccount_providers %}
             {% if provider.id == "google" %}
                 <a href="{% provider_login_url 'google' process='login' %}" class="btn btn-block">

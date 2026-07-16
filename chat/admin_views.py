@@ -12,25 +12,32 @@ from django.contrib.auth.decorators import user_passes_test
 from django.contrib.sessions.models import Session
 from django.core.paginator import Paginator
 from django.db import models as db_models
-from django.db.models import Count, Sum, Q
+from django.db.models import Avg, Count, Sum, Q
 from django.db.models.functions import TruncDate
 from django.http import JsonResponse
 from django.shortcuts import render, redirect, get_object_or_404
 from django.utils import timezone
+from django.utils.dateparse import parse_datetime
 
 from chat.models import (
     AdminAuditLog, Broadcast, ChatSession, FailedLoginAttempt,
-    FeatureFlag, Message, SecurityEvent, UsageEvent, UserNote, UserProfile,
+    FeatureFlag, Message, SecurityEvent, UsageEvent, UserNote, UserProfile, UserSession,
 )
 from chat.services.model_registry import MODEL_REGISTRY
+from chat.utils.device import parse_client_info
+from chat.utils.request_info import client_ip, raw_user_agent
 
 User = get_user_model()
 
 superuser_required = user_passes_test(lambda u: u.is_active and u.is_superuser, login_url='home')
 
 
-def _log(request, action, target_user=None, detail=""):
-    AdminAuditLog.objects.create(actor=request.user, action=action, target_user=target_user, detail=detail)
+def _log(request, action, target_user=None, detail="", success=True):
+    browser, _device, _os = parse_client_info(raw_user_agent(request))
+    AdminAuditLog.objects.create(
+        actor=request.user, action=action, target_user=target_user, detail=detail,
+        ip_address=client_ip(request), browser=browser, success=success,
+    )
 
 
 def _force_logout_user(user):
@@ -52,15 +59,29 @@ def _force_logout_user(user):
 
 @superuser_required
 def admin_dashboard(request):
+    from allauth.account.models import EmailAddress
+
     total_users = User.objects.count()
     active_users = User.objects.filter(is_active=True).count()
     banned_users = UserProfile.objects.filter(is_banned=True).count()
     staff_users = User.objects.filter(is_staff=True).count()
 
+    verified_users = EmailAddress.objects.filter(verified=True).values('user').distinct().count()
+    unverified_users = total_users - verified_users
+
     online_cutoff = timezone.now() - timedelta(minutes=5)
     online_users = SecurityEvent.objects.filter(
         event_type="login", created_at__gte=online_cutoff
     ).values('user').distinct().count()
+
+    # A UserSession row alone doesn't mean the session is still valid -
+    # Django's own Session table is the source of truth for expiry, so this
+    # cross-references both rather than trusting UserSession row count alone
+    # (which would over-count sessions that expired without an explicit
+    # logout - Django only prunes those via the periodic `clearsessions`
+    # management command, not automatically).
+    live_session_keys = Session.objects.filter(expire_date__gte=timezone.now()).values_list('session_key', flat=True)
+    active_sessions = UserSession.objects.filter(session_key__in=live_session_keys).count()
 
     new_today = User.objects.filter(date_joined__date=timezone.localdate()).count()
     new_this_week = User.objects.filter(date_joined__date__gte=timezone.localdate() - timedelta(days=6)).count()
@@ -72,15 +93,36 @@ def admin_dashboard(request):
         total_requests=Count('id'),
         total_cost=Sum('estimated_cost_usd'),
         total_tokens=Sum(db_models.F('prompt_tokens') + db_models.F('completion_tokens')),
+        avg_latency=Avg('latency'),
     )
     images_generated = UsageEvent.objects.filter(event_type='image').count()
     vision_calls = UsageEvent.objects.filter(event_type='vision').count()
+    chat_requests = UsageEvent.objects.filter(event_type='chat').count()
 
-    by_provider = list(
-        UsageEvent.objects.values('provider')
-        .annotate(requests=Count('id'), cost=Sum('estimated_cost_usd'))
-        .order_by('-requests')
-    )
+    monthly_cutoff = timezone.now() - timedelta(days=30)
+    monthly_active_users = UsageEvent.objects.filter(
+        created_at__gte=monthly_cutoff
+    ).values('user').distinct().count()
+
+    # Provider Usage - internal-only by design (never rendered on any
+    # user-facing page, only here in the admin console) - raw provider
+    # names are fine to show an operator, just never a customer.
+    by_provider = [
+        {'provider': row['provider'], 'requests': row['requests'], 'cost': float(row['cost'] or 0)}
+        for row in (
+            UsageEvent.objects.values('provider')
+            .annotate(requests=Count('id'), cost=Sum('estimated_cost_usd'))
+            .order_by('-requests')
+        )
+    ]
+    by_model = [
+        {
+            'model_id': row['model_id'],
+            'display_name': (MODEL_REGISTRY[row['model_id']].display_name if row['model_id'] in MODEL_REGISTRY else row['model_id']),
+            'requests': row['requests'],
+        }
+        for row in UsageEvent.objects.values('model_id').annotate(requests=Count('id')).order_by('-requests')[:8]
+    ]
 
     # Single grouped query instead of 7 separate .count() calls, one per day.
     today = timezone.localdate()
@@ -100,6 +142,33 @@ def admin_dashboard(request):
         for i in range(6, -1, -1)
     ]
 
+    # Admin-wide (all users) daily series for the last 14 days - requests,
+    # cost, tokens, and login activity all in one pass each, not one query
+    # per day (14 separate .count() calls would otherwise be needed).
+    chart_window_start = today - timedelta(days=13)
+    usage_by_day = {
+        row['day']: row
+        for row in (
+            UsageEvent.objects.filter(created_at__date__gte=chart_window_start)
+            .annotate(day=TruncDate('created_at'))
+            .values('day')
+            .annotate(
+                requests=Count('id'), cost=Sum('estimated_cost_usd'),
+                tokens=Sum(db_models.F('prompt_tokens') + db_models.F('completion_tokens')),
+            )
+        )
+    }
+    _login_days, logins_by_day = _daily_login_counts(14)
+    daily_requests, daily_cost, daily_tokens, login_activity = [], [], [], []
+    for i in range(13, -1, -1):
+        day = today - timedelta(days=i)
+        row = usage_by_day.get(day)
+        date_str = day.isoformat()
+        daily_requests.append({'date': date_str, 'count': row['requests'] if row else 0})
+        daily_cost.append({'date': date_str, 'cost': float(row['cost']) if row and row['cost'] else 0.0})
+        daily_tokens.append({'date': date_str, 'tokens': row['tokens'] if row and row['tokens'] else 0})
+        login_activity.append({'date': date_str, 'count': logins_by_day.get(day, 0)})
+
     recent_errors = SecurityEvent.objects.filter(severity__in=['warning', 'critical']).order_by('-created_at')[:10]
     recent_audit = AdminAuditLog.objects.select_related('actor', 'target_user').order_by('-created_at')[:10]
 
@@ -108,19 +177,33 @@ def admin_dashboard(request):
         'active_users': active_users,
         'banned_users': banned_users,
         'staff_users': staff_users,
+        'verified_users': verified_users,
+        'unverified_users': unverified_users,
         'online_users': online_users,
+        'active_sessions': active_sessions,
         'new_today': new_today,
         'new_this_week': new_this_week,
+        'monthly_active_users': monthly_active_users,
         'total_sessions': total_sessions,
         'total_messages': total_messages,
         'total_requests': usage_totals['total_requests'] or 0,
         'total_cost': float(usage_totals['total_cost'] or 0),
         'total_tokens': usage_totals['total_tokens'] or 0,
+        'avg_response_time': round(usage_totals['avg_latency'], 2) if usage_totals['avg_latency'] else 0,
         'images_generated': images_generated,
         'vision_calls': vision_calls,
+        'chat_requests': chat_requests,
         'by_provider': by_provider,
+        'by_model': by_model,
+        'by_model_json': json.dumps(by_model),
         'daily_signups': daily_signups,
         'daily_signups_json': json.dumps(daily_signups),
+        'daily_requests_json': json.dumps(daily_requests),
+        'daily_cost_json': json.dumps(daily_cost),
+        'daily_tokens_json': json.dumps(daily_tokens),
+        'login_activity_json': json.dumps(login_activity),
+        'by_provider_json': json.dumps(by_provider),
+        'chat_vs_image_json': json.dumps({'chat': chat_requests, 'image': images_generated, 'vision': vision_calls}),
         'recent_errors': recent_errors,
         'recent_audit': recent_audit,
         'model_count': len(MODEL_REGISTRY),
@@ -134,11 +217,30 @@ def admin_dashboard(request):
 
 @superuser_required
 def admin_users_list(request):
+    from allauth.account.models import EmailAddress
+
     query = request.GET.get('q', '').strip()
     status_filter = request.GET.get('status', '')
+    verified_filter = request.GET.get('verified', '')
+    admin_filter = request.GET.get('admin', '')
+    online_filter = request.GET.get('online', '')
+    recent_filter = request.GET.get('recent', '')
     page_number = request.GET.get('page', '1')
 
     users = User.objects.select_related('profile').order_by('-date_joined')
+
+    if status_filter == 'deleted':
+        users = users.filter(profile__is_deleted=True)
+    else:
+        # Soft-deleted accounts are hidden from every other view of this
+        # list (including "all") - reachable only via the explicit "deleted"
+        # filter or a direct link from the audit log, same convention as
+        # most SaaS admin consoles use for soft-deleted records. profile
+        # is created lazily (get_or_create_for, on first real use) rather
+        # than at signup, so a brand new user may not have a profile row
+        # yet - profile__isnull=True must stay visible here, since "no
+        # profile yet" can't mean "deleted".
+        users = users.filter(Q(profile__isnull=True) | Q(profile__is_deleted=False))
 
     if query:
         users = users.filter(Q(username__icontains=query) | Q(email__icontains=query))
@@ -154,6 +256,27 @@ def admin_users_list(request):
     elif status_filter == 'inactive':
         users = users.filter(is_active=False, profile__is_banned=False)
 
+    if verified_filter:
+        verified_ids = EmailAddress.objects.filter(verified=True).values_list('user_id', flat=True)
+        users = users.filter(id__in=verified_ids) if verified_filter == 'yes' else users.exclude(id__in=verified_ids)
+
+    if admin_filter == 'yes':
+        users = users.filter(Q(is_staff=True) | Q(is_superuser=True))
+
+    if online_filter == 'yes':
+        online_cutoff = timezone.now() - timedelta(minutes=5)
+        online_ids = SecurityEvent.objects.filter(
+            event_type="login", created_at__gte=online_cutoff
+        ).values_list('user_id', flat=True)
+        users = users.filter(id__in=online_ids)
+
+    if recent_filter == 'yes':
+        # "Recently active" = any AI usage in the last 7 days - a broader,
+        # activity-based signal than "online" (logged in within 5 minutes).
+        recent_cutoff = timezone.now() - timedelta(days=7)
+        recent_ids = UsageEvent.objects.filter(created_at__gte=recent_cutoff).values_list('user_id', flat=True)
+        users = users.filter(id__in=recent_ids)
+
     paginator = Paginator(users, 20)
     page = paginator.get_page(page_number)
 
@@ -161,6 +284,10 @@ def admin_users_list(request):
         'page': page,
         'query': query,
         'status_filter': status_filter,
+        'verified_filter': verified_filter,
+        'admin_filter': admin_filter,
+        'online_filter': online_filter,
+        'recent_filter': recent_filter,
         'total_users': User.objects.count(),
         'active_nav': 'users',
     })
@@ -259,16 +386,71 @@ def admin_user_detail(request, user_id):
             if note_text:
                 UserNote.objects.create(user=target, author=request.user, note=note_text)
                 _log(request, 'add_note', target, note_text[:100])
+        elif action == 'delete_account':
+            # Soft delete: the row itself, chat history, and usage/audit
+            # records all stay - only login access is revoked and the
+            # account drops out of the default user list. "Restore User"
+            # reverses this exactly.
+            profile.is_deleted = True
+            profile.deleted_at = timezone.now()
+            profile.save(update_fields=['is_deleted', 'deleted_at'])
+            target.is_active = False
+            target.save(update_fields=['is_active'])
+            _force_logout_user(target)
+            _log(request, 'delete_account', target)
+        elif action == 'restore_account':
+            profile.is_deleted = False
+            profile.deleted_at = None
+            profile.save(update_fields=['is_deleted', 'deleted_at'])
+            # Only restore login access if nothing else is independently
+            # blocking it - a banned account being un-deleted should stay
+            # banned, not silently reactivated.
+            if not profile.is_banned:
+                target.is_active = True
+                target.save(update_fields=['is_active'])
+            _log(request, 'restore_account', target)
+        elif action == 'update_usage_limits':
+            profile.unlimited_usage = request.POST.get('unlimited_usage') == 'on'
+            for field in ('daily_chat_limit', 'daily_image_limit', 'daily_vision_limit', 'daily_token_limit'):
+                value = request.POST.get(field, '').strip()
+                if value.isdigit():
+                    setattr(profile, field, int(value))
+            profile.save(update_fields=[
+                'unlimited_usage', 'daily_chat_limit', 'daily_image_limit',
+                'daily_vision_limit', 'daily_token_limit',
+            ])
+            detail = "unlimited" if profile.unlimited_usage else (
+                f"chat={profile.daily_chat_limit} image={profile.daily_image_limit} "
+                f"vision={profile.daily_vision_limit} tokens={profile.daily_token_limit}"
+            )
+            _log(request, 'update_usage_limits', target, detail)
 
         return redirect('admin_user_detail', user_id=target.id)
 
     sessions = ChatSession.objects.filter(user=target).order_by('-id')[:20]
     usage = UsageEvent.objects.filter(user=target).aggregate(
-        total_requests=Count('id'), total_cost=Sum('estimated_cost_usd'),
+        total_requests=Count('id'),
+        total_cost=Sum('estimated_cost_usd'),
+        total_tokens=Sum(db_models.F('prompt_tokens') + db_models.F('completion_tokens')),
+        total_images=Count('id', filter=Q(event_type='image')),
+        total_vision=Count('id', filter=Q(event_type='vision')),
+        total_chats=Count('id', filter=Q(event_type='chat')),
     )
     notes = UserNote.objects.filter(user=target).select_related('author')
     security_events = SecurityEvent.objects.filter(user=target).order_by('-created_at')[:20]
     audit_history = AdminAuditLog.objects.filter(target_user=target).select_related('actor').order_by('-created_at')[:20]
+
+    # Active devices/sessions - cross-referenced against Django's live
+    # Session table the same way the dashboard's active_sessions count is,
+    # so a UserSession row for an already-expired session doesn't show as
+    # "active" here either.
+    live_session_keys = Session.objects.filter(expire_date__gte=timezone.now()).values_list('session_key', flat=True)
+    active_devices = UserSession.objects.filter(user=target, session_key__in=live_session_keys).order_by('-created_at')
+
+    from allauth.account.models import EmailAddress
+    from allauth.socialaccount.models import SocialAccount
+    email_verified = EmailAddress.objects.filter(user=target, verified=True).exists()
+    google_linked = SocialAccount.objects.filter(user=target, provider='google').exists()
 
     return render(request, 'admin_console/user_detail.html', {
         'target': target,
@@ -276,6 +458,9 @@ def admin_user_detail(request, user_id):
         'sessions': sessions,
         'total_sessions': ChatSession.objects.filter(user=target).count(),
         'usage': usage,
+        'active_devices': active_devices,
+        'email_verified': email_verified,
+        'google_linked': google_linked,
         'notes': notes,
         'security_events': security_events,
         'audit_history': audit_history,
@@ -283,14 +468,91 @@ def admin_user_detail(request, user_id):
     })
 
 
+@superuser_required
+def admin_export_user_data(request, user_id):
+    """A full, self-contained JSON export of everything this account owns -
+    account/profile fields, usage totals, and every chat session with its
+    full message tree (not just titles) - a genuine data export, not a
+    summary, since that's what "Export User Data" means for an account
+    owner asking what's held about them."""
+    target = get_object_or_404(User, id=user_id)
+    profile = UserProfile.get_or_create_for(target)
+
+    sessions_data = []
+    for session in ChatSession.objects.filter(user=target).prefetch_related('thread'):
+        sessions_data.append({
+            'id': session.id,
+            'title': session.title,
+            'created_at': session.created_at.isoformat(),
+            'messages': [
+                {
+                    'role': m.role,
+                    'content': m.content,
+                    'created_at': m.created_at.isoformat(),
+                }
+                for m in session.thread.order_by('created_at')
+            ],
+        })
+
+    usage = UsageEvent.objects.filter(user=target).aggregate(
+        total_requests=Count('id'), total_cost=Sum('estimated_cost_usd'),
+        total_tokens=Sum(db_models.F('prompt_tokens') + db_models.F('completion_tokens')),
+    )
+
+    export = {
+        'account': {
+            'username': target.username,
+            'email': target.email,
+            'date_joined': target.date_joined.isoformat(),
+            'is_active': target.is_active,
+        },
+        'profile': {
+            'display_name': profile.display_name,
+            'theme': profile.theme,
+            'registration_source': profile.registration_source,
+            'email_verified_at': profile.email_verified_at.isoformat() if profile.email_verified_at else None,
+        },
+        'usage_summary': {
+            'total_requests': usage['total_requests'] or 0,
+            'total_cost_usd': float(usage['total_cost'] or 0),
+            'total_tokens': usage['total_tokens'] or 0,
+        },
+        'chat_sessions': sessions_data,
+    }
+
+    _log(request, 'export_user_data', target)
+    response = JsonResponse(export, json_dumps_params={'indent': 2})
+    response['Content-Disposition'] = f'attachment; filename="user_{target.id}_export.json"'
+    return response
+
+
 # ================= Audit log =================
 
 @superuser_required
 def admin_audit_log(request):
+    query = request.GET.get('q', '').strip()
+    action_filter = request.GET.get('action', '')
+
     logs = AdminAuditLog.objects.select_related('actor', 'target_user').order_by('-created_at')
+
+    if query:
+        logs = logs.filter(
+            Q(actor__username__icontains=query) | Q(actor__email__icontains=query) |
+            Q(target_user__username__icontains=query) | Q(target_user__email__icontains=query) |
+            Q(detail__icontains=query)
+        )
+    if action_filter:
+        logs = logs.filter(action=action_filter)
+
     paginator = Paginator(logs, 40)
     page = paginator.get_page(request.GET.get('page', '1'))
-    return render(request, 'admin_console/audit_log.html', {'page': page, 'active_nav': 'audit'})
+    return render(request, 'admin_console/audit_log.html', {
+        'page': page,
+        'query': query,
+        'action_filter': action_filter,
+        'action_choices': AdminAuditLog.ACTION_CHOICES,
+        'active_nav': 'audit',
+    })
 
 
 # ================= Security panel =================
@@ -298,7 +560,7 @@ def admin_audit_log(request):
 @superuser_required
 def admin_security(request):
     failed_logins = FailedLoginAttempt.objects.order_by('-created_at')[:50]
-    security_events = SecurityEvent.objects.order_by('-created_at')[:50]
+    security_events = SecurityEvent.objects.select_related('user').order_by('-created_at')[:50]
 
     cutoff = timezone.now() - timedelta(hours=24)
     failed_last_24h = FailedLoginAttempt.objects.filter(created_at__gte=cutoff).count()
@@ -307,11 +569,42 @@ def admin_security(request):
         .values('email_attempted').annotate(attempts=Count('id')).order_by('-attempts')[:10]
     )
 
+    locked_accounts = User.objects.select_related('profile').filter(
+        Q(profile__is_banned=True) | Q(profile__suspended_until__gt=timezone.now())
+    ).order_by('-profile__banned_at')[:50]
+
+    # "New device" isn't tracked as its own signal today (that would need
+    # remembering every device a user has EVER used and diffing against it) -
+    # the honest, available proxy is: a login from a user who has more than
+    # one distinct (browser, device) pair in their recent history, meaning
+    # something changed recently rather than every login looking identical.
+    recent_logins = SecurityEvent.objects.filter(
+        event_type='login', created_at__gte=timezone.now() - timedelta(days=7)
+    ).select_related('user').order_by('user_id', '-created_at')[:2000]
+    seen_pairs = {}
+    new_device_logins = []
+    for event in recent_logins:
+        pair = (event.browser, event.device)
+        prior = seen_pairs.get(event.user_id)
+        if prior is not None and pair not in prior:
+            new_device_logins.append(event)
+        seen_pairs.setdefault(event.user_id, set()).add(pair)
+    new_device_logins = new_device_logins[:20]
+
+    login_days, logins_by_day = _daily_login_counts(14)
+    login_timeline = [
+        {'date': day.isoformat(), 'count': logins_by_day.get(day, 0)}
+        for day in login_days
+    ]
+
     return render(request, 'admin_console/security.html', {
         'failed_logins': failed_logins,
         'security_events': security_events,
         'failed_last_24h': failed_last_24h,
         'top_targeted_emails': top_targeted_emails,
+        'locked_accounts': locked_accounts,
+        'new_device_logins': new_device_logins,
+        'login_timeline_json': json.dumps(login_timeline),
         'active_nav': 'security',
     })
 
@@ -323,10 +616,12 @@ def admin_feature_flags(request):
     if request.method == "POST":
         key = request.POST.get('key', '').strip()
         if request.POST.get('action') == 'create' and key:
-            FeatureFlag.objects.get_or_create(key=key, defaults={
+            _flag, created = FeatureFlag.objects.get_or_create(key=key, defaults={
                 'description': request.POST.get('description', '').strip(),
                 'enabled': False,
             })
+            if created:
+                _log(request, 'feature_flag_create', None, f"'{key}'")
         elif request.POST.get('action') == 'toggle' and key:
             flag = FeatureFlag.objects.filter(key=key).first()
             if flag:
@@ -341,6 +636,34 @@ def admin_feature_flags(request):
 
 # ================= Broadcasts =================
 
+def _daily_login_counts(days):
+    """(date_list, counts_dict) for the last `days` days of SecurityEvent
+    login events - shared by the dashboard's Login Activity chart and the
+    Security Center's login timeline so both compute it exactly once."""
+    today = timezone.localdate()
+    window_start = today - timedelta(days=days - 1)
+    counts = dict(
+        SecurityEvent.objects.filter(event_type='login', created_at__date__gte=window_start)
+        .annotate(day=TruncDate('created_at'))
+        .values('day')
+        .annotate(count=Count('id'))
+        .values_list('day', 'count')
+    )
+    return [today - timedelta(days=i) for i in range(days - 1, -1, -1)], counts
+
+
+def _parse_local_datetime(value):
+    """HTML <input type="datetime-local"> posts "YYYY-MM-DDTHH:MM" with no
+    timezone - naive by construction, made aware in the server's own TIME_ZONE
+    (there's no per-admin timezone preference stored anywhere to use instead)."""
+    if not value:
+        return None
+    parsed = parse_datetime(value)
+    if parsed and timezone.is_naive(parsed):
+        parsed = timezone.make_aware(parsed)
+    return parsed
+
+
 @superuser_required
 def admin_broadcasts(request):
     if request.method == "POST":
@@ -348,13 +671,15 @@ def admin_broadcasts(request):
             message = request.POST.get('message', '').strip()
             if message:
                 Broadcast.objects.filter(active=True).update(active=False)
-                Broadcast.objects.create(
+                broadcast = Broadcast.objects.create(
                     message=message,
                     level=request.POST.get('level', 'info'),
                     created_by=request.user,
                     active=True,
+                    starts_at=_parse_local_datetime(request.POST.get('starts_at', '')),
+                    ends_at=_parse_local_datetime(request.POST.get('ends_at', '')),
                 )
-                _log(request, 'broadcast_create', None, message[:100])
+                _log(request, 'broadcast_create', None, f"[{broadcast.status}] {message[:100]}")
         elif request.POST.get('action') == 'deactivate':
             broadcast_id = request.POST.get('broadcast_id')
             Broadcast.objects.filter(id=broadcast_id).update(active=False)

@@ -15,13 +15,24 @@ confirmation emails and tracks EmailAddress.verified, but doesn't block
 login, so users land in the app and see the in-app verification gate.
 Both "optional" and "mandatory" are treated as "verification is active"
 here since either one means EmailAddress.verified is actually meaningful.
+
+On top of that env-driven setting, the admin console's "email_verification"
+FeatureFlag is a runtime override: an admin can turn enforcement off (e.g.
+during an SMTP outage) without touching the environment or redeploying.
+It can only ever turn enforcement OFF, never on - if ACCOUNT_EMAIL_
+VERIFICATION is "none", no flag can activate a feature that isn't
+otherwise wired up (real SMTP, etc).
 """
 from django.conf import settings
 from allauth.account.models import EmailAddress
 
+from chat.models import FeatureFlag
+
 
 def verification_required() -> bool:
-    return getattr(settings, "ACCOUNT_EMAIL_VERIFICATION", "none") in ("mandatory", "optional")
+    if getattr(settings, "ACCOUNT_EMAIL_VERIFICATION", "none") not in ("mandatory", "optional"):
+        return False
+    return FeatureFlag.is_enabled('email_verification', default=True)
 
 
 def is_email_verified(user) -> bool:

@@ -1,15 +1,65 @@
 {% extends "admin_console/base.html" %}
 {% block title %}Security{% endblock %}
+{% block extra_head %}<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js" defer></script>{% endblock %}
 {% block content %}
-<div class="admin-header"><h1><i class="fa-solid fa-lock"></i> SECURITY</h1></div>
+<div class="admin-header"><h1><i class="fa-solid fa-lock"></i> SECURITY CENTER</h1></div>
 
 <div class="stat-grid">
     <div class="glass-card stat-card"><div class="stat-label">Failed Logins (24h)</div><div class="stat-value">{{ failed_last_24h }}</div></div>
+    <div class="glass-card stat-card"><div class="stat-label">Locked Accounts</div><div class="stat-value">{{ locked_accounts|length }}</div></div>
+    <div class="glass-card stat-card"><div class="stat-label">New-Device Logins (7d)</div><div class="stat-value">{{ new_device_logins|length }}</div></div>
 </div>
 
-<div style="display:grid; grid-template-columns: 1fr 1fr; gap:16px;">
+<div class="glass-card chart-lazy" data-chart="loginTimeline" style="margin-bottom:16px;">
+    <h2 class="section-title">Login Timeline - Last 14 Days</h2>
+    <div class="chart-box"><div class="skeleton chart-skeleton"></div><canvas id="loginTimelineChart" style="display:none;"></canvas></div>
+</div>
+
+<div class="grid-2" style="margin-bottom:16px;">
     <div class="glass-card">
-        <h2 style="font-family:'JetBrains Mono',monospace; font-size:12px; text-transform:uppercase; color:var(--text-dim); margin:0 0 14px;">Most Targeted Emails (24h)</h2>
+        <h2 class="section-title">Locked Accounts</h2>
+        <div class="table-scroll">
+        <table>
+            <thead><tr><th>User</th><th>Status</th><th>Reason</th></tr></thead>
+            <tbody>
+                {% for u in locked_accounts %}
+                <tr>
+                    <td><a href="{% url 'admin_user_detail' u.id %}" style="color:var(--accent); text-decoration:none;">{{ u.username }}</a></td>
+                    <td>{% if u.profile.is_banned %}<span class="badge bad">BANNED</span>{% else %}<span class="badge warn">SUSPENDED</span>{% endif %}</td>
+                    <td>{{ u.profile.ban_reason|default:u.profile.suspend_reason|truncatechars:50 }}</td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="3"><div class="empty-state"><i class="fa-solid fa-unlock"></i><span>No locked accounts.</span></div></td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        </div>
+    </div>
+    <div class="glass-card">
+        <h2 class="section-title">New-Device Logins (7 days)</h2>
+        <p style="font-size:11.5px; color:var(--text-dim); margin:-8px 0 12px;">A login using a browser/device combination not seen for that user recently.</p>
+        <div class="table-scroll">
+        <table>
+            <thead><tr><th>When</th><th>User</th><th>Device</th></tr></thead>
+            <tbody>
+                {% for ev in new_device_logins %}
+                <tr>
+                    <td>{{ ev.created_at|date:"M j, H:i" }}</td>
+                    <td><a href="{% url 'admin_user_detail' ev.user.id %}" style="color:var(--accent); text-decoration:none;">{{ ev.user.username|default:"-" }}</a></td>
+                    <td>{{ ev.browser }} &middot; {{ ev.device }}</td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="3"><div class="empty-state"><i class="fa-solid fa-mobile-screen"></i><span>No new-device logins detected.</span></div></td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        </div>
+    </div>
+</div>
+
+<div class="grid-2">
+    <div class="glass-card">
+        <h2 class="section-title">Most Targeted Emails (24h)</h2>
         <div class="table-scroll">
         <table>
             <thead><tr><th>Email attempted</th><th>Attempts</th></tr></thead>
@@ -17,14 +67,14 @@
                 {% for row in top_targeted_emails %}
                 <tr><td>{{ row.email_attempted|default:"(blank)" }}</td><td>{{ row.attempts }}</td></tr>
                 {% empty %}
-                <tr><td colspan="2" style="color:var(--text-dim);">No failed logins in the last 24 hours.</td></tr>
+                <tr><td colspan="2"><div class="empty-state"><i class="fa-solid fa-shield-halved"></i><span>No failed logins in the last 24 hours.</span></div></td></tr>
                 {% endfor %}
             </tbody>
         </table>
         </div>
     </div>
     <div class="glass-card">
-        <h2 style="font-family:'JetBrains Mono',monospace; font-size:12px; text-transform:uppercase; color:var(--text-dim); margin:0 0 14px;">Recent Failed Logins</h2>
+        <h2 class="section-title">Recent Failed Logins</h2>
         <div class="table-scroll">
         <table>
             <thead><tr><th>When</th><th>Email</th><th>IP</th></tr></thead>
@@ -32,7 +82,7 @@
                 {% for f in failed_logins %}
                 <tr><td>{{ f.created_at|date:"M j, H:i:s" }}</td><td>{{ f.email_attempted|default:"(blank)" }}</td><td>{{ f.ip_address|default:"Unknown IP" }}</td></tr>
                 {% empty %}
-                <tr><td colspan="3" style="color:var(--text-dim);">None recorded.</td></tr>
+                <tr><td colspan="3"><div class="empty-state"><i class="fa-solid fa-check"></i><span>None recorded.</span></div></td></tr>
                 {% endfor %}
             </tbody>
         </table>
@@ -41,10 +91,10 @@
 </div>
 
 <div class="glass-card" style="margin-top:16px;">
-    <h2 style="font-family:'JetBrains Mono',monospace; font-size:12px; text-transform:uppercase; color:var(--text-dim); margin:0 0 14px;">Security Events</h2>
+    <h2 class="section-title">Security Events</h2>
     <div class="table-scroll">
     <table>
-        <thead><tr><th>When</th><th>User</th><th>Type</th><th>Severity</th><th>Detail</th></tr></thead>
+        <thead><tr><th>When</th><th>User</th><th>Type</th><th>Severity</th><th>IP</th><th>Detail</th></tr></thead>
         <tbody>
             {% for ev in security_events %}
             <tr>
@@ -52,13 +102,56 @@
                 <td>{{ ev.user.username|default:"-" }}</td>
                 <td>{{ ev.event_type }}</td>
                 <td><span class="badge {% if ev.severity == 'critical' %}bad{% elif ev.severity == 'warning' %}warn{% else %}ok{% endif %}">{{ ev.severity }}</span></td>
+                <td>{{ ev.ip_address|default:"Unknown IP" }}</td>
                 <td>{{ ev.detail|truncatechars:60 }}</td>
             </tr>
             {% empty %}
-            <tr><td colspan="5" style="color:var(--text-dim);">No security events recorded yet.</td></tr>
+            <tr><td colspan="6"><div class="empty-state"><i class="fa-solid fa-shield-halved"></i><span>No security events recorded yet.</span></div></td></tr>
             {% endfor %}
         </tbody>
     </table>
     </div>
 </div>
+
+<style>
+    .section-title { font-family:'JetBrains Mono',monospace; font-size:12px; text-transform:uppercase; color:var(--text-dim); margin:0 0 14px; }
+    .chart-box { height:220px; position:relative; }
+    .chart-box canvas { position: absolute; inset: 0; }
+</style>
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const card = document.querySelector('.chart-lazy[data-chart="loginTimeline"]');
+        if (!card) return;
+        const data = {{ login_timeline_json|safe }};
+        const render = () => {
+            const skeleton = card.querySelector('.skeleton');
+            const canvas = card.querySelector('canvas');
+            new Chart(canvas, {
+                type: 'line',
+                data: {
+                    labels: data.map(d => d.date.slice(5)),
+                    datasets: [{ label: 'Logins', data: data.map(d => d.count), borderColor: '#ff5470', backgroundColor: 'rgba(255,84,112,0.12)', fill: true, tension: 0.35 }],
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        x: { grid: { display: false }, ticks: { color: '#8b8b92', font: { family: 'JetBrains Mono' } } },
+                        y: { grid: { color: 'rgba(255,255,255,0.06)' }, beginAtZero: true, ticks: { precision: 0, color: '#8b8b92' } },
+                    },
+                },
+            });
+            if (skeleton) skeleton.remove();
+            canvas.style.display = '';
+        };
+        if ('IntersectionObserver' in window) {
+            const observer = new IntersectionObserver((entries) => {
+                entries.forEach(entry => { if (entry.isIntersecting) { render(); observer.unobserve(entry.target); } });
+            }, { rootMargin: '100px' });
+            observer.observe(card);
+        } else {
+            render();
+        }
+    });
+</script>
 {% endblock %}

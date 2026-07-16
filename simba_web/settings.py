@@ -86,6 +86,7 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+                'chat.context_processors.feature_flags',
             ],
         },
     },
@@ -267,6 +268,8 @@ ACCOUNT_LOGIN_METHODS = {'email'}
 ACCOUNT_SIGNUP_FIELDS = ['email*', 'password1*', 'password2*']
 LOGIN_REDIRECT_URL = "/"
 ACCOUNT_LOGOUT_REDIRECT_URL = "/"
+ACCOUNT_ADAPTER = 'chat.adapters.SimbaAccountAdapter'
+SOCIALACCOUNT_ADAPTER = 'chat.adapters.SimbaSocialAccountAdapter'
 ACCOUNT_FORMS = {
     'login': 'chat.forms.SimbaLoginForm',
     'signup': 'chat.forms.SimbaSignupForm',

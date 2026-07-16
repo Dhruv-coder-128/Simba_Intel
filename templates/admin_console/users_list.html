@@ -6,8 +6,8 @@
 </div>
 
 <div class="glass-card" style="margin-bottom:16px;">
-    <form method="get" style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
-        <input type="text" name="q" value="{{ query }}" placeholder="Search username or email..." style="flex:1; min-width:220px;">
+    <form method="get" class="filter-bar">
+        <input type="text" name="q" value="{{ query }}" placeholder="Search username or email...">
         <select name="status">
             <option value="" {% if not status_filter %}selected{% endif %}>All statuses</option>
             <option value="active" {% if status_filter == 'active' %}selected{% endif %}>Active</option>
@@ -15,9 +15,22 @@
             <option value="suspended" {% if status_filter == 'suspended' %}selected{% endif %}>Suspended</option>
             <option value="banned" {% if status_filter == 'banned' %}selected{% endif %}>Banned</option>
             <option value="staff" {% if status_filter == 'staff' %}selected{% endif %}>Staff/Admin</option>
+            <option value="deleted" {% if status_filter == 'deleted' %}selected{% endif %}>Deleted</option>
         </select>
         <button type="submit" class="btn primary"><i class="fa-solid fa-magnifying-glass"></i> Search</button>
     </form>
+    <div class="filter-bar" style="margin-bottom:0; margin-top:10px;">
+        <a href="?{% if query %}q={{ query }}&{% endif %}{% if status_filter %}status={{ status_filter }}&{% endif %}verified={% if verified_filter == 'yes' %}{% else %}yes{% endif %}{% if admin_filter %}&admin={{ admin_filter }}{% endif %}{% if online_filter %}&online={{ online_filter }}{% endif %}{% if recent_filter %}&recent={{ recent_filter }}{% endif %}"
+           class="chip-toggle {% if verified_filter == 'yes' %}on{% endif %}"><i class="fa-solid fa-circle-check"></i> Verified</a>
+        <a href="?{% if query %}q={{ query }}&{% endif %}{% if status_filter %}status={{ status_filter }}&{% endif %}verified=no{% if admin_filter %}&admin={{ admin_filter }}{% endif %}{% if online_filter %}&online={{ online_filter }}{% endif %}{% if recent_filter %}&recent={{ recent_filter }}{% endif %}"
+           class="chip-toggle {% if verified_filter == 'no' %}on{% endif %}"><i class="fa-solid fa-circle-xmark"></i> Unverified</a>
+        <a href="?{% if query %}q={{ query }}&{% endif %}{% if status_filter %}status={{ status_filter }}&{% endif %}{% if verified_filter %}verified={{ verified_filter }}&{% endif %}admin={% if admin_filter == 'yes' %}{% else %}yes{% endif %}{% if online_filter %}&online={{ online_filter }}{% endif %}{% if recent_filter %}&recent={{ recent_filter }}{% endif %}"
+           class="chip-toggle {% if admin_filter == 'yes' %}on{% endif %}"><i class="fa-solid fa-user-shield"></i> Admins</a>
+        <a href="?{% if query %}q={{ query }}&{% endif %}{% if status_filter %}status={{ status_filter }}&{% endif %}{% if verified_filter %}verified={{ verified_filter }}&{% endif %}{% if admin_filter %}admin={{ admin_filter }}&{% endif %}online={% if online_filter == 'yes' %}{% else %}yes{% endif %}{% if recent_filter %}&recent={{ recent_filter }}{% endif %}"
+           class="chip-toggle {% if online_filter == 'yes' %}on{% endif %}"><i class="fa-solid fa-signal"></i> Online now</a>
+        <a href="?{% if query %}q={{ query }}&{% endif %}{% if status_filter %}status={{ status_filter }}&{% endif %}{% if verified_filter %}verified={{ verified_filter }}&{% endif %}{% if admin_filter %}admin={{ admin_filter }}&{% endif %}{% if online_filter %}online={{ online_filter }}&{% endif %}recent={% if recent_filter == 'yes' %}{% else %}yes{% endif %}"
+           class="chip-toggle {% if recent_filter == 'yes' %}on{% endif %}"><i class="fa-solid fa-clock"></i> Recently active</a>
+    </div>
 </div>
 
 <div class="glass-card">
@@ -32,7 +45,8 @@
                 <td>{{ u.username }}{% if u.is_superuser %} <span class="badge ok">SUPERUSER</span>{% elif u.is_staff %} <span class="badge warn">STAFF</span>{% endif %}</td>
                 <td>{{ u.email }}</td>
                 <td>
-                    {% if u.profile.is_banned %}<span class="badge bad">BANNED</span>
+                    {% if u.profile.is_deleted %}<span class="badge bad">DELETED</span>
+                    {% elif u.profile.is_banned %}<span class="badge bad">BANNED</span>
                     {% elif u.profile.is_suspended %}<span class="badge warn">SUSPENDED</span>
                     {% elif not u.is_active %}<span class="badge bad">BLOCKED</span>
                     {% else %}<span class="badge ok">ACTIVE</span>{% endif %}
@@ -42,7 +56,7 @@
                 <td><a href="{% url 'admin_user_detail' u.id %}" class="btn">View <i class="fa-solid fa-chevron-right"></i></a></td>
             </tr>
             {% empty %}
-            <tr><td colspan="6" style="color:var(--text-dim);">No users match this search.</td></tr>
+            <tr><td colspan="6"><div class="empty-state"><i class="fa-solid fa-user-slash"></i><span>No users match this search.</span></div></td></tr>
             {% endfor %}
         </tbody>
     </table>
@@ -50,11 +64,11 @@
 
     <div class="pagination">
         {% if page.has_previous %}
-        <a href="?q={{ query }}&status={{ status_filter }}&page={{ page.previous_page_number }}">Previous</a>
+        <a href="?q={{ query }}&status={{ status_filter }}&verified={{ verified_filter }}&admin={{ admin_filter }}&online={{ online_filter }}&recent={{ recent_filter }}&page={{ page.previous_page_number }}">Previous</a>
         {% endif %}
         <span class="current">{{ page.number }} / {{ page.paginator.num_pages }}</span>
         {% if page.has_next %}
-        <a href="?q={{ query }}&status={{ status_filter }}&page={{ page.next_page_number }}">Next</a>
+        <a href="?q={{ query }}&status={{ status_filter }}&verified={{ verified_filter }}&admin={{ admin_filter }}&online={{ online_filter }}&recent={{ recent_filter }}&page={{ page.next_page_number }}">Next</a>
         {% endif %}
     </div>
 </div>

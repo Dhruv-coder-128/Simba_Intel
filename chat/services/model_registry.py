@@ -50,6 +50,23 @@ MODEL_REGISTRY: Dict[str, ModelConfig] = {
 }
 
 
+# Provider identity (groq/mistral/pollinations) must never reach a
+# customer-facing page - only the admin console is "internal" enough to see
+# it raw (chat/admin_views.py deliberately keeps the real provider strings).
+# Any user-facing view that groups/displays by provider (chat/views.py's
+# analytics_dashboard) should map through this first.
+PROVIDER_DISPLAY_NAMES: Dict[str, str] = {
+    "groq": "SkyNet Cloud",
+    "mistral": "NovaMind Cloud",
+    "pollinations": "Image Studio Engine",
+    "openai": "Cyber Max Cloud",
+}
+
+
+def provider_display_name(provider: str) -> str:
+    return PROVIDER_DISPLAY_NAMES.get(provider, "Simba Cloud")
+
+
 def get_model_config(model_id: str) -> ModelConfig:
     return MODEL_REGISTRY[model_id.lower()]
 

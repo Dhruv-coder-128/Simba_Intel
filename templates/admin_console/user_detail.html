@@ -1,18 +1,30 @@
 {% extends "admin_console/base.html" %}
 {% block title %}{{ target.username }}{% endblock %}
 {% block content %}
+<style>
+    .section-title { font-family:'JetBrains Mono',monospace; font-size:12px; text-transform:uppercase; color:var(--text-dim); margin:0 0 14px; }
+    .action-row { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:16px; }
+    .action-row form { display:inline; }
+</style>
 <div class="admin-header">
-    <h1><i class="fa-solid fa-user"></i> {{ target.username }}</h1>
+    <h1><i class="fa-solid fa-user"></i> {{ target.username }}
+        {% if profile.is_deleted %}<span class="badge bad">DELETED</span>{% endif %}
+    </h1>
     <a href="{% url 'admin_users_list' %}" class="btn"><i class="fa-solid fa-arrow-left"></i> All users</a>
 </div>
 
-<div style="display:grid; grid-template-columns: 1fr 1.3fr; gap:16px; align-items:start;">
+<div class="grid-2" style="align-items:start;">
     <div class="glass-card">
-        <h2 style="font-family:'JetBrains Mono',monospace; font-size:12px; text-transform:uppercase; color:var(--text-dim); margin:0 0 14px;">Account</h2>
+        <h2 class="section-title">Account</h2>
         <table>
             <tr><td style="color:var(--text-dim);">Email</td><td>{{ target.email }}</td></tr>
+            <tr><td style="color:var(--text-dim);">Verification</td><td>
+                {% if email_verified %}<span class="badge ok">VERIFIED</span>{% else %}<span class="badge warn">UNVERIFIED</span>{% endif %}
+            </td></tr>
+            <tr><td style="color:var(--text-dim);">Signup source</td><td>{{ profile.get_registration_source_display }}</td></tr>
+            <tr><td style="color:var(--text-dim);">Google account</td><td>{% if google_linked %}<span class="badge ok">LINKED</span>{% else %}<span style="color:var(--text-dim);">Not linked</span>{% endif %}</td></tr>
             <tr><td style="color:var(--text-dim);">Joined</td><td>{{ target.date_joined|date:"M j, Y H:i" }}</td></tr>
-            <tr><td style="color:var(--text-dim);">Last login</td><td>{{ target.last_login|date:"M j, Y H:i"|default:"Never" }}</td></tr>
+            <tr><td style="color:var(--text-dim);">Last login</td><td>{{ target.last_login|date:"M j, Y H:i"|default:"Never" }} {% if profile.last_login_browser %}<span style="color:var(--text-dim); font-size:11px;">({{ profile.last_login_browser }} &middot; {{ profile.last_login_device }} &middot; {{ profile.last_login_os }})</span>{% endif %}</td></tr>
             <tr><td style="color:var(--text-dim);">Status</td><td>
                 {% if profile.is_banned %}<span class="badge bad">BANNED</span> - {{ profile.ban_reason }}
                 {% elif profile.is_suspended %}<span class="badge warn">SUSPENDED until {{ profile.suspended_until|date:"M j, H:i" }}</span> - {{ profile.suspend_reason }}
@@ -20,16 +32,17 @@
                 {% else %}<span class="badge ok">ACTIVE</span>{% endif %}
             </td></tr>
             <tr><td style="color:var(--text-dim);">Role</td><td>{% if target.is_superuser %}Superuser{% elif target.is_staff %}Staff{% else %}User{% endif %}</td></tr>
-            <tr><td style="color:var(--text-dim);">Chats</td><td>{{ total_sessions }}</td></tr>
-            <tr><td style="color:var(--text-dim);">API requests</td><td>{{ usage.total_requests|default:0 }}</td></tr>
-            <tr><td style="color:var(--text-dim);">Est. cost</td><td>${{ usage.total_cost|default:0|floatformat:4 }}</td></tr>
+            <tr><td style="color:var(--text-dim);">Total chats</td><td>{{ total_sessions }}</td></tr>
+            <tr><td style="color:var(--text-dim);">Chat / Image / Vision requests</td><td>{{ usage.total_chats|default:0 }} / {{ usage.total_images|default:0 }} / {{ usage.total_vision|default:0 }}</td></tr>
+            <tr><td style="color:var(--text-dim);">Total tokens</td><td>{{ usage.total_tokens|default:0 }}</td></tr>
+            <tr><td style="color:var(--text-dim);">Total API cost</td><td>${{ usage.total_cost|default:0|floatformat:4 }}</td></tr>
         </table>
     </div>
 
     <div class="glass-card">
-        <h2 style="font-family:'JetBrains Mono',monospace; font-size:12px; text-transform:uppercase; color:var(--text-dim); margin:0 0 14px;">Actions</h2>
-        <div style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:16px;">
-            <form method="post" style="display:inline;">
+        <h2 class="section-title">Actions</h2>
+        <div class="action-row">
+            <form method="post">
                 {% csrf_token %}
                 {% if target.is_active %}
                 <input type="hidden" name="action" value="block">
@@ -41,38 +54,54 @@
             </form>
 
             {% if profile.is_banned %}
-            <form method="post" style="display:inline;">
+            <form method="post">
                 {% csrf_token %}<input type="hidden" name="action" value="unban">
                 <button type="submit" class="btn"><i class="fa-solid fa-check"></i> Unban</button>
             </form>
             {% endif %}
 
             {% if profile.is_suspended %}
-            <form method="post" style="display:inline;">
+            <form method="post">
                 {% csrf_token %}<input type="hidden" name="action" value="unsuspend">
                 <button type="submit" class="btn"><i class="fa-solid fa-check"></i> Lift Suspension</button>
             </form>
             {% endif %}
 
-            <form method="post" style="display:inline;">
+            <form method="post">
                 {% csrf_token %}<input type="hidden" name="action" value="force_logout">
                 <button type="submit" class="btn" onclick="return confirm('Force logout on all devices?')"><i class="fa-solid fa-right-from-bracket"></i> Force Logout</button>
             </form>
 
-            <form method="post" style="display:inline;">
+            {% if not email_verified %}
+            <form method="post">
                 {% csrf_token %}<input type="hidden" name="action" value="verify_email">
-                <button type="submit" class="btn"><i class="fa-solid fa-envelope-circle-check"></i> Verify Email</button>
+                <button type="submit" class="btn"><i class="fa-solid fa-envelope-circle-check"></i> Verify / Force Verify</button>
             </form>
+            {% endif %}
 
-            <form method="post" style="display:inline;">
+            <form method="post">
                 {% csrf_token %}<input type="hidden" name="action" value="reset_password">
                 <button type="submit" class="btn" onclick="return confirm('Email this user a password reset code?')"><i class="fa-solid fa-key"></i> Reset Password</button>
             </form>
 
-            <form method="post" style="display:inline;">
+            <a href="{% url 'admin_export_user_data' target.id %}" class="btn"><i class="fa-solid fa-download"></i> Export User Data</a>
+
+            <form method="post">
                 {% csrf_token %}<input type="hidden" name="action" value="delete_chats">
                 <button type="submit" class="btn danger" onclick="return confirm('Permanently delete ALL chats for this user? This cannot be undone.')"><i class="fa-solid fa-trash"></i> Delete All Chats</button>
             </form>
+
+            {% if profile.is_deleted %}
+            <form method="post">
+                {% csrf_token %}<input type="hidden" name="action" value="restore_account">
+                <button type="submit" class="btn primary"><i class="fa-solid fa-clock-rotate-left"></i> Restore User</button>
+            </form>
+            {% else %}
+            <form method="post">
+                {% csrf_token %}<input type="hidden" name="action" value="delete_account">
+                <button type="submit" class="btn danger" onclick="return confirm('Delete this user account? Login access is revoked immediately - this is reversible via Restore User.')"><i class="fa-solid fa-user-slash"></i> Delete User</button>
+            </form>
+            {% endif %}
         </div>
 
         <details style="margin-bottom:12px;">
@@ -107,6 +136,23 @@
             </form>
         </details>
 
+        <details style="margin-bottom:12px;">
+            <summary style="cursor:pointer; color:var(--text-dim); font-size:12.5px; margin-bottom:8px;">Usage limits</summary>
+            <form method="post" style="margin-top:8px;">
+                {% csrf_token %}<input type="hidden" name="action" value="update_usage_limits">
+                <label style="display:flex; align-items:center; gap:8px; font-size:12.5px; color:var(--text-dim); margin-bottom:10px;">
+                    <input type="checkbox" name="unlimited_usage" {% if profile.unlimited_usage %}checked{% endif %}> Unlimited usage (bypasses all caps below)
+                </label>
+                <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(140px,1fr)); gap:8px; margin-bottom:10px;">
+                    <label style="font-size:11px; color:var(--text-dim);">Daily chats<input type="number" name="daily_chat_limit" value="{{ profile.daily_chat_limit }}" min="0" style="width:100%; margin-top:4px;"></label>
+                    <label style="font-size:11px; color:var(--text-dim);">Daily images<input type="number" name="daily_image_limit" value="{{ profile.daily_image_limit }}" min="0" style="width:100%; margin-top:4px;"></label>
+                    <label style="font-size:11px; color:var(--text-dim);">Daily vision<input type="number" name="daily_vision_limit" value="{{ profile.daily_vision_limit }}" min="0" style="width:100%; margin-top:4px;"></label>
+                    <label style="font-size:11px; color:var(--text-dim);">Daily tokens<input type="number" name="daily_token_limit" value="{{ profile.daily_token_limit }}" min="0" style="width:100%; margin-top:4px;"></label>
+                </div>
+                <button type="submit" class="btn primary">Save limits</button>
+            </form>
+        </details>
+
         <details open>
             <summary style="cursor:pointer; color:var(--text-dim); font-size:12.5px; margin-bottom:8px;">Add note</summary>
             <form method="post" style="display:flex; gap:8px; margin-top:8px;">
@@ -118,20 +164,53 @@
     </div>
 </div>
 
-<div style="display:grid; grid-template-columns: 1fr 1fr; gap:16px; margin-top:16px;">
+<div class="grid-2" style="margin-top:16px;">
     <div class="glass-card">
-        <h2 style="font-family:'JetBrains Mono',monospace; font-size:12px; text-transform:uppercase; color:var(--text-dim); margin:0 0 14px;">Notes</h2>
+        <h2 class="section-title">Active Devices / Sessions</h2>
+        <div class="table-scroll">
+        <table>
+            <thead><tr><th>Device</th><th>Browser</th><th>IP</th><th>Since</th></tr></thead>
+            <tbody>
+                {% for s in active_devices %}
+                <tr><td>{{ s.device }}</td><td>{{ s.browser }}</td><td>{{ s.ip_address|default:"Unknown IP" }}</td><td>{{ s.created_at|date:"M j, H:i" }}</td></tr>
+                {% empty %}
+                <tr><td colspan="4"><div class="empty-state"><i class="fa-solid fa-display"></i><span>No active sessions.</span></div></td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        </div>
+    </div>
+    <div class="glass-card">
+        <h2 class="section-title">Security Events</h2>
+        <div class="table-scroll">
+        <table>
+            <thead><tr><th>When</th><th>Type</th><th>IP</th><th>Device</th></tr></thead>
+            <tbody>
+                {% for ev in security_events %}
+                <tr><td>{{ ev.created_at|date:"M j, H:i" }}</td><td><span class="badge {% if ev.severity == 'critical' %}bad{% elif ev.severity == 'warning' %}warn{% else %}ok{% endif %}">{{ ev.event_type }}</span></td><td>{{ ev.ip_address|default:"Unknown IP" }}</td><td>{{ ev.browser }} / {{ ev.device }}</td></tr>
+                {% empty %}
+                <tr><td colspan="4"><div class="empty-state"><i class="fa-solid fa-shield-halved"></i><span>No security events recorded.</span></div></td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        </div>
+    </div>
+</div>
+
+<div class="grid-2" style="margin-top:16px;">
+    <div class="glass-card">
+        <h2 class="section-title">Notes</h2>
         {% for note in notes %}
         <div style="padding:10px 0; border-bottom:1px solid var(--border-soft); font-size:13px;">
             <div>{{ note.note }}</div>
             <div style="color:var(--text-dim); font-size:11px; margin-top:4px;">{{ note.author.username|default:"system" }} - {{ note.created_at|date:"M j, H:i" }}</div>
         </div>
         {% empty %}
-        <div style="color:var(--text-dim); font-size:13px;">No notes yet.</div>
+        <div class="empty-state"><i class="fa-solid fa-note-sticky"></i><span>No notes yet.</span></div>
         {% endfor %}
     </div>
     <div class="glass-card">
-        <h2 style="font-family:'JetBrains Mono',monospace; font-size:12px; text-transform:uppercase; color:var(--text-dim); margin:0 0 14px;">Admin History</h2>
+        <h2 class="section-title">Admin History</h2>
         <div class="table-scroll">
         <table>
             <thead><tr><th>When</th><th>Actor</th><th>Action</th><th>Detail</th></tr></thead>
@@ -139,7 +218,7 @@
                 {% for log in audit_history %}
                 <tr><td>{{ log.created_at|date:"M j, H:i" }}</td><td>{{ log.actor.username|default:"-" }}</td><td>{{ log.action }}</td><td>{{ log.detail|truncatechars:40 }}</td></tr>
                 {% empty %}
-                <tr><td colspan="4" style="color:var(--text-dim);">No admin actions on this account.</td></tr>
+                <tr><td colspan="4"><div class="empty-state"><i class="fa-solid fa-clipboard-list"></i><span>No admin actions on this account.</span></div></td></tr>
                 {% endfor %}
             </tbody>
         </table>
@@ -148,7 +227,7 @@
 </div>
 
 <div class="glass-card" style="margin-top:16px;">
-    <h2 style="font-family:'JetBrains Mono',monospace; font-size:12px; text-transform:uppercase; color:var(--text-dim); margin:0 0 14px;">Recent Chats</h2>
+    <h2 class="section-title">Recent Chats</h2>
     <div class="table-scroll">
     <table>
         <thead><tr><th>Title</th><th>Created</th><th>Pinned</th></tr></thead>
@@ -156,7 +235,7 @@
             {% for s in sessions %}
             <tr><td>{{ s.title }}</td><td>{{ s.created_at|date:"M j, Y H:i" }}</td><td>{% if s.is_pinned %}<i class="fa-solid fa-thumbtack"></i>{% endif %}</td></tr>
             {% empty %}
-            <tr><td colspan="3" style="color:var(--text-dim);">No chats yet.</td></tr>
+            <tr><td colspan="3"><div class="empty-state"><i class="fa-solid fa-comments"></i><span>No chats yet.</span></div></td></tr>
             {% endfor %}
         </tbody>
     </table>

@@ -1,6 +1,6 @@
 {% extends "admin_console/base.html" %}
 {% block title %}Dashboard{% endblock %}
-{% block extra_head %}<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>{% endblock %}
+{% block extra_head %}<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js" defer></script>{% endblock %}
 {% block content %}
 <div class="admin-header">
     <h1><i class="fa-solid fa-gauge"></i> PLATFORM DASHBOARD</h1>
@@ -9,42 +9,72 @@
 
 <div class="stat-grid">
     <div class="glass-card stat-card"><div class="stat-label">Total Users</div><div class="stat-value">{{ total_users }}</div></div>
+    <div class="glass-card stat-card"><div class="stat-label">Verified Users</div><div class="stat-value">{{ verified_users }}</div></div>
+    <div class="glass-card stat-card"><div class="stat-label">Unverified Users</div><div class="stat-value">{{ unverified_users }}</div></div>
     <div class="glass-card stat-card"><div class="stat-label">Online Now (~5min)</div><div class="stat-value">{{ online_users }}</div></div>
-    <div class="glass-card stat-card"><div class="stat-label">Active Users</div><div class="stat-value">{{ active_users }}</div></div>
+    <div class="glass-card stat-card"><div class="stat-label">Active Sessions</div><div class="stat-value">{{ active_sessions }}</div></div>
     <div class="glass-card stat-card"><div class="stat-label">Banned</div><div class="stat-value">{{ banned_users }}</div></div>
     <div class="glass-card stat-card"><div class="stat-label">New Today</div><div class="stat-value">{{ new_today }}</div></div>
     <div class="glass-card stat-card"><div class="stat-label">New This Week</div><div class="stat-value">{{ new_this_week }}</div></div>
+    <div class="glass-card stat-card"><div class="stat-label">Daily Active Users</div><div class="stat-value">{{ online_users }}</div></div>
+    <div class="glass-card stat-card"><div class="stat-label">Monthly Active Users</div><div class="stat-value">{{ monthly_active_users }}</div></div>
     <div class="glass-card stat-card"><div class="stat-label">Total Chats</div><div class="stat-value">{{ total_sessions }}</div></div>
     <div class="glass-card stat-card"><div class="stat-label">Total Messages</div><div class="stat-value">{{ total_messages }}</div></div>
-    <div class="glass-card stat-card"><div class="stat-label">API Requests</div><div class="stat-value">{{ total_requests }}</div></div>
-    <div class="glass-card stat-card"><div class="stat-label">Total Tokens</div><div class="stat-value">{{ total_tokens }}</div></div>
-    <div class="glass-card stat-card"><div class="stat-label">Estimated API Cost</div><div class="stat-value">${{ total_cost|floatformat:4 }}</div></div>
     <div class="glass-card stat-card"><div class="stat-label">Images Generated</div><div class="stat-value">{{ images_generated }}</div></div>
-    <div class="glass-card stat-card"><div class="stat-label">Vision Calls</div><div class="stat-value">{{ vision_calls }}</div></div>
+    <div class="glass-card stat-card"><div class="stat-label">Vision Requests</div><div class="stat-value">{{ vision_calls }}</div></div>
+    <div class="glass-card stat-card"><div class="stat-label">API Requests</div><div class="stat-value">{{ total_requests }}</div></div>
+    <div class="glass-card stat-card"><div class="stat-label">Estimated API Cost</div><div class="stat-value">${{ total_cost|floatformat:4 }}</div></div>
+    <div class="glass-card stat-card"><div class="stat-label">Avg Response Time</div><div class="stat-value">{{ avg_response_time }}s</div></div>
     <div class="glass-card stat-card"><div class="stat-label">Registered Models</div><div class="stat-value">{{ model_count }}</div></div>
 </div>
 
-<div style="display:grid; grid-template-columns: 1.4fr 1fr; gap:16px; margin-bottom:20px;">
-    <div class="glass-card">
-        <h2 style="font-family:'JetBrains Mono',monospace; font-size:12px; text-transform:uppercase; color:var(--text-dim); margin:0 0 14px;">New Signups - Last 7 Days</h2>
-        <div style="height:220px; position:relative;"><canvas id="signupsChart"></canvas></div>
+<div class="grid-2" style="margin-bottom:16px;">
+    <div class="glass-card chart-lazy" data-chart="userGrowth">
+        <h2 class="section-title">User Growth - Last 7 Days</h2>
+        <div class="chart-box"><div class="skeleton chart-skeleton"></div><canvas id="userGrowthChart" style="display:none;"></canvas></div>
     </div>
-    <div class="glass-card">
-        <h2 style="font-family:'JetBrains Mono',monospace; font-size:12px; text-transform:uppercase; color:var(--text-dim); margin:0 0 14px;">Provider Usage</h2>
-        <table>
-            <thead><tr><th>Provider</th><th>Requests</th><th>Cost</th></tr></thead>
-            <tbody>
-                {% for p in by_provider %}
-                <tr><td>{{ p.provider }}</td><td>{{ p.requests }}</td><td>${{ p.cost|floatformat:4 }}</td></tr>
-                {% endfor %}
-            </tbody>
-        </table>
+    <div class="glass-card chart-lazy" data-chart="dailyRequests">
+        <h2 class="section-title">Daily Requests - Last 14 Days</h2>
+        <div class="chart-box"><div class="skeleton chart-skeleton"></div><canvas id="dailyRequestsChart" style="display:none;"></canvas></div>
     </div>
 </div>
 
-<div style="display:grid; grid-template-columns: 1fr 1fr; gap:16px;">
+<div class="grid-2" style="margin-bottom:16px;">
+    <div class="glass-card chart-lazy" data-chart="dailyCost">
+        <h2 class="section-title">Daily Cost - Last 14 Days</h2>
+        <div class="chart-box"><div class="skeleton chart-skeleton"></div><canvas id="dailyCostChart" style="display:none;"></canvas></div>
+    </div>
+    <div class="glass-card chart-lazy" data-chart="tokenUsage">
+        <h2 class="section-title">Token Usage - Last 14 Days</h2>
+        <div class="chart-box"><div class="skeleton chart-skeleton"></div><canvas id="tokenUsageChart" style="display:none;"></canvas></div>
+    </div>
+</div>
+
+<div class="grid-2" style="margin-bottom:16px;">
+    <div class="glass-card chart-lazy" data-chart="modelUsage">
+        <h2 class="section-title">Model Usage</h2>
+        <div class="chart-box"><div class="skeleton chart-skeleton"></div><canvas id="modelUsageChart" style="display:none;"></canvas></div>
+    </div>
+    <div class="glass-card chart-lazy" data-chart="providerUsage">
+        <h2 class="section-title">Provider Usage <span style="font-weight:400; text-transform:none; letter-spacing:0;">(internal only)</span></h2>
+        <div class="chart-box"><div class="skeleton chart-skeleton"></div><canvas id="providerUsageChart" style="display:none;"></canvas></div>
+    </div>
+</div>
+
+<div class="grid-2" style="margin-bottom:20px;">
+    <div class="glass-card chart-lazy" data-chart="chatVsImage">
+        <h2 class="section-title">Chat vs Image vs Vision</h2>
+        <div class="chart-box"><div class="skeleton chart-skeleton"></div><canvas id="chatVsImageChart" style="display:none;"></canvas></div>
+    </div>
+    <div class="glass-card chart-lazy" data-chart="loginActivity">
+        <h2 class="section-title">Login Activity - Last 14 Days</h2>
+        <div class="chart-box"><div class="skeleton chart-skeleton"></div><canvas id="loginActivityChart" style="display:none;"></canvas></div>
+    </div>
+</div>
+
+<div class="grid-2">
     <div class="glass-card">
-        <h2 style="font-family:'JetBrains Mono',monospace; font-size:12px; text-transform:uppercase; color:var(--text-dim); margin:0 0 14px;">Recent Security Events</h2>
+        <h2 class="section-title">Recent Security Events</h2>
         <div class="table-scroll">
         <table>
             <thead><tr><th>When</th><th>Severity</th><th>Type</th></tr></thead>
@@ -52,14 +82,14 @@
                 {% for ev in recent_errors %}
                 <tr><td>{{ ev.created_at|date:"M j, H:i" }}</td><td><span class="badge {% if ev.severity == 'critical' %}bad{% else %}warn{% endif %}">{{ ev.severity }}</span></td><td>{{ ev.event_type }}</td></tr>
                 {% empty %}
-                <tr><td colspan="3" style="color:var(--text-dim);">No warnings or critical events recorded.</td></tr>
+                <tr><td colspan="3"><div class="empty-state"><i class="fa-solid fa-shield-halved"></i><span>No warnings or critical events recorded.</span></div></td></tr>
                 {% endfor %}
             </tbody>
         </table>
         </div>
     </div>
     <div class="glass-card">
-        <h2 style="font-family:'JetBrains Mono',monospace; font-size:12px; text-transform:uppercase; color:var(--text-dim); margin:0 0 14px;">Recent Admin Actions</h2>
+        <h2 class="section-title">Recent Admin Actions</h2>
         <div class="table-scroll">
         <table>
             <thead><tr><th>When</th><th>Actor</th><th>Action</th><th>Target</th></tr></thead>
@@ -67,7 +97,7 @@
                 {% for log in recent_audit %}
                 <tr><td>{{ log.created_at|date:"M j, H:i" }}</td><td>{{ log.actor.username|default:"-" }}</td><td>{{ log.action }}</td><td>{{ log.target_user.username|default:"-" }}</td></tr>
                 {% empty %}
-                <tr><td colspan="4" style="color:var(--text-dim);">No admin actions yet.</td></tr>
+                <tr><td colspan="4"><div class="empty-state"><i class="fa-solid fa-clipboard-list"></i><span>No admin actions yet.</span></div></td></tr>
                 {% endfor %}
             </tbody>
         </table>
@@ -75,20 +105,99 @@
     </div>
 </div>
 
+<style>
+    .section-title {
+        font-family:'JetBrains Mono',monospace; font-size:12px; text-transform:uppercase;
+        color:var(--text-dim); margin:0 0 14px; letter-spacing: 0.5px;
+    }
+    .chart-box { height:220px; position:relative; }
+    .chart-box canvas { position: absolute; inset: 0; }
+</style>
 <script>
-    const signups = {{ daily_signups_json|safe }};
-    new Chart(document.getElementById('signupsChart'), {
-        type: 'bar',
-        data: {
-            labels: signups.map(d => d.date.slice(5)),
-            datasets: [{
-                label: 'Signups',
-                data: signups.map(d => d.count),
-                backgroundColor: 'rgba(255, 84, 112, 0.6)',
-                borderRadius: 6,
-            }],
-        },
-        options: {
+    // Lazy chart init: each .chart-lazy card only builds its Chart.js
+    // instance once it actually scrolls into view, and only once (charts
+    // above the fold on a typical dashboard load immediately; anything
+    // further down the page never pays the render cost until scrolled to).
+    const CHART_DATA = {
+        userGrowth: {{ daily_signups_json|safe }},
+        dailyRequests: {{ daily_requests_json|safe }},
+        dailyCost: {{ daily_cost_json|safe }},
+        tokenUsage: {{ daily_tokens_json|safe }},
+        modelUsage: {{ by_model_json|safe }},
+        providerUsage: {{ by_provider_json|safe }},
+        chatVsImage: {{ chat_vs_image_json|safe }},
+        loginActivity: {{ login_activity_json|safe }},
+    };
+
+    const CHART_BUILDERS = {
+        userGrowth: (ctx) => new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: CHART_DATA.userGrowth.map(d => d.date.slice(5)),
+                datasets: [{ label: 'Signups', data: CHART_DATA.userGrowth.map(d => d.count), backgroundColor: 'rgba(255,84,112,0.6)', borderRadius: 6 }],
+            },
+            options: baseOptions(),
+        }),
+        dailyRequests: (ctx) => new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: CHART_DATA.dailyRequests.map(d => d.date.slice(5)),
+                datasets: [{ label: 'Requests', data: CHART_DATA.dailyRequests.map(d => d.count), borderColor: '#ff5470', backgroundColor: 'rgba(255,84,112,0.15)', fill: true, tension: 0.35 }],
+            },
+            options: baseOptions(),
+        }),
+        dailyCost: (ctx) => new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: CHART_DATA.dailyCost.map(d => d.date.slice(5)),
+                datasets: [{ label: 'Cost (USD)', data: CHART_DATA.dailyCost.map(d => d.cost), borderColor: '#39ff88', backgroundColor: 'rgba(57,255,136,0.12)', fill: true, tension: 0.35 }],
+            },
+            options: baseOptions(),
+        }),
+        tokenUsage: (ctx) => new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: CHART_DATA.tokenUsage.map(d => d.date.slice(5)),
+                datasets: [{ label: 'Tokens', data: CHART_DATA.tokenUsage.map(d => d.tokens), backgroundColor: 'rgba(255,184,77,0.6)', borderRadius: 6 }],
+            },
+            options: baseOptions(),
+        }),
+        modelUsage: (ctx) => new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: CHART_DATA.modelUsage.map(d => d.display_name),
+                datasets: [{ label: 'Requests', data: CHART_DATA.modelUsage.map(d => d.requests), backgroundColor: 'rgba(255,84,112,0.6)', borderRadius: 6 }],
+            },
+            options: { ...baseOptions(), indexAxis: 'y' },
+        }),
+        providerUsage: (ctx) => new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: CHART_DATA.providerUsage.map(d => d.provider),
+                datasets: [{ label: 'Requests', data: CHART_DATA.providerUsage.map(d => d.requests), backgroundColor: 'rgba(139,139,146,0.6)', borderRadius: 6 }],
+            },
+            options: { ...baseOptions(), indexAxis: 'y' },
+        }),
+        chatVsImage: (ctx) => new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: ['Chat', 'Image', 'Vision'],
+                datasets: [{ data: [CHART_DATA.chatVsImage.chat, CHART_DATA.chatVsImage.image, CHART_DATA.chatVsImage.vision], backgroundColor: ['#ff5470', '#39ff88', '#ffb84d'] }],
+            },
+            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { color: '#8b8b92' } } } },
+        }),
+        loginActivity: (ctx) => new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: CHART_DATA.loginActivity.map(d => d.date.slice(5)),
+                datasets: [{ label: 'Logins', data: CHART_DATA.loginActivity.map(d => d.count), borderColor: '#ff5470', backgroundColor: 'rgba(255,84,112,0.12)', fill: true, tension: 0.35 }],
+            },
+            options: baseOptions(),
+        }),
+    };
+
+    function baseOptions() {
+        return {
             responsive: true,
             maintainAspectRatio: false,
             interaction: { mode: 'index', intersect: false },
@@ -97,7 +206,35 @@
                 x: { grid: { display: false }, ticks: { color: '#8b8b92', font: { family: 'JetBrains Mono' } } },
                 y: { grid: { color: 'rgba(255,255,255,0.06)' }, beginAtZero: true, ticks: { precision: 0, color: '#8b8b92' } },
             },
-        },
+        };
+    }
+
+    function initChart(card) {
+        const key = card.dataset.chart;
+        if (card.dataset.rendered || !CHART_BUILDERS[key]) return;
+        card.dataset.rendered = '1';
+        const skeleton = card.querySelector('.skeleton');
+        const canvas = card.querySelector('canvas');
+        CHART_BUILDERS[key](canvas);
+        if (skeleton) skeleton.remove();
+        canvas.style.display = '';
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        const cards = document.querySelectorAll('.chart-lazy');
+        if (!('IntersectionObserver' in window)) {
+            cards.forEach(initChart);
+            return;
+        }
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    initChart(entry.target);
+                    observer.unobserve(entry.target);
+                }
+            });
+        }, { rootMargin: '100px' });
+        cards.forEach(card => observer.observe(card));
     });
 </script>
 {% endblock %}

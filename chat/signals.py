@@ -20,6 +20,7 @@ from allauth.socialaccount.signals import social_account_added, social_account_u
 
 from chat.models import FailedLoginAttempt, SecurityEvent, UserProfile, UserSession
 from chat.utils.device import UNKNOWN_BROWSER, UNKNOWN_DEVICE, UNKNOWN_OS, parse_client_info
+from chat.utils.request_info import client_ip, raw_user_agent
 
 logger = logging.getLogger(__name__)
 
@@ -45,30 +46,21 @@ def _guarded(label):
     return decorator
 
 
-def _client_ip(request):
-    if not request:
-        return None
-    forwarded = request.META.get('HTTP_X_FORWARDED_FOR')
-    if forwarded:
-        return forwarded.split(',')[0].strip()
-    return request.META.get('REMOTE_ADDR')
-
-
 @receiver(user_login_failed)
 @_guarded("record_failed_login")
 def record_failed_login(sender, credentials, request=None, **kwargs):
     FailedLoginAttempt.objects.create(
         email_attempted=(credentials.get('login') or credentials.get('email') or credentials.get('username') or '')[:254],
-        ip_address=_client_ip(request),
-        user_agent=(request.META.get('HTTP_USER_AGENT', '') if request else '')[:500],
+        ip_address=client_ip(request),
+        user_agent=raw_user_agent(request),
     )
 
 
 @receiver(user_logged_in)
 @_guarded("record_login_security_event")
 def record_login_security_event(sender, user, request=None, **kwargs):
-    ip = _client_ip(request)
-    raw_ua = (request.META.get('HTTP_USER_AGENT', '') if request else '')[:500]
+    ip = client_ip(request)
+    raw_ua = raw_user_agent(request)
     # parse_client_info() itself never raises and never returns a falsy
     # value, but the `or` fallbacks below are a second line of defense -
     # this exact spot (the values going into a NOT NULL insert) is where a

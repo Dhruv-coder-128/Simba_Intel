@@ -23,7 +23,7 @@ try:
 except ImportError:
     GPUtil_AVAILABLE = False
 
-from chat.models import ChatSession, Message, UserProfile, UsageEvent, PasswordResetOTP, Broadcast, UserSession, SecurityEvent
+from chat.models import ChatSession, Message, UserProfile, UsageEvent, PasswordResetOTP, Broadcast, UserSession, SecurityEvent, FeatureFlag
 from chat.services.ai_router import chat_stream, vision as ai_vision
 from chat.services.image_router import generate_image
 from chat.services.memory import get_conversation_history, build_messages, messages_to_history_dicts, SYSTEM_PROMPT
@@ -31,7 +31,7 @@ from chat.services.message_tree import (
     append_turn, build_display_messages, regenerate_assistant_reply, set_active_leaf, walk_chain_from,
 )
 from chat.services.model_registry import list_available_models, get_model_config
-from chat.services.usage import record_usage, check_rate_limit
+from chat.services.usage import record_usage, check_rate_limit, check_daily_limit
 from chat.services.verification import is_email_verified, verification_required
 from chat.utils.logger import SimbaLogger
 
@@ -126,7 +126,14 @@ def chat_home(request):
             current_session = None
     selected_model = request.session.get("selected_model", profile.default_model)
     models = list_available_models()
-    active_broadcast = Broadcast.objects.filter(active=True).order_by('-created_at').first()
+    # `active=True` alone isn't "currently showing" - starts_at/ends_at can
+    # still make it scheduled-for-later or expired; there's normally at most
+    # one active=True row (the admin console enforces that on create), so
+    # checking status in Python here is one cheap row, not a query per user.
+    active_broadcast = next(
+        (b for b in Broadcast.objects.filter(active=True).order_by('-created_at') if b.is_currently_visible()),
+        None,
+    )
     return render(request, 'chat.html', {
         'sessions': sessions,
         'messages': messages,
@@ -236,6 +243,10 @@ def analytics_dashboard(request):
     them would mean showing invented numbers. Every figure below is a real
     aggregate over what's actually recorded.
     """
+    if not FeatureFlag.is_enabled('analytics', default=True):
+        messages.info(request, "Analytics is temporarily disabled by the administrator.")
+        return redirect('home')
+
     import json
     from collections import defaultdict
     from datetime import timedelta
@@ -244,7 +255,7 @@ def analytics_dashboard(request):
     from django.db.models.functions import TruncDate, TruncMonth
     from django.utils import timezone
 
-    from chat.services.model_registry import MODEL_REGISTRY
+    from chat.services.model_registry import MODEL_REGISTRY, provider_display_name
 
     profile = UserProfile.get_or_create_for(request.user)
 
@@ -272,7 +283,9 @@ def analytics_dashboard(request):
         by_model.append({
             'model_id': row['model_id'],
             'display_name': config.display_name if config else row['model_id'],
-            'provider': row['provider'],
+            # Never the raw provider string on this user-facing page - see
+            # provider_display_name()'s docstring for why.
+            'provider': provider_display_name(row['provider']),
             'requests': row['requests'],
             'tokens': row['tokens'] or 0,
             'cost': float(row['cost'] or 0),
@@ -280,7 +293,7 @@ def analytics_dashboard(request):
 
     by_provider = [
         {
-            'provider': row['provider'],
+            'provider': provider_display_name(row['provider']),
             'requests': row['requests'],
             'cost': float(row['cost'] or 0),
             'avg_latency': round(row['avg_latency'], 2) if row['avg_latency'] else 0,
@@ -510,6 +523,19 @@ def ask_ai(request):
                     return verify_response
 
                 if image_files and model_config.supports_vision:
+                    if not FeatureFlag.is_enabled('vision', default=True):
+                        disabled_response = JsonResponse(
+                            {"type": "error", "message": "Vision is temporarily disabled by the administrator."}
+                        )
+                        disabled_response["X-Session-ID"] = str(session.id)
+                        return disabled_response
+
+                    allowed, limit_message = check_daily_limit(request.user, "vision")
+                    if not allowed:
+                        limit_response = JsonResponse({"type": "error", "message": limit_message}, status=429)
+                        limit_response["X-Session-ID"] = str(session.id)
+                        return limit_response
+
                     # True vision: send every image straight to a vision-capable model
                     # in a single multi-image message.
                     try:
@@ -609,6 +635,19 @@ def ask_ai(request):
                 return verify_response
 
             if model_config.supports_image_gen:
+                if not FeatureFlag.is_enabled('image_generation', default=True):
+                    disabled_response = JsonResponse(
+                        {"type": "error", "message": "Image generation is temporarily disabled by the administrator."}
+                    )
+                    disabled_response["X-Session-ID"] = str(session.id)
+                    return disabled_response
+
+                allowed, limit_message = check_daily_limit(request.user, "image")
+                if not allowed:
+                    limit_response = JsonResponse({"type": "error", "message": limit_message}, status=429)
+                    limit_response["X-Session-ID"] = str(session.id)
+                    return limit_response
+
                 # Handle image generation
                 try:
                     seed = request.POST.get('seed')
@@ -679,6 +718,19 @@ def ask_ai(request):
                     return error_response
             
             # Regular chat
+            if not FeatureFlag.is_enabled('ai_chat', default=True):
+                disabled_response = JsonResponse(
+                    {"type": "error", "message": "AI Chat is temporarily disabled by the administrator."}
+                )
+                disabled_response["X-Session-ID"] = str(session.id)
+                return disabled_response
+
+            allowed, limit_message = check_daily_limit(request.user, "chat")
+            if not allowed:
+                limit_response = JsonResponse({"type": "error", "message": limit_message}, status=429)
+                limit_response["X-Session-ID"] = str(session.id)
+                return limit_response
+
             history = get_conversation_history(session)
             messages = build_messages(user_query, history)
             if _is_search_query(user_query):
@@ -767,11 +819,17 @@ def regenerate_message(request, message_id):
     if request.method != "POST":
         return JsonResponse({"error": "Invalid request"}, status=400)
 
+    if not FeatureFlag.is_enabled('ai_chat', default=True):
+        return JsonResponse({"type": "error", "message": "AI Chat is temporarily disabled by the administrator."})
+
     if not check_rate_limit(request.user):
         return JsonResponse(
             {"type": "error", "message": "You're sending requests too quickly. Please wait a moment and try again."},
             status=429
         )
+    allowed, limit_message = check_daily_limit(request.user, "chat")
+    if not allowed:
+        return JsonResponse({"type": "error", "message": limit_message}, status=429)
 
     old_msg = get_object_or_404(Message, id=message_id, role='assistant', session__user=request.user)
     session = old_msg.session
@@ -832,11 +890,17 @@ def edit_message(request, message_id):
     if request.method != "POST":
         return JsonResponse({"error": "Invalid request"}, status=400)
 
+    if not FeatureFlag.is_enabled('ai_chat', default=True):
+        return JsonResponse({"type": "error", "message": "AI Chat is temporarily disabled by the administrator."})
+
     if not check_rate_limit(request.user):
         return JsonResponse(
             {"type": "error", "message": "You're sending requests too quickly. Please wait a moment and try again."},
             status=429
         )
+    allowed, limit_message = check_daily_limit(request.user, "chat")
+    if not allowed:
+        return JsonResponse({"type": "error", "message": limit_message}, status=429)
 
     old_msg = get_object_or_404(Message, id=message_id, role='user', session__user=request.user)
     session = old_msg.session

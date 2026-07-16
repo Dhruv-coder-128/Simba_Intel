@@ -1,0 +1,23 @@
+{% extends "account/base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "Registration Closed" %}{% endblock %}
+
+{% block content %}
+    <div class="auth-header">
+        <div class="auth-logo" style="color: #ffb84d;">
+            <i class="fa-solid fa-door-closed"></i>
+            <h1>SIMBA_INTEL</h1>
+        </div>
+        <p class="auth-subtitle">{% trans "REGISTRATION CLOSED" %}</p>
+    </div>
+
+    <p class="auth-footer" style="margin-bottom:28px; color: rgba(255,255,255,0.6); text-align: center;">
+        {% trans "New account registration is temporarily disabled. If you already have an account, you can still sign in." %}
+    </p>
+
+    <a href="{% url 'account_login' %}" class="btn btn-primary btn-block" style="text-decoration:none;">
+        <i class="fa-solid fa-arrow-right"></i>
+        {% trans "GO TO LOGIN" %}
+    </a>
+{% endblock %}

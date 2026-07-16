@@ -1,18 +1,24 @@
 {% extends "admin_console/base.html" %}
 {% block title %}Broadcasts{% endblock %}
 {% block content %}
-<div class="admin-header"><h1><i class="fa-solid fa-bullhorn"></i> BROADCASTS</h1></div>
+<div class="admin-header"><h1><i class="fa-solid fa-bullhorn"></i> BROADCAST CENTER</h1></div>
 
 <div class="glass-card" style="margin-bottom:16px;">
-    <p style="color:var(--text-dim); font-size:13px; margin:0 0 12px;">Shown as a banner to every logged-in user. Creating a new one deactivates any currently-active broadcast.</p>
-    <form method="post" style="display:flex; gap:8px; flex-wrap:wrap;">
+    <p style="color:var(--text-dim); font-size:13px; margin:0 0 12px;">Shown as a banner to every logged-in user. Creating a new one deactivates any currently-active broadcast. Leave start/end blank for an immediate, open-ended broadcast.</p>
+    <form method="post" style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
         {% csrf_token %}<input type="hidden" name="action" value="create">
         <select name="level" style="width:120px;">
             <option value="info">Info</option>
             <option value="warning">Warning</option>
             <option value="critical">Critical</option>
         </select>
-        <input type="text" name="message" placeholder="Broadcast message..." required style="flex:1; min-width:260px;">
+        <input type="text" name="message" placeholder="Broadcast message..." required style="flex:1; min-width:220px;">
+        <label style="font-size:11px; color:var(--text-dim); display:flex; flex-direction:column; gap:2px;">Starts (optional)
+            <input type="datetime-local" name="starts_at">
+        </label>
+        <label style="font-size:11px; color:var(--text-dim); display:flex; flex-direction:column; gap:2px;">Ends (optional)
+            <input type="datetime-local" name="ends_at">
+        </label>
         <button type="submit" class="btn primary"><i class="fa-solid fa-paper-plane"></i> Broadcast</button>
     </form>
 </div>
@@ -20,18 +26,25 @@
 <div class="glass-card">
     <div class="table-scroll">
     <table>
-        <thead><tr><th>Message</th><th>Level</th><th>Status</th><th>Created</th><th>By</th><th></th></tr></thead>
+        <thead><tr><th>Message</th><th>Level</th><th>Status</th><th>Starts</th><th>Ends</th><th>Created</th><th>By</th><th></th></tr></thead>
         <tbody>
             {% for b in broadcasts %}
             <tr>
-                <td>{{ b.message|truncatechars:60 }}</td>
+                <td>{{ b.message|truncatechars:50 }}</td>
                 <td><span class="badge {% if b.level == 'critical' %}bad{% elif b.level == 'warning' %}warn{% else %}ok{% endif %}">{{ b.level }}</span></td>
-                <td>{% if b.active %}<span class="badge ok">ACTIVE</span>{% else %}<span class="badge">inactive</span>{% endif %}</td>
+                <td>
+                    {% if b.status == 'active' %}<span class="badge ok">ACTIVE</span>
+                    {% elif b.status == 'scheduled' %}<span class="badge warn">SCHEDULED</span>
+                    {% elif b.status == 'expired' %}<span class="badge">EXPIRED</span>
+                    {% else %}<span class="badge">INACTIVE</span>{% endif %}
+                </td>
+                <td>{{ b.starts_at|date:"M j, H:i"|default:"-" }}</td>
+                <td>{{ b.ends_at|date:"M j, H:i"|default:"-" }}</td>
                 <td>{{ b.created_at|date:"M j, H:i" }}</td>
                 <td>{{ b.created_by.username|default:"-" }}</td>
                 <td>
                     {% if b.active %}
-                    <form method="post" style="display:inline;">
+                    <form method="post">
                         {% csrf_token %}<input type="hidden" name="action" value="deactivate"><input type="hidden" name="broadcast_id" value="{{ b.id }}">
                         <button type="submit" class="btn danger">Deactivate</button>
                     </form>
@@ -39,7 +52,7 @@
                 </td>
             </tr>
             {% empty %}
-            <tr><td colspan="6" style="color:var(--text-dim);">No broadcasts sent yet.</td></tr>
+            <tr><td colspan="8"><div class="empty-state"><i class="fa-solid fa-bullhorn"></i><span>No broadcasts sent yet.</span></div></td></tr>
             {% endfor %}
         </tbody>
     </table>

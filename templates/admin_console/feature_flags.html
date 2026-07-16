@@ -5,8 +5,10 @@
 
 <div class="glass-card" style="margin-bottom:16px;">
     <p style="color:var(--text-dim); font-size:13px; margin:0 0 12px;">
-        The <code>maintenance_mode</code> flag is the emergency kill switch - when enabled, every non-superuser request
-        gets a maintenance page instead of the app. Create it below if it doesn't exist yet.
+        Toggles apply immediately, no restart required. <code>maintenance_mode</code> is the emergency kill switch - when
+        enabled, every non-superuser request gets a maintenance page instead of the app. <code>image_generation</code>,
+        <code>vision</code>, <code>ai_chat</code>, <code>analytics</code>, <code>registration</code>, <code>google_login</code>,
+        and <code>email_verification</code> gate their matching feature the same way.
     </p>
     <form method="post" style="display:flex; gap:8px; flex-wrap:wrap;">
         {% csrf_token %}<input type="hidden" name="action" value="create">
@@ -37,7 +39,7 @@
                 </td>
             </tr>
             {% empty %}
-            <tr><td colspan="5" style="color:var(--text-dim);">No feature flags yet.</td></tr>
+            <tr><td colspan="5"><div class="empty-state"><i class="fa-solid fa-flag"></i><span>No feature flags yet.</span></div></td></tr>
             {% endfor %}
         </tbody>
     </table>

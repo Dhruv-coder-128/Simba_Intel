@@ -29,6 +29,7 @@ urlpatterns = [
     path('admin-console/', admin_views.admin_dashboard, name='admin_dashboard'),
     path('admin-console/users/', admin_views.admin_users_list, name='admin_users_list'),
     path('admin-console/users/<int:user_id>/', admin_views.admin_user_detail, name='admin_user_detail'),
+    path('admin-console/users/<int:user_id>/export/', admin_views.admin_export_user_data, name='admin_export_user_data'),
     path('admin-console/audit-log/', admin_views.admin_audit_log, name='admin_audit_log'),
     path('admin-console/security/', admin_views.admin_security, name='admin_security'),
     path('admin-console/feature-flags/', admin_views.admin_feature_flags, name='admin_feature_flags'),

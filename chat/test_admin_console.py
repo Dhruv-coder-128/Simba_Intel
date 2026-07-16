@@ -218,24 +218,28 @@ class MaintenanceModeMiddlewareTests(TestCase):
         self.superuser = User.objects.create_superuser(username="admin", password="testpass123", email="a@example.com")
 
     def test_normal_users_blocked_during_maintenance(self):
-        FeatureFlag.objects.create(key="maintenance_mode", enabled=True)
+        # update_or_create, not create: a data migration now seeds this flag
+        # (disabled) for every environment, so it already exists here.
+        FeatureFlag.objects.update_or_create(key="maintenance_mode", defaults={"enabled": True})
         self.client.force_login(self.user)
         response = self.client.get("/")
         self.assertEqual(response.status_code, 503)
 
     def test_superuser_bypasses_maintenance(self):
-        FeatureFlag.objects.create(key="maintenance_mode", enabled=True)
+        FeatureFlag.objects.update_or_create(key="maintenance_mode", defaults={"enabled": True})
         self.client.force_login(self.superuser)
         response = self.client.get("/")
         self.assertNotEqual(response.status_code, 503)
 
     def test_no_maintenance_flag_means_normal_operation(self):
+        # The seeded row exists but defaults to disabled - same observable
+        # behavior as "no flag at all" from is_enabled()'s point of view.
         self.client.force_login(self.user)
         response = self.client.get("/")
         self.assertNotEqual(response.status_code, 503)
 
     def test_health_check_exempt_during_maintenance(self):
-        FeatureFlag.objects.create(key="maintenance_mode", enabled=True)
+        FeatureFlag.objects.update_or_create(key="maintenance_mode", defaults={"enabled": True})
         response = self.client.get(reverse("health_check"))
         self.assertEqual(response.status_code, 200)
 
