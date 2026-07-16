@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>403 - Access Denied | SIMBA_INTEL</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500&family=Outfit:wght@300;400;600&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html, body {
+            width: 100%; height: 100%;
+            background: #0d1117;
+            color: #fff;
+            font-family: 'Outfit', sans-serif;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .denied-card {
+            max-width: 460px;
+            width: 100%;
+            margin: 20px;
+            text-align: center;
+            padding: 40px 30px;
+            background: rgba(18, 22, 28, 0.95);
+            border: 1px solid rgba(255, 84, 112, 0.3);
+            border-radius: 16px;
+            box-shadow: 0 10px 50px rgba(0, 0, 0, 0.7);
+        }
+        .denied-card i {
+            font-size: 48px;
+            color: #ff5470;
+            filter: drop-shadow(0 0 15px rgba(255, 84, 112, 0.3));
+            margin-bottom: 18px;
+        }
+        .denied-card h1 {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 22px;
+            letter-spacing: 2px;
+            margin-bottom: 10px;
+        }
+        .denied-card p {
+            color: rgba(255, 255, 255, 0.6);
+            font-size: 14px;
+            line-height: 1.6;
+            margin-bottom: 26px;
+        }
+        .denied-card a {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 12px 24px;
+            border: 1px solid rgba(0, 229, 255, 0.4);
+            border-radius: 8px;
+            background: rgba(0, 229, 255, 0.08);
+            color: #00e5ff;
+            text-decoration: none;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 13px;
+            transition: all 0.2s ease;
+        }
+        .denied-card a:hover { background: rgba(0, 229, 255, 0.15); }
+    </style>
+</head>
+<body>
+    <div class="denied-card">
+        <i class="fa-solid fa-lock"></i>
+        <h1>403 - ACCESS DENIED</h1>
+        <p>Your account role doesn't have permission to view this page. If you believe this is a mistake, contact an administrator.</p>
+        <a href="/"><i class="fa-solid fa-arrow-left"></i> BACK TO SIMBA_INTEL</a>
+    </div>
+</body>
+</html>

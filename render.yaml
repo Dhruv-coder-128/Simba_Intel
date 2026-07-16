@@ -57,3 +57,13 @@ services:
         fromDatabase:
           name: simba-intel-db
           property: connectionString
+      # RBAC (chat/permissions.py): which account chat/migrations/0023_
+      # promote_owner_and_backfill_roles.py promotes to Role.OWNER. Set this
+      # to the real owner's account email before the first deploy that runs
+      # this migration - if left unset, it falls back to whichever existing
+      # superuser has the earliest date_joined, which is usually right but
+      # is a guess, not a guarantee, on a database that already has more
+      # than one. See docs/POSTGRES_MIGRATION.md-style runbooks / the
+      # promote_owner management command for fixing this after the fact.
+      - key: OWNER_EMAIL
+        sync: false

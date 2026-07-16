@@ -2663,6 +2663,12 @@
             margin-bottom: 0;
         }
 
+        .profile-menu-divider {
+            height: 1px;
+            background: var(--accent-dim);
+            margin: 8px 0;
+        }
+
         .auth-btn {
             display: flex;
             align-items: center;
@@ -2990,6 +2996,14 @@
                         <i class="fa-solid fa-gear"></i>
                         SETTINGS
                     </a>
+                    {% if can_access_admin_console %}
+                    <div class="profile-menu-divider"></div>
+                    <a href="{% url 'admin_dashboard' %}" class="auth-btn">
+                        <i class="fa-solid fa-shield-halved"></i>
+                        ADMIN CONSOLE
+                    </a>
+                    <div class="profile-menu-divider"></div>
+                    {% endif %}
                     <form method="post" action="{% url 'account_logout' %}" id="logout-form">
                         {% csrf_token %}
                         <button type="submit" class="auth-btn">

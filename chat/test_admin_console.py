@@ -17,8 +17,19 @@ User = get_user_model()
 
 
 class AdminConsoleAccessControlTests(TestCase):
-    """Every admin console view must be a 404/redirect for anyone who isn't
-    an active superuser - this is the actual security boundary."""
+    """Every admin console view must reject anyone below Role.ADMIN - see
+    chat/test_rbac.py for the full RBAC decorator/hierarchy test coverage;
+    this class just confirms the URL-level gating is still wired up on
+    every one of these routes specifically.
+
+    Since the RBAC upgrade: an authenticated-but-under-privileged user gets
+    a real 403 (require_role raises PermissionDenied), not the old
+    redirect-to-home - only a genuinely anonymous request still redirects
+    (to the login page, via @login_required running first). is_staff=True
+    alone now resolves to Role.ADMIN (see UserProfile.get_or_create_for's
+    and chat/permissions.py's user_role() docstrings) and DOES grant
+    console access - that's intentional, not a gap: is_staff/is_superuser
+    are kept meaningful in both directions for Django-admin compatibility."""
 
     def setUp(self):
         self.regular_user = User.objects.create_user(username="regular", password="testpass123")
@@ -42,13 +53,17 @@ class AdminConsoleAccessControlTests(TestCase):
         self.client.force_login(self.regular_user)
         for url in self.admin_urls:
             response = self.client.get(url)
-            self.assertEqual(response.status_code, 302, f"{url} let a regular user through")
+            self.assertEqual(response.status_code, 403, f"{url} let a regular user through")
 
-    def test_staff_but_not_superuser_cannot_access(self):
+    def test_staff_flag_alone_grants_admin_tier_access(self):
+        # is_staff=True with no profile row resolves to Role.ADMIN (the
+        # same is_staff/is_superuser -> role bootstrap the RBAC migration
+        # itself uses for pre-existing accounts) - Role.ADMIN has console
+        # access by spec, so this is correct, not a security hole.
         self.client.force_login(self.staff_user)
         for url in self.admin_urls:
             response = self.client.get(url)
-            self.assertEqual(response.status_code, 302, f"{url} let a staff-only user through")
+            self.assertEqual(response.status_code, 200, f"{url} blocked an Admin-tier (is_staff) user")
 
     def test_superuser_can_access(self):
         self.client.force_login(self.superuser)
@@ -162,15 +177,23 @@ class AdminUserManagementTests(TestCase):
         from allauth.account.models import EmailAddress
         self.assertTrue(EmailAddress.objects.filter(user=self.target, verified=True).exists())
 
-    def test_change_role_to_staff(self):
-        self.client.post(reverse("admin_user_detail", args=[self.target.id]), {"action": "change_role", "role": "staff"})
+    def test_change_role_to_admin(self):
+        # RBAC upgrade: role is now a 6-tier UserProfile.role field, not a
+        # 3-way is_staff/is_superuser combination - is_staff/is_superuser
+        # are still checked below, but only as a side effect kept in sync
+        # by chat/permissions.py's sync_django_flags, not the source of truth.
+        self.client.post(reverse("admin_user_detail", args=[self.target.id]), {"action": "change_role", "role": "admin"})
         self.target.refresh_from_db()
+        profile = UserProfile.objects.get(user=self.target)
+        self.assertEqual(profile.role, "admin")
         self.assertTrue(self.target.is_staff)
         self.assertFalse(self.target.is_superuser)
 
-    def test_change_role_to_superuser(self):
-        self.client.post(reverse("admin_user_detail", args=[self.target.id]), {"action": "change_role", "role": "superuser"})
+    def test_change_role_to_super_admin(self):
+        self.client.post(reverse("admin_user_detail", args=[self.target.id]), {"action": "change_role", "role": "super_admin"})
         self.target.refresh_from_db()
+        profile = UserProfile.objects.get(user=self.target)
+        self.assertEqual(profile.role, "super_admin")
         self.assertTrue(self.target.is_staff)
         self.assertTrue(self.target.is_superuser)
 

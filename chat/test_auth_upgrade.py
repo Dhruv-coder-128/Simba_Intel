@@ -144,7 +144,7 @@ class LoginNeverBlockedBySecurityLoggingTests(TestCase):
         self.assertTrue(response.wsgi_request.user.is_authenticated or "_auth_user_id" in client.session)
 
     def test_login_succeeds_even_if_profile_snapshot_raises(self):
-        with patch("chat.signals.UserProfile.objects.get_or_create", side_effect=Exception("simulated DB error")):
+        with patch("chat.signals.UserProfile.get_or_create_for", side_effect=Exception("simulated DB error")):
             client = Client()
             response = client.post(reverse("account_login"), {"login": "resilient@example.com", "password": "testpass123"})
         self.assertIn("_auth_user_id", client.session)

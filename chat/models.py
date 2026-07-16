@@ -8,6 +8,24 @@ from django.utils import timezone
 
 User = get_user_model()
 
+
+class Role(models.TextChoices):
+    """SIMBA_INTEL's own permission hierarchy - deliberately independent of
+    Django's is_staff/is_superuser (those stay wired for Django admin
+    compatibility only, per chat/permissions.py's docstring). Ordered
+    highest-privilege first to match the org-chart in the spec; the actual
+    numeric ranking used for "at least this role" checks lives in
+    chat/permissions.py's ROLE_LEVEL, not here, so adding a new role later
+    never requires touching comparison logic in more than one place."""
+
+    OWNER = "owner", "Owner"
+    SUPER_ADMIN = "super_admin", "Super Admin"
+    ADMIN = "admin", "Admin"
+    MODERATOR = "moderator", "Moderator"
+    VERIFIED = "verified", "Verified User"
+    USER = "user", "User"
+
+
 class ChatSession(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='chat_sessions', null=True, blank=True)
     title = models.CharField(max_length=255, default="New Chat")
@@ -98,6 +116,14 @@ class UserProfile(models.Model):
     notifications_enabled = models.BooleanField(default=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+    # --- RBAC ---
+    # The single source of truth for every SIMBA_INTEL permission check -
+    # see chat/permissions.py. is_staff/is_superuser (on auth.User) are left
+    # alone for Django/allauth/django.contrib.admin compatibility only and
+    # are kept in sync as a side effect of role changes, never read by any
+    # SIMBA_INTEL permission check itself.
+    role = models.CharField(max_length=20, choices=Role.choices, default=Role.USER, db_index=True)
+
     # --- Account/security snapshot (admin-console prep) ---
     # Deliberately a snapshot of the *latest* login, not a full history -
     # SecurityEvent already is the append-only history this is drawn from;
@@ -147,7 +173,27 @@ class UserProfile(models.Model):
 
     @classmethod
     def get_or_create_for(cls, user):
-        profile, _ = cls.objects.get_or_create(user=user)
+        """Profiles are created lazily (on first real use, not at signup),
+        so this is the one place a brand-new profile's initial role gets
+        decided - mirrors chat/migrations/0023_promote_owner_and_backfill_
+        roles.py's own is_staff/is_superuser -> role mapping, so an account
+        that's superuser/staff via the *standard* Django mechanism
+        (createsuperuser, or a pre-RBAC fixture/test) still starts with
+        working admin-console access instead of silently landing on
+        Role.USER the moment RBAC is what actually gates that console. This
+        only ever applies to a profile's initial creation - it never
+        touches role on an existing row, so it can't undo a deliberate
+        demotion made through the admin console afterward."""
+        profile = cls.objects.filter(user=user).first()
+        if profile is not None:
+            return profile
+        if user.is_superuser:
+            initial_role = Role.SUPER_ADMIN
+        elif user.is_staff:
+            initial_role = Role.ADMIN
+        else:
+            initial_role = Role.USER
+        profile, _ = cls.objects.get_or_create(user=user, defaults={"role": initial_role})
         return profile
 
     @property
@@ -260,6 +306,8 @@ class AdminAuditLog(models.Model):
         ("restore_account", "restore_account"),
         ("export_user_data", "export_user_data"),
         ("update_usage_limits", "update_usage_limits"),
+        ("ownership_transfer", "ownership_transfer"),
+        ("blocked_attempt", "blocked_attempt"),
     ]
 
     actor = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name='admin_actions_taken')

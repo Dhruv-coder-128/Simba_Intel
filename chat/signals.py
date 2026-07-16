@@ -18,7 +18,7 @@ from django.utils import timezone
 from allauth.account.signals import email_confirmed
 from allauth.socialaccount.signals import social_account_added, social_account_updated
 
-from chat.models import FailedLoginAttempt, SecurityEvent, UserProfile, UserSession
+from chat.models import FailedLoginAttempt, Role, SecurityEvent, UserProfile, UserSession
 from chat.utils.device import UNKNOWN_BROWSER, UNKNOWN_DEVICE, UNKNOWN_OS, parse_client_info
 from chat.utils.request_info import client_ip, raw_user_agent
 
@@ -92,7 +92,7 @@ def record_login_security_event(sender, user, request=None, **kwargs):
 
     # Snapshot on UserProfile so "last login was X from Y" doesn't need a
     # query against the SecurityEvent log every time it's displayed.
-    profile, _ = UserProfile.objects.get_or_create(user=user)
+    profile = UserProfile.get_or_create_for(user)
     profile.last_login_ip = ip
     profile.last_login_browser = browser
     profile.last_login_device = device
@@ -124,9 +124,16 @@ def record_login_security_event(sender, user, request=None, **kwargs):
 @receiver(email_confirmed)
 @_guarded("record_email_verified")
 def record_email_verified(sender, request, email_address, **kwargs):
-    profile, _ = UserProfile.objects.get_or_create(user=email_address.user)
+    profile = UserProfile.get_or_create_for(email_address.user)
     profile.email_verified_at = timezone.now()
-    profile.save(update_fields=['email_verified_at'])
+    update_fields = ['email_verified_at']
+    # Auto-promotion, one tier only (User -> Verified) - never touches an
+    # account that's already Moderator or above, so confirming email can
+    # never demote an admin/moderator back down to a plain "verified" role.
+    if profile.role == Role.USER:
+        profile.role = Role.VERIFIED
+        update_fields.append('role')
+    profile.save(update_fields=update_fields)
 
 
 @receiver(social_account_added)
@@ -145,7 +152,7 @@ def record_google_link(sender, request, sociallogin, **kwargs):
         return
 
     user = sociallogin.user
-    profile, _ = UserProfile.objects.get_or_create(user=user)
+    profile = UserProfile.get_or_create_for(user)
 
     avatar_url = account.get_avatar_url()
     if avatar_url:

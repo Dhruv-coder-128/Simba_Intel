@@ -42,7 +42,7 @@
         <tbody>
             {% for u in page %}
             <tr>
-                <td>{{ u.username }}{% if u.is_superuser %} <span class="badge ok">SUPERUSER</span>{% elif u.is_staff %} <span class="badge warn">STAFF</span>{% endif %}</td>
+                <td>{{ u.username }}{% if u.profile.role != 'user' %} <span class="badge {% if u.profile.role == 'owner' %}bad{% elif u.profile.role == 'moderator' or u.profile.role == 'verified' %}warn{% else %}ok{% endif %}">{{ u.profile.get_role_display|default:"User"|upper }}</span>{% endif %}</td>
                 <td>{{ u.email }}</td>
                 <td>
                     {% if u.profile.is_deleted %}<span class="badge bad">DELETED</span>

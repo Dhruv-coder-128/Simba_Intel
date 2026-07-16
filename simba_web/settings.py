@@ -87,6 +87,7 @@ TEMPLATES = [
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
                 'chat.context_processors.feature_flags',
+                'chat.context_processors.rbac',
             ],
         },
     },
@@ -267,6 +268,15 @@ ACCOUNT_EMAIL_CONFIRMATION_AUTHENTICATED_REDIRECT_URL = '/accounts/email-verifie
 ACCOUNT_LOGIN_METHODS = {'email'}
 ACCOUNT_SIGNUP_FIELDS = ['email*', 'password1*', 'password2*']
 LOGIN_REDIRECT_URL = "/"
+
+# RBAC (chat/permissions.py): which account chat/migrations/0022_add_role_
+# field_and_promote_owner.py promotes to Role.OWNER. Read only by that
+# migration and the promote_owner management command - never by a view, so
+# there's nothing here for a view to accidentally hardcode. Leave unset to
+# fall back to promoting whichever existing Django superuser has the
+# earliest date_joined (the common case: the one account created via
+# createsuperuser before this migration ever ran).
+OWNER_EMAIL = os.getenv('OWNER_EMAIL', '')
 ACCOUNT_LOGOUT_REDIRECT_URL = "/"
 ACCOUNT_ADAPTER = 'chat.adapters.SimbaAccountAdapter'
 SOCIALACCOUNT_ADAPTER = 'chat.adapters.SimbaSocialAccountAdapter'

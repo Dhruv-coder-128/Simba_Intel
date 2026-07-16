@@ -1,27 +1,32 @@
 """Custom Super Admin Console - deliberately NOT django.contrib.admin.
-Every view here is superuser-gated via @superuser_required and every
-mutating action is written to AdminAuditLog. Kept in its own module rather
-than chat/views.py (already 1000+ lines covering the actual product) so the
-two surfaces - user-facing app vs. operator console - stay easy to tell apart.
+Every view here is role-gated via @require_role(Role.ADMIN) (chat/
+permissions.py) and every mutating action is written to AdminAuditLog. Kept
+in its own module rather than chat/views.py (already 1000+ lines covering
+the actual product) so the two surfaces - user-facing app vs. operator
+console - stay easy to tell apart.
 """
 import json
 from datetime import timedelta
 
 from django.contrib.auth import get_user_model
-from django.contrib.auth.decorators import user_passes_test
+from django.contrib.auth.decorators import login_required
 from django.contrib.sessions.models import Session
 from django.core.paginator import Paginator
-from django.db import models as db_models
+from django.db import models as db_models, transaction
 from django.db.models import Avg, Count, Sum, Q
 from django.db.models.functions import TruncDate
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponseForbidden
 from django.shortcuts import render, redirect, get_object_or_404
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 
 from chat.models import (
     AdminAuditLog, Broadcast, ChatSession, FailedLoginAttempt,
-    FeatureFlag, Message, SecurityEvent, UsageEvent, UserNote, UserProfile, UserSession,
+    FeatureFlag, Message, Role, SecurityEvent, UsageEvent, UserNote, UserProfile, UserSession,
+)
+from chat.permissions import (
+    can_act_on_target, has_role_at_least, is_owner, require_permission,
+    require_role, sync_django_flags,
 )
 from chat.services.model_registry import MODEL_REGISTRY
 from chat.utils.device import parse_client_info
@@ -29,7 +34,14 @@ from chat.utils.request_info import client_ip, raw_user_agent
 
 User = get_user_model()
 
-superuser_required = user_passes_test(lambda u: u.is_active and u.is_superuser, login_url='home')
+# Every admin-console view needs both: logged in (so an anonymous request
+# gets sent to the login page, not a bare 403) and role >= Admin (so an
+# authenticated but under-privileged user gets a real 403, not a redirect
+# loop). login_required must run first - it's the outer decorator. Kept
+# under its original name (rather than renaming every @superuser_required
+# below) so this is a permission-mechanism swap, not a routing change.
+def superuser_required(view_func):
+    return login_required(require_role(Role.ADMIN)(view_func))
 
 
 def _log(request, action, target_user=None, detail="", success=True):
@@ -64,7 +76,12 @@ def admin_dashboard(request):
     total_users = User.objects.count()
     active_users = User.objects.filter(is_active=True).count()
     banned_users = UserProfile.objects.filter(is_banned=True).count()
-    staff_users = User.objects.filter(is_staff=True).count()
+    # Role-based, not is_staff - is_staff is kept in sync as a side effect
+    # of role changes (chat/permissions.py's sync_django_flags) purely for
+    # Django admin compatibility, but is never itself the source of truth.
+    staff_users = UserProfile.objects.filter(
+        role__in=[Role.OWNER, Role.SUPER_ADMIN, Role.ADMIN, Role.MODERATOR]
+    ).count()
 
     verified_users = EmailAddress.objects.filter(verified=True).values('user').distinct().count()
     unverified_users = total_users - verified_users
@@ -252,7 +269,16 @@ def admin_users_list(request):
     elif status_filter == 'suspended':
         users = users.filter(profile__suspended_until__gt=timezone.now())
     elif status_filter == 'staff':
-        users = users.filter(is_staff=True)
+        # OR profile__isnull=True, is_staff=True: profiles are created
+        # lazily (see UserProfile.get_or_create_for's docstring), so a
+        # freshly created staff/superuser account with no profile row yet
+        # must still show up here rather than being invisible until their
+        # first login/page-view creates one - mirrors user_role()'s own
+        # is_staff/is_superuser fallback for the same reason.
+        users = users.filter(
+            Q(profile__role__in=[Role.OWNER, Role.SUPER_ADMIN, Role.ADMIN, Role.MODERATOR]) |
+            Q(profile__isnull=True, is_staff=True)
+        )
     elif status_filter == 'inactive':
         users = users.filter(is_active=False, profile__is_banned=False)
 
@@ -261,7 +287,10 @@ def admin_users_list(request):
         users = users.filter(id__in=verified_ids) if verified_filter == 'yes' else users.exclude(id__in=verified_ids)
 
     if admin_filter == 'yes':
-        users = users.filter(Q(is_staff=True) | Q(is_superuser=True))
+        users = users.filter(
+            Q(profile__role__in=[Role.OWNER, Role.SUPER_ADMIN, Role.ADMIN]) |
+            Q(profile__isnull=True, is_staff=True)
+        )
 
     if online_filter == 'yes':
         online_cutoff = timezone.now() - timedelta(minutes=5)
@@ -300,6 +329,17 @@ def admin_user_detail(request, user_id):
 
     if request.method == "POST":
         action = request.POST.get('action')
+
+        # Owner protection: nobody may mutate the Owner's account except the
+        # Owner themselves, and even the Owner can only touch their own role
+        # via the dedicated transfer_ownership action below, never this
+        # generic dispatcher - "Owner can never be deleted accidentally" and
+        # "can never lose ownership unless ownership is explicitly
+        # transferred" both live here, in one place, rather than repeated
+        # per-action.
+        if action != 'transfer_ownership' and not can_act_on_target(request.user, target):
+            _log(request, 'blocked_attempt', target, f"attempted '{action}' on Owner account", success=False)
+            return HttpResponseForbidden("The Owner account cannot be modified this way.")
 
         if action == 'block':
             target.is_active = False
@@ -369,18 +409,46 @@ def admin_user_detail(request, user_id):
             email_address.save(update_fields=['verified'])
             _log(request, 'verify_email', target)
         elif action == 'change_role':
+            # Owner-tier role management only (matches the spec: Admin's own
+            # capability list has no "manage roles" entry, and promoting/
+            # demoting admins is called out as an Owner permission
+            # specifically). Role.OWNER itself is never a valid target here
+            # at all - not even the Owner may reach OWNER status through
+            # this generic dropdown, only through transfer_ownership, which
+            # is the one place "ownership changes are always explicit" is
+            # actually enforced.
+            if not has_role_at_least(request.user, Role.SUPER_ADMIN):
+                return HttpResponseForbidden("Only Owner/Super Admin can change roles.")
+            if profile.role == Role.OWNER:
+                # Blocks this even when the actor IS the Owner acting on
+                # themselves - the top-level guard above allows that case
+                # through (self-action is normally fine), so this is the
+                # actual enforcement point for "only via transfer_ownership".
+                return HttpResponseForbidden("Ownership can only change via Transfer Ownership.")
             new_role = request.POST.get('role')
-            if new_role == 'superuser':
-                target.is_staff = True
-                target.is_superuser = True
-            elif new_role == 'staff':
-                target.is_staff = True
-                target.is_superuser = False
-            else:
-                target.is_staff = False
-                target.is_superuser = False
-            target.save(update_fields=['is_staff', 'is_superuser'])
-            _log(request, 'change_role', target, new_role)
+            valid_roles = {Role.SUPER_ADMIN, Role.ADMIN, Role.MODERATOR, Role.VERIFIED, Role.USER}
+            if new_role not in valid_roles:
+                return HttpResponseForbidden("Invalid or disallowed role.")
+            old_role = profile.role
+            profile.role = new_role
+            profile.save(update_fields=['role'])
+            sync_django_flags(target, new_role)
+            _log(request, 'change_role', target, f"{old_role} -> {new_role}")
+        elif action == 'transfer_ownership':
+            if not is_owner(request.user):
+                return HttpResponseForbidden("Only the current Owner can transfer ownership.")
+            if target.id == request.user.id:
+                return HttpResponseForbidden("Cannot transfer ownership to yourself.")
+            with transaction.atomic():
+                actor_profile = UserProfile.get_or_create_for(request.user)
+                actor_profile.role = Role.SUPER_ADMIN
+                actor_profile.save(update_fields=['role'])
+                sync_django_flags(request.user, Role.SUPER_ADMIN)
+
+                profile.role = Role.OWNER
+                profile.save(update_fields=['role'])
+                sync_django_flags(target, Role.OWNER)
+            _log(request, 'ownership_transfer', target, f"from {request.user.username} to {target.username}")
         elif action == 'add_note':
             note_text = request.POST.get('note', '').strip()
             if note_text:
@@ -465,6 +533,9 @@ def admin_user_detail(request, user_id):
         'security_events': security_events,
         'audit_history': audit_history,
         'active_nav': 'users',
+        'role_choices': [c for c in Role.choices if c[0] != Role.OWNER],
+        'viewer_can_manage_roles': has_role_at_least(request.user, Role.SUPER_ADMIN),
+        'viewer_is_owner': is_owner(request.user),
     })
 
 

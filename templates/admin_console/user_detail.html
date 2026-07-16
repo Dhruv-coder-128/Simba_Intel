@@ -31,7 +31,9 @@
                 {% elif not target.is_active %}<span class="badge bad">BLOCKED</span>
                 {% else %}<span class="badge ok">ACTIVE</span>{% endif %}
             </td></tr>
-            <tr><td style="color:var(--text-dim);">Role</td><td>{% if target.is_superuser %}Superuser{% elif target.is_staff %}Staff{% else %}User{% endif %}</td></tr>
+            <tr><td style="color:var(--text-dim);">Role</td><td>
+                <span class="badge {% if profile.role == 'owner' %}bad{% elif profile.role == 'super_admin' or profile.role == 'admin' %}ok{% elif profile.role == 'moderator' %}warn{% else %}{% endif %}">{{ profile.get_role_display }}</span>
+            </td></tr>
             <tr><td style="color:var(--text-dim);">Total chats</td><td>{{ total_sessions }}</td></tr>
             <tr><td style="color:var(--text-dim);">Chat / Image / Vision requests</td><td>{{ usage.total_chats|default:0 }} / {{ usage.total_images|default:0 }} / {{ usage.total_vision|default:0 }}</td></tr>
             <tr><td style="color:var(--text-dim);">Total tokens</td><td>{{ usage.total_tokens|default:0 }}</td></tr>
@@ -123,18 +125,37 @@
             </form>
         </details>
 
+        {% if viewer_can_manage_roles %}
         <details style="margin-bottom:12px;">
             <summary style="cursor:pointer; color:var(--text-dim); font-size:12.5px; margin-bottom:8px;">Change role</summary>
+            {% if profile.role == 'owner' %}
+            <p style="font-size:12px; color:var(--text-dim); margin-top:8px;">Ownership can only be changed via Transfer Ownership below.</p>
+            {% else %}
             <form method="post" style="display:flex; gap:8px; align-items:center; margin-top:8px;">
                 {% csrf_token %}<input type="hidden" name="action" value="change_role">
                 <select name="role">
-                    <option value="user" {% if not target.is_staff %}selected{% endif %}>User</option>
-                    <option value="staff" {% if target.is_staff and not target.is_superuser %}selected{% endif %}>Staff</option>
-                    <option value="superuser" {% if target.is_superuser %}selected{% endif %}>Superuser</option>
+                    {% for value, label in role_choices %}
+                    <option value="{{ value }}" {% if profile.role == value %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
                 </select>
                 <button type="submit" class="btn primary" onclick="return confirm('Change this user\'s role?')">Apply</button>
             </form>
+            {% endif %}
         </details>
+        {% endif %}
+
+        {% if viewer_is_owner and profile.role != 'owner' %}
+        <details style="margin-bottom:12px;">
+            <summary style="cursor:pointer; color:var(--accent); font-size:12.5px; margin-bottom:8px;"><i class="fa-solid fa-crown"></i> Transfer Ownership</summary>
+            <form method="post" style="margin-top:8px;">
+                {% csrf_token %}<input type="hidden" name="action" value="transfer_ownership">
+                <p style="font-size:12px; color:var(--text-dim); margin-bottom:8px;">
+                    Makes {{ target.username }} the sole Owner and demotes you to Super Admin. This cannot be undone except by {{ target.username }} transferring it back.
+                </p>
+                <button type="submit" class="btn danger" onclick="return confirm('Transfer ownership to {{ target.username }}? You will become Super Admin.')">Transfer Ownership to {{ target.username }}</button>
+            </form>
+        </details>
+        {% endif %}
 
         <details style="margin-bottom:12px;">
             <summary style="cursor:pointer; color:var(--text-dim); font-size:12.5px; margin-bottom:8px;">Usage limits</summary>
