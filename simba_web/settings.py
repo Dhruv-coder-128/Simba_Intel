@@ -358,19 +358,26 @@ LOGGING = {
             'class': 'logging.StreamHandler',
             'formatter': 'verbose',
         },
+        # Feeds the admin console's Live Monitor "Live Log Stream" panel -
+        # see chat/log_buffer.py's docstring for what this is and isn't
+        # (in-memory, per-process, not a durable audit trail).
+        'ring_buffer': {
+            'class': 'chat.log_buffer.RingBufferHandler',
+            'formatter': 'verbose',
+        },
     },
     'root': {
-        'handlers': ['console'],
+        'handlers': ['console', 'ring_buffer'],
         'level': 'INFO',
     },
     'loggers': {
         'django': {
-            'handlers': ['console'],
+            'handlers': ['console', 'ring_buffer'],
             'level': os.getenv('DJANGO_LOG_LEVEL', 'INFO'),
             'propagate': False,
         },
         'django.request': {
-            'handlers': ['console'],
+            'handlers': ['console', 'ring_buffer'],
             'level': 'ERROR',
             'propagate': False,
         },

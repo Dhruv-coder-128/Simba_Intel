@@ -1082,6 +1082,30 @@
 
         .broadcast-banner button:hover { opacity: 1; }
 
+        .broadcast-popup-overlay {
+            position: fixed;
+            inset: 0;
+            z-index: 300;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(4px);
+            padding: 20px;
+        }
+        .broadcast-popup {
+            max-width: 440px;
+            width: 100%;
+            text-align: center;
+            padding: 28px 24px;
+            border-radius: 16px;
+            font-family: 'Outfit', sans-serif;
+            font-size: 14px;
+            line-height: 1.6;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+        }
+        .broadcast-popup p { margin: 0; }
+
         /* ===== Email verification modal ===== */
         .verify-email-overlay {
             display: flex;
@@ -2760,11 +2784,47 @@
 <body>
 
     {% if active_broadcast %}
-    <div id="broadcastBanner" class="broadcast-banner broadcast-{{ active_broadcast.level }}">
-        <i class="fa-solid {% if active_broadcast.level == 'critical' %}fa-triangle-exclamation{% elif active_broadcast.level == 'warning' %}fa-circle-exclamation{% else %}fa-circle-info{% endif %}"></i>
-        <span>{{ active_broadcast.message }}</span>
-        <button type="button" onclick="document.getElementById('broadcastBanner').remove()" aria-label="Dismiss"><i class="fa-solid fa-xmark"></i></button>
-    </div>
+        {% if active_broadcast.is_popup %}
+        <div id="broadcastPopupOverlay" class="broadcast-popup-overlay" data-broadcast-id="{{ active_broadcast.id }}">
+            <div class="broadcast-popup broadcast-{{ active_broadcast.level }}">
+                <i class="fa-solid {% if active_broadcast.level == 'critical' %}fa-triangle-exclamation{% elif active_broadcast.level == 'warning' %}fa-circle-exclamation{% else %}fa-circle-info{% endif %}" style="font-size:28px; margin-bottom:12px;"></i>
+                <p>{{ active_broadcast.message }}</p>
+                {% if active_broadcast.dismissible %}
+                <button type="button" class="btn-back" style="justify-content:center; margin-top:14px;" onclick="dismissBroadcast({{ active_broadcast.id }}, true)">Got it</button>
+                {% endif %}
+            </div>
+        </div>
+        {% else %}
+        <div id="broadcastBanner" class="broadcast-banner broadcast-{{ active_broadcast.level }}" data-broadcast-id="{{ active_broadcast.id }}">
+            <i class="fa-solid {% if active_broadcast.level == 'critical' %}fa-triangle-exclamation{% elif active_broadcast.level == 'warning' %}fa-circle-exclamation{% else %}fa-circle-info{% endif %}"></i>
+            <span>{{ active_broadcast.message }}</span>
+            {% if active_broadcast.dismissible %}
+            <button type="button" onclick="dismissBroadcast({{ active_broadcast.id }}, false)" aria-label="Dismiss"><i class="fa-solid fa-xmark"></i></button>
+            {% endif %}
+        </div>
+        {% endif %}
+        <script>
+            // Dismissal is tracked client-side only (localStorage), keyed by
+            // broadcast id - there's no per-user DB row for "has this user
+            // seen broadcast #N", so a dismissal is per-browser, not
+            // per-account. A non-dismissible ("pinned") broadcast has no
+            // dismiss button at all and is never hidden this way.
+            (function () {
+                const id = {{ active_broadcast.id }};
+                const key = 'simba_dismissed_broadcast_' + id;
+                if (localStorage.getItem(key)) {
+                    const banner = document.getElementById('broadcastBanner');
+                    const popup = document.getElementById('broadcastPopupOverlay');
+                    if (banner) banner.remove();
+                    if (popup) popup.remove();
+                }
+            })();
+            function dismissBroadcast(id, isPopup) {
+                localStorage.setItem('simba_dismissed_broadcast_' + id, '1');
+                const el = document.getElementById(isPopup ? 'broadcastPopupOverlay' : 'broadcastBanner');
+                if (el) el.remove();
+            }
+        </script>
     {% endif %}
 
     <div id="lockdown-screen">

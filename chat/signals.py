@@ -9,16 +9,19 @@ never fail because a tracking/audit write did - see _guarded() and its
 docstring."""
 import functools
 import logging
+import sys
+import traceback
 from datetime import timedelta
 
 from django.contrib.auth.signals import user_login_failed, user_logged_in
+from django.core.signals import got_request_exception
 from django.dispatch import receiver
 from django.utils import timezone
 
-from allauth.account.signals import email_confirmed, user_signed_up
+from allauth.account.signals import email_confirmed, password_changed, password_set, user_signed_up
 from allauth.socialaccount.signals import social_account_added, social_account_updated
 
-from chat.models import FailedLoginAttempt, RecoveryCode, Role, SecurityEvent, UserProfile, UserSession
+from chat.models import ErrorLog, FailedLoginAttempt, RecoveryCode, Role, SecurityEvent, UserProfile, UserSession
 from chat.utils.device import UNKNOWN_BROWSER, UNKNOWN_DEVICE, UNKNOWN_OS, parse_client_info
 from chat.utils.request_info import client_ip, raw_user_agent
 
@@ -121,6 +124,24 @@ def record_login_security_event(sender, user, request=None, **kwargs):
         )
 
 
+@receiver(password_changed)
+@receiver(password_set)
+@_guarded("record_password_changed")
+def record_password_changed(sender, request, user, **kwargs):
+    """Feeds the admin console's User Timeline - allauth's own "change
+    password" and "set a password" (a Google-only account adding one for
+    the first time) flows both fire one of these two signals. The
+    recovery-code reset flow (chat/views.py's reset_password_recovery)
+    bypasses allauth entirely (a direct user.set_password() call, no
+    signal), so it logs this same event_type explicitly instead - see that
+    view."""
+    SecurityEvent.objects.create(
+        user=user, event_type="password_changed", severity="info",
+        ip_address=client_ip(request), user_agent=raw_user_agent(request),
+        detail="Password changed",
+    )
+
+
 @receiver(email_confirmed)
 @_guarded("record_email_verified")
 def record_email_verified(sender, request, email_address, **kwargs):
@@ -181,3 +202,21 @@ def generate_recovery_code_for_local_signup(sender, request, user, **kwargs):
     _recovery_code, raw_code = RecoveryCode.generate_for(user)
     request.session['pending_recovery_code'] = raw_code
     request.session['pending_recovery_code_next'] = 'home'
+
+
+@receiver(got_request_exception)
+@_guarded("record_unhandled_exception")
+def record_unhandled_exception(sender, request=None, **kwargs):
+    """Feeds the admin console's Error Center (chat/models.py's ErrorLog)
+    for anything that reaches Django's own unhandled-exception handling -
+    the fallback net for whatever the AI-request-specific capture in
+    chat/utils/logger.py's SimbaLogger.log_request doesn't already cover
+    (view bugs, database errors, anything outside the /ask/ request path)."""
+    exc_type, exc_value, _tb = sys.exc_info()
+    if exc_value is None:
+        return
+    ErrorLog.record(
+        category="unhandled_exception",
+        message=f"{exc_type.__name__}: {exc_value}",
+        detail=traceback.format_exc()[-4000:],
+    )

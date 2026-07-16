@@ -79,6 +79,11 @@
         .admin-nav a i { width: 16px; text-align: center; }
         .admin-nav a:hover { background: rgba(255,255,255,0.04); color: var(--text); }
         .admin-nav a.active { background: var(--accent-dim); color: var(--accent); font-weight: 600; }
+        .admin-nav-section {
+            font-size: 10px; letter-spacing: 1px; text-transform: uppercase;
+            color: var(--text-dim); opacity: 0.6; padding: 12px 12px 4px;
+        }
+        .admin-nav-section:first-child { padding-top: 2px; }
         .admin-nav-footer { margin-top: auto; }
         .admin-nav-footer a {
             display: flex; align-items: center; gap: 8px;
@@ -203,6 +208,87 @@
             .admin-header h1 { font-size: 16px; }
             th, td { padding: 7px 6px; font-size: 12px; }
         }
+
+        /* ---- Premium polish: card hover lift, custom scrollbars, topbar,
+           command palette. Additive only - none of this changes existing
+           layout/markup that other templates already rely on. ---- */
+        .glass-card, .stat-card {
+            transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+        }
+        .glass-card:hover, .stat-card:hover {
+            border-color: var(--accent-soft);
+            box-shadow: 0 8px 24px rgba(0,0,0,0.35);
+        }
+        @media (prefers-reduced-motion: reduce) {
+            .glass-card:hover, .stat-card:hover { transform: none; }
+        }
+        ::-webkit-scrollbar { width: 10px; height: 10px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 8px; }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.16); }
+        * { scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.12) transparent; }
+
+        .admin-topbar {
+            display: flex; align-items: center; justify-content: space-between;
+            gap: 16px; margin-bottom: 22px; flex-wrap: wrap;
+        }
+        .topbar-search-trigger {
+            display: inline-flex; align-items: center; gap: 10px;
+            background: var(--glass); border: 1px solid var(--border-soft);
+            border-radius: var(--radius-sm); padding: 8px 12px; color: var(--text-dim);
+            font-family: 'JetBrains Mono', monospace; font-size: 12px; cursor: pointer;
+            transition: all 0.15s ease; min-width: 220px;
+        }
+        .topbar-search-trigger:hover { border-color: var(--accent-soft); color: var(--text); }
+        .topbar-search-trigger kbd {
+            background: rgba(255,255,255,0.06); border: 1px solid var(--border-soft);
+            border-radius: 4px; padding: 1px 6px; font-size: 10px; margin-left: auto;
+        }
+        .topbar-right { display: flex; align-items: center; gap: 16px; }
+        .topbar-clock {
+            font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--text-dim);
+            white-space: nowrap;
+        }
+        .topbar-user { display: flex; align-items: center; gap: 8px; font-size: 12.5px; }
+        .topbar-user-name { font-family: 'JetBrains Mono', monospace; color: var(--text); }
+
+        .cmdk-overlay {
+            display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6);
+            backdrop-filter: blur(4px); z-index: 1000; align-items: flex-start; justify-content: center;
+            padding-top: 12vh;
+        }
+        .cmdk-overlay.open { display: flex; }
+        .cmdk-box {
+            width: 100%; max-width: 560px; background: var(--sidebar);
+            border: 1px solid var(--border-soft); border-radius: var(--radius-md);
+            box-shadow: 0 20px 60px rgba(0,0,0,0.6); overflow: hidden;
+            animation: card-in 0.15s ease both;
+        }
+        .cmdk-input-row { display: flex; align-items: center; gap: 10px; padding: 14px 16px; border-bottom: 1px solid var(--border-soft); }
+        .cmdk-input-row i { color: var(--text-dim); }
+        .cmdk-input {
+            flex: 1; background: none; border: none; outline: none; color: var(--text);
+            font-family: 'JetBrains Mono', monospace; font-size: 14px;
+        }
+        .cmdk-results { max-height: 360px; overflow-y: auto; padding: 6px; }
+        .cmdk-group-label {
+            font-family: 'JetBrains Mono', monospace; font-size: 10px; letter-spacing: 1px;
+            text-transform: uppercase; color: var(--text-dim); padding: 8px 10px 4px;
+        }
+        .cmdk-item {
+            display: flex; align-items: center; gap: 10px; padding: 9px 10px;
+            border-radius: var(--radius-sm); cursor: pointer; color: var(--text);
+            text-decoration: none; font-size: 13px;
+        }
+        .cmdk-item i { width: 16px; text-align: center; color: var(--text-dim); }
+        .cmdk-item.active, .cmdk-item:hover { background: var(--accent-dim); color: var(--accent); }
+        .cmdk-item.active i, .cmdk-item:hover i { color: var(--accent); }
+        .cmdk-empty { padding: 20px; text-align: center; color: var(--text-dim); font-size: 13px; }
+
+        @media (max-width: 860px) {
+            .admin-topbar { flex-direction: column; align-items: stretch; }
+            .topbar-right { justify-content: space-between; }
+        }
     </style>
     {% block extra_head %}{% endblock %}
 </head>
@@ -211,18 +297,49 @@
         <div class="admin-brand"><i class="fa-solid fa-shield-halved"></i> SIMBA_INTEL</div>
         <div class="admin-brand-sub">ADMIN CONSOLE</div>
         <nav class="admin-nav">
+            <div class="admin-nav-section">Overview</div>
             <a href="{% url 'admin_dashboard' %}" class="{% if active_nav == 'dashboard' %}active{% endif %}"><i class="fa-solid fa-gauge"></i> Dashboard</a>
+            <a href="{% url 'admin_live_platform' %}" class="{% if active_nav == 'live' %}active{% endif %}"><i class="fa-solid fa-tower-broadcast"></i> Live Monitor</a>
+            <a href="{% url 'admin_system_health' %}" class="{% if active_nav == 'health' %}active{% endif %}"><i class="fa-solid fa-heart-pulse"></i> System Health</a>
+
+            <div class="admin-nav-section">Users</div>
             <a href="{% url 'admin_users_list' %}" class="{% if active_nav == 'users' %}active{% endif %}"><i class="fa-solid fa-users"></i> Users</a>
-            <a href="{% url 'admin_audit_log' %}" class="{% if active_nav == 'audit' %}active{% endif %}"><i class="fa-solid fa-clipboard-list"></i> Audit Log</a>
+            <a href="{% url 'admin_roles' %}" class="{% if active_nav == 'roles' %}active{% endif %}"><i class="fa-solid fa-user-shield"></i> Roles</a>
+
+            <div class="admin-nav-section">Security</div>
             <a href="{% url 'admin_security' %}" class="{% if active_nav == 'security' %}active{% endif %}"><i class="fa-solid fa-lock"></i> Security</a>
+            <a href="{% url 'admin_audit_log' %}" class="{% if active_nav == 'audit' %}active{% endif %}"><i class="fa-solid fa-clipboard-list"></i> Audit Log</a>
+            <a href="{% url 'admin_errors' %}" class="{% if active_nav == 'errors' %}active{% endif %}"><i class="fa-solid fa-triangle-exclamation"></i> Errors</a>
+
+            <div class="admin-nav-section">Platform</div>
+            <a href="{% url 'admin_ai_control' %}" class="{% if active_nav == 'ai_control' %}active{% endif %}"><i class="fa-solid fa-brain"></i> AI Control</a>
             <a href="{% url 'admin_feature_flags' %}" class="{% if active_nav == 'flags' %}active{% endif %}"><i class="fa-solid fa-flag"></i> Feature Flags</a>
             <a href="{% url 'admin_broadcasts' %}" class="{% if active_nav == 'broadcasts' %}active{% endif %}"><i class="fa-solid fa-bullhorn"></i> Broadcasts</a>
+
+            <div class="admin-nav-section">Operations</div>
+            <a href="{% url 'admin_reports' %}" class="{% if active_nav == 'reports' %}active{% endif %}"><i class="fa-solid fa-file-lines"></i> Reports</a>
+            <a href="{% url 'admin_settings' %}" class="{% if active_nav == 'settings' %}active{% endif %}"><i class="fa-solid fa-gear"></i> Settings</a>
         </nav>
         <div class="admin-nav-footer">
             <a href="/"><i class="fa-solid fa-arrow-left"></i> Back to app</a>
         </div>
     </div>
     <div class="admin-main">
+        <div class="admin-topbar">
+            <button type="button" class="topbar-search-trigger" onclick="openCommandPalette()">
+                <i class="fa-solid fa-magnifying-glass"></i> Search pages or jump to a user&hellip;
+                <kbd>Ctrl K</kbd>
+            </button>
+            <div class="topbar-right">
+                <span class="topbar-clock" id="topbarClock"></span>
+                <div class="topbar-user">
+                    <i class="fa-solid fa-circle-user"></i>
+                    <span class="topbar-user-name">{{ request.user.username }}</span>
+                    {% if request.user.profile.role %}<span class="badge ok">{{ request.user.profile.get_role_display|default:request.user.profile.role }}</span>{% endif %}
+                </div>
+            </div>
+        </div>
+
         {% if messages %}
         <div class="admin-messages" style="margin-bottom:20px; display:flex; flex-direction:column; gap:8px;">
             {% for message in messages %}
@@ -235,5 +352,133 @@
         {% endif %}
         {% block content %}{% endblock %}
     </div>
+
+    <div class="cmdk-overlay" id="cmdkOverlay" onclick="if (event.target === this) closeCommandPalette()">
+        <div class="cmdk-box">
+            <div class="cmdk-input-row">
+                <i class="fa-solid fa-magnifying-glass"></i>
+                <input type="text" class="cmdk-input" id="cmdkInput" placeholder="Search pages or a username&hellip;" autocomplete="off">
+            </div>
+            <div class="cmdk-results" id="cmdkResults"></div>
+        </div>
+    </div>
+
+    <script>
+        const CMDK_PAGES = [
+            { label: 'Dashboard', icon: 'fa-gauge', url: '{% url "admin_dashboard" %}' },
+            { label: 'Live Monitor', icon: 'fa-tower-broadcast', url: '{% url "admin_live_platform" %}' },
+            { label: 'System Health', icon: 'fa-heart-pulse', url: '{% url "admin_system_health" %}' },
+            { label: 'Users', icon: 'fa-users', url: '{% url "admin_users_list" %}' },
+            { label: 'Roles & Permissions', icon: 'fa-user-shield', url: '{% url "admin_roles" %}' },
+            { label: 'Audit Log', icon: 'fa-clipboard-list', url: '{% url "admin_audit_log" %}' },
+            { label: 'Security Center', icon: 'fa-lock', url: '{% url "admin_security" %}' },
+            { label: 'Error Center', icon: 'fa-triangle-exclamation', url: '{% url "admin_errors" %}' },
+            { label: 'AI Control Center', icon: 'fa-brain', url: '{% url "admin_ai_control" %}' },
+            { label: 'Feature Flags', icon: 'fa-flag', url: '{% url "admin_feature_flags" %}' },
+            { label: 'Broadcasts', icon: 'fa-bullhorn', url: '{% url "admin_broadcasts" %}' },
+            { label: 'Reports', icon: 'fa-file-lines', url: '{% url "admin_reports" %}' },
+            { label: 'Settings', icon: 'fa-gear', url: '{% url "admin_settings" %}' },
+        ];
+        let cmdkActiveIndex = -1;
+        let cmdkItems = [];
+        let cmdkSearchTimer = null;
+
+        function openCommandPalette() {
+            document.getElementById('cmdkOverlay').classList.add('open');
+            const input = document.getElementById('cmdkInput');
+            input.value = '';
+            input.focus();
+            renderCmdkResults({}, CMDK_PAGES);
+        }
+        function closeCommandPalette() {
+            document.getElementById('cmdkOverlay').classList.remove('open');
+        }
+
+        const CMDK_GROUP_RENDERERS = {
+            users: (u) => `<a class="cmdk-item" href="${u.url}"><i class="fa-solid fa-user"></i> ${u.username} <span style="color:var(--text-dim); margin-left:auto; font-size:11px;">${u.email || ''}</span></a>`,
+            chats: (c) => `<a class="cmdk-item" href="${c.url}"><i class="fa-solid fa-comments"></i> ${c.title} <span style="color:var(--text-dim); margin-left:auto; font-size:11px;">${c.owner}</span></a>`,
+            audit_log: (a) => `<a class="cmdk-item" href="${a.url}"><i class="fa-solid fa-clipboard-list"></i> ${a.action} <span style="color:var(--text-dim); margin-left:auto; font-size:11px;">${a.detail}</span></a>`,
+            broadcasts: (b) => `<a class="cmdk-item" href="${b.url}"><i class="fa-solid fa-bullhorn"></i> ${b.message}</a>`,
+            feature_flags: (f) => `<a class="cmdk-item" href="${f.url}"><i class="fa-solid fa-flag"></i> ${f.key} <span style="color:var(--text-dim); margin-left:auto; font-size:11px;">${f.description || ''}</span></a>`,
+        };
+        const CMDK_GROUP_LABELS = { users: 'Users', chats: 'Chats', audit_log: 'Audit Log', broadcasts: 'Broadcasts', feature_flags: 'Feature Flags' };
+
+        function renderCmdkResults(groups, pageMatches) {
+            const container = document.getElementById('cmdkResults');
+            cmdkItems = [];
+            let html = '';
+            let anyResults = pageMatches.length > 0;
+            if (pageMatches.length) {
+                html += '<div class="cmdk-group-label">Pages</div>';
+                pageMatches.forEach(p => {
+                    cmdkItems.push(p.url);
+                    html += `<a class="cmdk-item" href="${p.url}"><i class="fa-solid ${p.icon}"></i> ${p.label}</a>`;
+                });
+            }
+            Object.keys(CMDK_GROUP_RENDERERS).forEach(groupKey => {
+                const items = groups[groupKey] || [];
+                if (!items.length) return;
+                anyResults = true;
+                html += `<div class="cmdk-group-label">${CMDK_GROUP_LABELS[groupKey]}</div>`;
+                items.forEach(item => {
+                    cmdkItems.push(item.url);
+                    html += CMDK_GROUP_RENDERERS[groupKey](item);
+                });
+            });
+            if (!anyResults) {
+                html = '<div class="cmdk-empty">No matches.</div>';
+            }
+            container.innerHTML = html;
+            cmdkActiveIndex = -1;
+        }
+
+        function updateCmdkActive(delta) {
+            const items = document.querySelectorAll('.cmdk-item');
+            if (!items.length) return;
+            cmdkActiveIndex = (cmdkActiveIndex + delta + items.length) % items.length;
+            items.forEach((el, i) => el.classList.toggle('active', i === cmdkActiveIndex));
+            items[cmdkActiveIndex].scrollIntoView({ block: 'nearest' });
+        }
+
+        document.getElementById('cmdkInput').addEventListener('input', (e) => {
+            const q = e.target.value.trim().toLowerCase();
+            const pageMatches = q ? CMDK_PAGES.filter(p => p.label.toLowerCase().includes(q)) : CMDK_PAGES;
+
+            clearTimeout(cmdkSearchTimer);
+            if (!q) { renderCmdkResults({}, pageMatches); return; }
+            cmdkSearchTimer = setTimeout(() => {
+                fetch(`{% url "admin_quick_search" %}?q=${encodeURIComponent(q)}`)
+                    .then(res => res.ok ? res.json() : {})
+                    .then(data => renderCmdkResults(data, pageMatches))
+                    .catch(() => renderCmdkResults({}, pageMatches));
+            }, 150);
+        });
+
+        document.addEventListener('keydown', (e) => {
+            const isMac = navigator.platform.toUpperCase().includes('MAC');
+            if ((isMac ? e.metaKey : e.ctrlKey) && e.key.toLowerCase() === 'k') {
+                e.preventDefault();
+                openCommandPalette();
+                return;
+            }
+            const overlay = document.getElementById('cmdkOverlay');
+            if (!overlay.classList.contains('open')) return;
+            if (e.key === 'Escape') { closeCommandPalette(); }
+            else if (e.key === 'ArrowDown') { e.preventDefault(); updateCmdkActive(1); }
+            else if (e.key === 'ArrowUp') { e.preventDefault(); updateCmdkActive(-1); }
+            else if (e.key === 'Enter' && cmdkActiveIndex >= 0 && cmdkItems[cmdkActiveIndex]) {
+                window.location.href = cmdkItems[cmdkActiveIndex];
+            }
+        });
+
+        function tickClock() {
+            const el = document.getElementById('topbarClock');
+            if (el) el.textContent = new Date().toLocaleString(undefined, {
+                weekday: 'short', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
+            });
+        }
+        tickClock();
+        setInterval(tickClock, 1000);
+    </script>
 </body>
 </html>

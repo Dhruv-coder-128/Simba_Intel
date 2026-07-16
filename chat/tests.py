@@ -7,12 +7,12 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase, override_settings
 from django.urls import reverse
 
-from chat.models import ChatMessage, ChatSession, Message, RecoveryCode, UsageEvent, UserProfile
+from chat.models import ChatMessage, ChatSession, FeatureFlag, Message, RecoveryCode, Role, UsageEvent, UserProfile
 from chat.providers.pollinations_image_provider import PollinationsImageProvider
 from chat.services.cost_table import estimate_cost
 from chat.services.memory import get_conversation_history
 from chat.services.message_tree import append_turn, build_display_messages, walk_active_chain
-from chat.services.model_registry import get_model_config, list_available_models
+from chat.services.model_registry import MODEL_REGISTRY, ModelConfig, get_model_config, is_model_allowed_for_user, list_available_models
 from chat.services.usage import RATE_LIMIT_MAX_REQUESTS, check_rate_limit, estimate_tokens, record_usage
 from chat.services.verification import is_email_verified, verification_required
 
@@ -128,6 +128,82 @@ class AskAiViewTests(TestCase):
     def test_system_stats_requires_login(self):
         response = self.client.get(reverse("system_stats"))
         self.assertEqual(response.status_code, 302)
+
+
+class ModelAccessControlTests(TestCase):
+    """AI Control Center's "per-role model access" - ModelConfig.min_role
+    (chat/services/model_registry.py) enforced at the one choke point in
+    chat/views.py's ask_ai. Every real registered model defaults to
+    min_role="user" (open to everyone) - these tests use a temporary,
+    role-restricted model registered via patch.dict so they never depend
+    on (or risk breaking) the real model registry's contents."""
+
+    def setUp(self):
+        self.user = User.objects.create_user(username="dhruv", password="testpass123")
+        self.admin = User.objects.create_user(username="admin", password="testpass123")
+        UserProfile.objects.create(user=self.admin, role=Role.ADMIN)
+        self.client.force_login(self.user)
+
+    def test_is_model_allowed_for_user_open_model(self):
+        self.assertTrue(is_model_allowed_for_user("cyber-max", self.user))
+
+    def test_is_model_allowed_for_user_unknown_model(self):
+        self.assertFalse(is_model_allowed_for_user("not-a-real-model", self.user))
+
+    def test_is_model_allowed_respects_min_role(self):
+        restricted = ModelConfig(display_name="Admin Only", provider="groq", actual_model="x", min_role=Role.ADMIN)
+        with patch.dict(MODEL_REGISTRY, {"admin-only-test-model": restricted}):
+            self.assertFalse(is_model_allowed_for_user("admin-only-test-model", self.user))
+            self.assertTrue(is_model_allowed_for_user("admin-only-test-model", self.admin))
+
+    @patch("chat.views.chat_stream")
+    def test_ask_ai_rejects_role_restricted_model(self, mock_chat_stream):
+        mock_chat_stream.return_value = iter(["ok"])
+        restricted = ModelConfig(display_name="Admin Only", provider="groq", actual_model="x", min_role=Role.ADMIN)
+        with patch.dict(MODEL_REGISTRY, {"admin-only-test-model": restricted}):
+            response = self.client.post(reverse("ask_ai"), {"query": "hi", "model_id": "admin-only-test-model"})
+            data = response.json()
+            self.assertEqual(data.get("type"), "error")
+            self.assertIn("doesn't have access", data.get("message", ""))
+        mock_chat_stream.assert_not_called()
+
+    @patch("chat.views.chat_stream")
+    def test_ask_ai_allows_admin_for_role_restricted_model(self, mock_chat_stream):
+        mock_chat_stream.return_value = iter(["ok"])
+        self.client.force_login(self.admin)
+        restricted = ModelConfig(display_name="Admin Only", provider="groq", actual_model="x", min_role=Role.ADMIN)
+        with patch.dict(MODEL_REGISTRY, {"admin-only-test-model": restricted}):
+            response = self.client.post(reverse("ask_ai"), {"query": "hi", "model_id": "admin-only-test-model"})
+            self.assertEqual(response.status_code, 200)
+
+
+class AiFeatureFlagEnforcementTests(TestCase):
+    """file_upload and web_search (AI Control Center) - both real,
+    DB-backed FeatureFlags enforced in chat/views.py's ask_ai, not just
+    displayed."""
+
+    def setUp(self):
+        self.user = User.objects.create_user(username="dhruv", password="testpass123")
+        self.client.force_login(self.user)
+
+    @patch("chat.views.chat_stream")
+    def test_file_upload_disabled_rejects_attachment(self, mock_chat_stream):
+        mock_chat_stream.return_value = iter(["ok"])
+        FeatureFlag.objects.create(key="file_upload", enabled=False)
+        image = SimpleUploadedFile("x.png", b"fake-bytes", content_type="image/png")
+        response = self.client.post(reverse("ask_ai"), {"query": "hi", "model_id": "cyber-max", "attachment": image})
+        data = response.json()
+        self.assertEqual(data.get("type"), "error")
+        self.assertIn("disabled", data.get("message", ""))
+
+    @patch("chat.views.chat_stream")
+    @patch("chat.views._get_tavily_search")
+    def test_web_search_disabled_skips_tavily(self, mock_search, mock_chat_stream):
+        mock_chat_stream.return_value = iter(["ok"])
+        FeatureFlag.objects.create(key="web_search", enabled=False)
+        response = self.client.post(reverse("ask_ai"), {"query": "what is the latest news today", "model_id": "cyber-max"})
+        self.assertEqual(response.status_code, 200)
+        mock_search.assert_not_called()
 
 
 class AttachmentTests(TestCase):

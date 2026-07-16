@@ -1,0 +1,89 @@
+{% extends "admin_console/base.html" %}
+{% block title %}System Health{% endblock %}
+{% block content %}
+<div class="admin-header">
+    <h1><i class="fa-solid fa-heart-pulse"></i> SYSTEM HEALTH</h1>
+    <span class="badge ok" id="healthPulse"><i class="fa-solid fa-circle" style="font-size:7px;"></i> MONITORING</span>
+</div>
+
+<div class="stat-grid">
+    <div class="glass-card stat-card"><div class="stat-label">Database</div><div class="stat-value" id="hDbStatus">&mdash;</div></div>
+    <div class="glass-card stat-card"><div class="stat-label">DB Latency</div><div class="stat-value" id="hDbLatency">&mdash;</div></div>
+    <div class="glass-card stat-card"><div class="stat-label">CPU</div><div class="stat-value" id="hCpu">&mdash;</div></div>
+    <div class="glass-card stat-card"><div class="stat-label">Memory</div><div class="stat-value" id="hRam">&mdash;</div></div>
+    <div class="glass-card stat-card"><div class="stat-label">Disk</div><div class="stat-value" id="hDisk">&mdash;</div></div>
+    <div class="glass-card stat-card"><div class="stat-label">Requests / Hour</div><div class="stat-value" id="hRph">&mdash;</div></div>
+    <div class="glass-card stat-card"><div class="stat-label">Avg Response</div><div class="stat-value" id="hAvgResp">&mdash;</div></div>
+    <div class="glass-card stat-card"><div class="stat-label">Error Rate (1h)</div><div class="stat-value" id="hErrorRate">&mdash;</div></div>
+</div>
+
+<div class="glass-card" style="margin-bottom:16px;">
+    <h2 class="section-title">Database &amp; Storage</h2>
+    <p style="font-size:11.5px; color:var(--text-dim); margin:-8px 0 12px;">Supabase PostgreSQL is this project's database - "Database" and "Supabase Connectivity" are the same underlying check, not two separate systems.</p>
+    <div class="kv-row"><span>Supabase / PostgreSQL connectivity</span><span id="hDbStatusLong">&mdash;</span></div>
+    <div class="kv-row"><span>Queue status</span><span id="hQueueStatus">&mdash;</span></div>
+</div>
+
+<div class="glass-card">
+    <h2 class="section-title">AI Provider Status</h2>
+    <p style="font-size:11.5px; color:var(--text-dim); margin:-8px 0 12px;">
+        "Configured" means credentials are present, not a live ping (pinging every provider on every page load would itself burn real API usage).
+        Last success/error are drawn from actual recent traffic.
+    </p>
+    <div class="table-scroll">
+    <table>
+        <thead><tr><th>Provider</th><th>Configured</th><th>Last Success</th><th>Last Error</th></tr></thead>
+        <tbody id="hProvidersBody"></tbody>
+    </table>
+    </div>
+</div>
+
+<style>
+    .section-title { font-family:'JetBrains Mono',monospace; font-size:12px; text-transform:uppercase; color:var(--text-dim); margin:0 0 14px; }
+    .kv-row { display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px solid var(--border-soft); font-size:13px; }
+    .kv-row:last-child { border-bottom:none; }
+    #healthPulse i { animation: pulse-dot 1.4s ease infinite; }
+    @keyframes pulse-dot { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
+</style>
+<script>
+    function fmtMs(ms) {
+        if (ms === null || ms === undefined) return 'n/a';
+        return ms < 1000 ? `${Math.round(ms)}ms` : `${(ms/1000).toFixed(2)}s`;
+    }
+    function fmtTime(iso) {
+        return iso ? new Date(iso).toLocaleString(undefined, {month:'short', day:'numeric', hour:'2-digit', minute:'2-digit'}) : 'never';
+    }
+
+    function refreshHealth() {
+        fetch('{% url "admin_system_health_data" %}', { signal: AbortSignal.timeout(8000) })
+            .then(res => res.json())
+            .then(data => {
+                document.getElementById('hDbStatus').innerHTML = data.db_ok
+                    ? '<span class="badge ok">UP</span>' : '<span class="badge bad">DOWN</span>';
+                document.getElementById('hDbStatusLong').innerHTML = data.db_ok
+                    ? '<span class="badge ok">CONNECTED</span>' : '<span class="badge bad">UNREACHABLE</span>';
+                document.getElementById('hDbLatency').textContent = fmtMs(data.db_latency_ms);
+                document.getElementById('hCpu').textContent = `${data.cpu.toFixed(1)}%`;
+                document.getElementById('hRam').textContent = `${data.ram.toFixed(1)}%`;
+                document.getElementById('hDisk').textContent = `${data.disk.toFixed(1)}%`;
+                document.getElementById('hRph').textContent = data.requests_last_hour;
+                document.getElementById('hAvgResp').textContent = fmtMs(data.avg_response_time_ms);
+                document.getElementById('hErrorRate').textContent = `${data.error_rate_percent}%`;
+                document.getElementById('hQueueStatus').innerHTML = `<span style="color:var(--text-dim); font-size:12px;">${data.queue_status}</span>`;
+
+                const body = document.getElementById('hProvidersBody');
+                body.innerHTML = Object.entries(data.providers).map(([name, info]) => `
+                    <tr>
+                        <td>${name}</td>
+                        <td>${info.configured ? '<span class="badge ok">YES</span>' : '<span class="badge bad">NO</span>'}</td>
+                        <td>${fmtTime(info.last_success)}</td>
+                        <td>${info.last_error ? fmtTime(info.last_error) : '-'}</td>
+                    </tr>
+                `).join('');
+            })
+            .catch(() => {});
+    }
+    refreshHealth();
+    setInterval(refreshHealth, 8000);
+</script>
+{% endblock %}

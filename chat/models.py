@@ -322,6 +322,11 @@ class AdminAuditLog(models.Model):
         ("update_usage_limits", "update_usage_limits"),
         ("ownership_transfer", "ownership_transfer"),
         ("blocked_attempt", "blocked_attempt"),
+        ("export_users_csv", "export_users_csv"),
+        ("export_audit_log_csv", "export_audit_log_csv"),
+        ("error_resolved", "error_resolved"),
+        ("report_generated", "report_generated"),
+        ("warn_user", "warn_user"),
     ]
 
     actor = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name='admin_actions_taken')
@@ -529,6 +534,15 @@ class Broadcast(models.Model):
     active = models.BooleanField(default=True)
     starts_at = models.DateTimeField(null=True, blank=True)
     ends_at = models.DateTimeField(null=True, blank=True)
+    # Display style, independent of `level` (which is about severity/color,
+    # not placement): a banner is the existing, always-on-top-of-page
+    # behavior; a popup is a one-time modal a user must notice and close.
+    # Dismissible is tracked client-side only (localStorage, keyed by this
+    # row's id) - deliberately not a per-user DB row, since "has every user
+    # dismissed this" isn't something any current page needs to know, and a
+    # new dismissal table for that would outlive the broadcast itself.
+    is_popup = models.BooleanField(default=False)
+    dismissible = models.BooleanField(default=True)
     created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name='+')
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -555,3 +569,65 @@ class Broadcast(models.Model):
 
     def is_currently_visible(self):
         return self.status == "active"
+
+
+class ErrorLog(models.Model):
+    """Application-level error tracking for the admin console's Error
+    Center - deliberately separate from SecurityEvent (auth/security
+    signals) and AdminAuditLog (operator actions). Every AI provider call
+    already funnels its failures through chat.utils.logger.SimbaLogger.
+    log_request(error=...) - that's the single choke point this model is
+    fed from (see SimbaLogger), plus a got_request_exception signal
+    receiver (chat/signals.py) for anything unhandled that reaches Django's
+    own 500 handler.
+
+    Duplicate errors are grouped, not stored one row per occurrence: the
+    same (category, message) while unresolved increments `count` and bumps
+    `last_seen` instead of creating a new row. Marking a group resolved
+    starts a fresh row the next time that exact error recurs, rather than
+    silently reopening a closed one - the same convention most bug trackers
+    use for "this happened again after I thought I fixed it"."""
+
+    CATEGORY_CHOICES = [
+        ("chat_provider", "Chat Provider"),
+        ("image_provider", "Image Provider"),
+        ("vision_provider", "Vision Provider"),
+        ("unhandled_exception", "Unhandled Exception"),
+    ]
+
+    category = models.CharField(max_length=30, choices=CATEGORY_CHOICES)
+    message = models.TextField()
+    detail = models.TextField(blank=True)
+    count = models.PositiveIntegerField(default=1)
+    first_seen = models.DateTimeField(auto_now_add=True)
+    last_seen = models.DateTimeField(auto_now=True)
+    resolved = models.BooleanField(default=False)
+    resolved_at = models.DateTimeField(null=True, blank=True)
+    resolved_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='+')
+
+    class Meta:
+        indexes = [
+            models.Index(fields=['-last_seen']),
+            models.Index(fields=['category', 'resolved']),
+        ]
+        ordering = ['-last_seen']
+
+    def __str__(self):
+        return f"ErrorLog({self.category}, x{self.count}, resolved={self.resolved})"
+
+    @classmethod
+    def record(cls, category: str, message: str, detail: str = ""):
+        # Keyed on the first 200 chars so two errors differing only by a
+        # dynamic id/timestamp embedded in the message still group together
+        # in practice, without needing real message-template extraction.
+        key_message = (message or "")[:200]
+        obj, created = cls.objects.get_or_create(
+            category=category, message=key_message, resolved=False,
+            defaults={'detail': detail},
+        )
+        if not created:
+            obj.count = models.F('count') + 1
+            if detail:
+                obj.detail = detail
+            obj.save(update_fields=['count', 'detail', 'last_seen'])
+        return obj

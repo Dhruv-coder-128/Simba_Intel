@@ -1,7 +1,12 @@
 {% extends "admin_console/base.html" %}
 {% block title %}Audit Log{% endblock %}
 {% block content %}
-<div class="admin-header"><h1><i class="fa-solid fa-clipboard-list"></i> AUDIT LOG</h1></div>
+<div class="admin-header">
+    <h1><i class="fa-solid fa-clipboard-list"></i> AUDIT LOG</h1>
+    <a href="{% url 'admin_audit_log_export_csv' %}?{{ request.GET.urlencode }}" class="btn">
+        <i class="fa-solid fa-file-csv"></i> Export CSV
+    </a>
+</div>
 
 <div class="glass-card" style="margin-bottom:16px;">
     <form method="get" class="filter-bar">
@@ -39,9 +44,9 @@
     </table>
     </div>
     <div class="pagination">
-        {% if page.has_previous %}<a href="?q={{ query }}&action={{ action_filter }}&page={{ page.previous_page_number }}">Previous</a>{% endif %}
+        {% if page.has_previous %}<a href="{% querystring page=page.previous_page_number %}">Previous</a>{% endif %}
         <span class="current">{{ page.number }} / {{ page.paginator.num_pages }}</span>
-        {% if page.has_next %}<a href="?q={{ query }}&action={{ action_filter }}&page={{ page.next_page_number }}">Next</a>{% endif %}
+        {% if page.has_next %}<a href="{% querystring page=page.next_page_number %}">Next</a>{% endif %}
     </div>
 </div>
 {% endblock %}

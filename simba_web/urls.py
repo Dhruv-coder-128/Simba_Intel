@@ -27,13 +27,28 @@ urlpatterns = [
     # above (left in place for direct DB inspection, but not what operators
     # use day-to-day).
     path('admin-console/', admin_views.admin_dashboard, name='admin_dashboard'),
+    path('admin-console/search/', admin_views.admin_quick_search, name='admin_quick_search'),
+    path('admin-console/live/', admin_views.admin_live_platform, name='admin_live_platform'),
+    path('admin-console/live/data/', admin_views.admin_live_platform_data, name='admin_live_platform_data'),
     path('admin-console/users/', admin_views.admin_users_list, name='admin_users_list'),
+    path('admin-console/users/export/', admin_views.admin_users_export_csv, name='admin_users_export_csv'),
     path('admin-console/users/<int:user_id>/', admin_views.admin_user_detail, name='admin_user_detail'),
     path('admin-console/users/<int:user_id>/export/', admin_views.admin_export_user_data, name='admin_export_user_data'),
     path('admin-console/audit-log/', admin_views.admin_audit_log, name='admin_audit_log'),
+    path('admin-console/audit-log/export/', admin_views.admin_audit_log_export_csv, name='admin_audit_log_export_csv'),
     path('admin-console/security/', admin_views.admin_security, name='admin_security'),
     path('admin-console/feature-flags/', admin_views.admin_feature_flags, name='admin_feature_flags'),
     path('admin-console/broadcasts/', admin_views.admin_broadcasts, name='admin_broadcasts'),
+    path('admin-console/errors/', admin_views.admin_errors, name='admin_errors'),
+    path('admin-console/errors/<int:error_id>/resolve/', admin_views.admin_error_resolve, name='admin_error_resolve'),
+    path('admin-console/system-health/', admin_views.admin_system_health, name='admin_system_health'),
+    path('admin-console/system-health/data/', admin_views.admin_system_health_data, name='admin_system_health_data'),
+    path('admin-console/roles/', admin_views.admin_roles, name='admin_roles'),
+    path('admin-console/reports/', admin_views.admin_reports, name='admin_reports'),
+    path('admin-console/reports/<str:report_type>/', admin_views.admin_report_download, name='admin_report_download'),
+    path('admin-console/ai-control/', admin_views.admin_ai_control, name='admin_ai_control'),
+    path('admin-console/settings/', admin_views.admin_settings, name='admin_settings'),
+    path('admin-console/live/logs/', admin_views.admin_live_log_stream, name='admin_live_log_stream'),
     path('favicon.ico', RedirectView.as_view(url='/static/favicon2.png', permanent=True)),
     # Recovery-code password reset (additional to allauth's own link-based
     # reset flow below, which is untouched) - registered before the allauth

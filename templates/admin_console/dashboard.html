@@ -7,6 +7,14 @@
     {% if maintenance_mode %}<span class="badge bad"><i class="fa-solid fa-triangle-exclamation"></i> MAINTENANCE MODE ACTIVE</span>{% endif %}
 </div>
 
+<div class="quick-actions">
+    <a href="{% url 'admin_live_platform' %}" class="btn"><i class="fa-solid fa-tower-broadcast"></i> Live Platform</a>
+    <a href="{% url 'admin_broadcasts' %}" class="btn"><i class="fa-solid fa-bullhorn"></i> New Broadcast</a>
+    <a href="{% url 'admin_feature_flags' %}" class="btn"><i class="fa-solid fa-flag"></i> Feature Flags</a>
+    <a href="{% url 'admin_security' %}" class="btn"><i class="fa-solid fa-lock"></i> Security Center</a>
+    <a href="{% url 'admin_users_export_csv' %}" class="btn"><i class="fa-solid fa-file-csv"></i> Export Users</a>
+</div>
+
 <div class="stat-grid">
     <div class="glass-card stat-card"><div class="stat-label">Total Users</div><div class="stat-value">{{ total_users }}</div></div>
     <div class="glass-card stat-card"><div class="stat-label">Verified Users</div><div class="stat-value">{{ verified_users }}</div></div>
@@ -16,7 +24,7 @@
     <div class="glass-card stat-card"><div class="stat-label">Banned</div><div class="stat-value">{{ banned_users }}</div></div>
     <div class="glass-card stat-card"><div class="stat-label">New Today</div><div class="stat-value">{{ new_today }}</div></div>
     <div class="glass-card stat-card"><div class="stat-label">New This Week</div><div class="stat-value">{{ new_this_week }}</div></div>
-    <div class="glass-card stat-card"><div class="stat-label">Daily Active Users</div><div class="stat-value">{{ online_users }}</div></div>
+    <div class="glass-card stat-card"><div class="stat-label">Daily Active Users</div><div class="stat-value">{{ daily_active_users }}</div></div>
     <div class="glass-card stat-card"><div class="stat-label">Monthly Active Users</div><div class="stat-value">{{ monthly_active_users }}</div></div>
     <div class="glass-card stat-card"><div class="stat-label">Total Chats</div><div class="stat-value">{{ total_sessions }}</div></div>
     <div class="glass-card stat-card"><div class="stat-label">Total Messages</div><div class="stat-value">{{ total_messages }}</div></div>
@@ -72,6 +80,51 @@
     </div>
 </div>
 
+<div class="grid-2" style="margin-bottom:16px;">
+    <div class="glass-card chart-lazy" data-chart="peakHours">
+        <h2 class="section-title">Peak Usage Hours - Last 30 Days</h2>
+        <div class="chart-box"><div class="skeleton chart-skeleton"></div><canvas id="peakHoursChart" style="display:none;"></canvas></div>
+    </div>
+    <div class="glass-card">
+        <h2 class="section-title">Most Active Users - Last 30 Days</h2>
+        <div class="table-scroll" style="max-height:220px;">
+        <table>
+            <thead><tr><th>User</th><th>Requests</th></tr></thead>
+            <tbody>
+                {% for u in most_active_users %}
+                <tr><td><a href="{% url 'admin_user_detail' u.user_id %}" style="color:var(--accent); text-decoration:none;">{{ u.user__username|default:"Unknown" }}</a></td><td>{{ u.requests }}</td></tr>
+                {% empty %}
+                <tr><td colspan="2"><div class="empty-state"><i class="fa-solid fa-chart-simple"></i><span>No AI usage recorded in the last 30 days.</span></div></td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        </div>
+    </div>
+</div>
+
+<div class="grid-2" style="margin-bottom:16px;">
+    <div class="glass-card">
+        <h2 class="section-title">Feature Flags at a Glance</h2>
+        <div class="table-scroll" style="max-height:220px;">
+        {% for flag in feature_flags_glance %}
+        <div class="kv-row"><span>{{ flag.key }}</span><span class="badge {% if flag.enabled %}ok{% else %}bad{% endif %}">{% if flag.enabled %}ON{% else %}OFF{% endif %}</span></div>
+        {% empty %}
+        <div class="empty-state"><i class="fa-solid fa-flag"></i><span>No feature flags configured yet.</span></div>
+        {% endfor %}
+        </div>
+        <div style="margin-top:12px;"><a href="{% url 'admin_feature_flags' %}" class="btn">Manage flags <i class="fa-solid fa-chevron-right"></i></a></div>
+    </div>
+    <div class="glass-card">
+        <h2 class="section-title">Database Statistics</h2>
+        <div class="kv-row"><span>Users</span><span>{{ db_stats.users }}</span></div>
+        <div class="kv-row"><span>Chat sessions</span><span>{{ db_stats.chat_sessions }}</span></div>
+        <div class="kv-row"><span>Messages</span><span>{{ db_stats.messages }}</span></div>
+        <div class="kv-row"><span>Usage events (API calls)</span><span>{{ db_stats.usage_events }}</span></div>
+        <div class="kv-row"><span>Security events</span><span>{{ db_stats.security_events }}</span></div>
+        <div class="kv-row"><span>Audit log entries</span><span>{{ db_stats.audit_log_entries }}</span></div>
+    </div>
+</div>
+
 <div class="grid-2">
     <div class="glass-card">
         <h2 class="section-title">Recent Security Events</h2>
@@ -112,6 +165,9 @@
     }
     .chart-box { height:220px; position:relative; }
     .chart-box canvas { position: absolute; inset: 0; }
+    .kv-row { display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px solid var(--border-soft); font-size:13px; }
+    .kv-row:last-child { border-bottom:none; }
+    .quick-actions { display:flex; flex-wrap:wrap; gap:10px; margin-bottom:20px; }
 </style>
 <script>
     // Lazy chart init: each .chart-lazy card only builds its Chart.js
@@ -127,6 +183,7 @@
         providerUsage: {{ by_provider_json|safe }},
         chatVsImage: {{ chat_vs_image_json|safe }},
         loginActivity: {{ login_activity_json|safe }},
+        peakHours: {{ peak_hours_json|safe }},
     };
 
     const CHART_BUILDERS = {
@@ -191,6 +248,14 @@
             data: {
                 labels: CHART_DATA.loginActivity.map(d => d.date.slice(5)),
                 datasets: [{ label: 'Logins', data: CHART_DATA.loginActivity.map(d => d.count), borderColor: '#ff5470', backgroundColor: 'rgba(255,84,112,0.12)', fill: true, tension: 0.35 }],
+            },
+            options: baseOptions(),
+        }),
+        peakHours: (ctx) => new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: CHART_DATA.peakHours.map(d => `${d.hour}:00`),
+                datasets: [{ label: 'Requests', data: CHART_DATA.peakHours.map(d => d.count), backgroundColor: 'rgba(255,84,112,0.6)', borderRadius: 4 }],
             },
             options: baseOptions(),
         }),

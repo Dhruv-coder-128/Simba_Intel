@@ -30,10 +30,11 @@ from chat.services.memory import get_conversation_history, build_messages, messa
 from chat.services.message_tree import (
     append_turn, build_display_messages, regenerate_assistant_reply, set_active_leaf, walk_chain_from,
 )
-from chat.services.model_registry import list_available_models, get_model_config
+from chat.services.model_registry import list_available_models, get_model_config, is_model_allowed_for_user
 from chat.services.usage import record_usage, check_rate_limit, check_daily_limit
 from chat.services.verification import is_email_verified, verification_required
 from chat.utils.logger import SimbaLogger
+from chat.utils.request_info import client_ip, raw_user_agent
 
 from chat.file_analyzer import analyze_file
 
@@ -498,6 +499,22 @@ def ask_ai(request):
 
             model_config = get_model_config(model_id)
 
+            if not is_model_allowed_for_user(model_id, request.user):
+                access_response = JsonResponse({
+                    "type": "error",
+                    "message": "Your account doesn't have access to this model.",
+                })
+                access_response["X-Session-ID"] = str(session.id)
+                return access_response
+
+            if attachments and not FeatureFlag.is_enabled('file_upload', default=True):
+                upload_disabled_response = JsonResponse({
+                    "type": "error",
+                    "message": "File uploads are temporarily disabled by the administrator.",
+                })
+                upload_disabled_response["X-Session-ID"] = str(session.id)
+                return upload_disabled_response
+
             if attachments:
                 validated = []  # list of (attachment, safe_name, ext)
                 for att in attachments:
@@ -606,7 +623,8 @@ def ask_ai(request):
                             latency=0,
                             prompt_length=len(user_query),
                             response_length=0,
-                            error=str(e)
+                            error=str(e),
+                            category="vision_provider",
                         )
                         vision_error = JsonResponse({
                             "type": "error",
@@ -708,7 +726,8 @@ def ask_ai(request):
                         latency=0,
                         prompt_length=len(user_query),
                         response_length=0,
-                        error=str(e)
+                        error=str(e),
+                        category="image_provider",
                     )
                     error_response = JsonResponse({
                         "type": "error",
@@ -733,7 +752,7 @@ def ask_ai(request):
 
             history = get_conversation_history(session)
             messages = build_messages(user_query, history)
-            if _is_search_query(user_query):
+            if FeatureFlag.is_enabled('web_search', default=True) and _is_search_query(user_query):
                 search_results = _get_tavily_search(user_query)
                 if search_results:
                     context_str = "\n\n".join([f"- {result['title']}: {result['content']}" for result in search_results])
@@ -1212,6 +1231,16 @@ def reset_password_recovery(request):
         user = get_object_or_404(User, id=user_id)
         user.set_password(password1)
         user.save()
+        # Bypasses allauth's own password-change flow entirely (a direct
+        # set_password() call), so it doesn't fire allauth's password_
+        # changed signal - chat/signals.py's record_password_changed relies
+        # on that signal for the Timeline, so this path logs the same
+        # SecurityEvent explicitly instead.
+        SecurityEvent.objects.create(
+            user=user, event_type="password_changed", severity="info",
+            ip_address=client_ip(request), user_agent=raw_user_agent(request),
+            detail="Password changed via recovery code",
+        )
         # A used recovery code is retired the moment it's used to reset a
         # password - RecoveryCode.generate_for() overwrites the user's only
         # code, so the just-used one can never be replayed.

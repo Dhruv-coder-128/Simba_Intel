@@ -2,14 +2,20 @@
 security/maintenance infrastructure it depends on (chat/signals.py,
 chat/middleware.py). Kept in its own file, mirroring admin_views.py being
 separate from views.py."""
+import csv
+import io
+import json
+from datetime import timedelta
+
 from django.contrib.auth import get_user_model
 from django.contrib.sessions.models import Session
 from django.test import TestCase, Client
 from django.urls import reverse
+from django.utils import timezone
 
 from chat.models import (
-    AdminAuditLog, Broadcast, ChatSession, FailedLoginAttempt, FeatureFlag,
-    Message, SecurityEvent, UserNote, UserProfile,
+    AdminAuditLog, Broadcast, ChatSession, ErrorLog, FailedLoginAttempt, FeatureFlag,
+    Message, RecoveryCode, Role, SecurityEvent, UsageEvent, UserNote, UserProfile,
 )
 from chat.services.message_tree import append_turn
 
@@ -37,11 +43,24 @@ class AdminConsoleAccessControlTests(TestCase):
         self.superuser = User.objects.create_superuser(username="admin", password="testpass123", email="admin@example.com")
         self.admin_urls = [
             reverse("admin_dashboard"),
+            reverse("admin_live_platform"),
+            reverse("admin_live_platform_data"),
+            reverse("admin_live_log_stream"),
+            reverse("admin_quick_search"),
             reverse("admin_users_list"),
+            reverse("admin_users_export_csv"),
             reverse("admin_audit_log"),
+            reverse("admin_audit_log_export_csv"),
             reverse("admin_security"),
             reverse("admin_feature_flags"),
             reverse("admin_broadcasts"),
+            reverse("admin_errors"),
+            reverse("admin_system_health"),
+            reverse("admin_system_health_data"),
+            reverse("admin_roles"),
+            reverse("admin_reports"),
+            reverse("admin_ai_control"),
+            reverse("admin_settings"),
         ]
 
     def test_anonymous_user_redirected(self):
@@ -347,3 +366,649 @@ class BroadcastTests(TestCase):
         self.client.post(reverse("admin_broadcasts"), {"action": "deactivate", "broadcast_id": b.id})
         b.refresh_from_db()
         self.assertFalse(b.active)
+
+
+class LivePlatformTests(TestCase):
+    def setUp(self):
+        self.superuser = User.objects.create_superuser(username="admin", password="testpass123", email="a@example.com")
+        self.client.force_login(self.superuser)
+
+    def test_page_renders(self):
+        response = self.client.get(reverse("admin_live_platform"))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "LIVE PLATFORM MONITOR")
+
+    def test_data_endpoint_shape(self):
+        response = self.client.get(reverse("admin_live_platform_data"))
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        for key in (
+            "online_users", "requests_last_minute", "avg_latency_ms", "db_latency_ms",
+            "active_chat_60s", "active_image_60s", "active_vision_60s",
+            "recent_errors_5m", "feed", "server_time",
+        ):
+            self.assertIn(key, data)
+
+    def test_recent_usage_event_counted_as_active(self):
+        UsageEvent.objects.create(
+            user=self.superuser, provider="groq", model_id="cyber-max",
+            event_type="chat", prompt_tokens=5, completion_tokens=5,
+        )
+        data = self.client.get(reverse("admin_live_platform_data")).json()
+        self.assertEqual(data["active_chat_60s"], 1)
+        self.assertEqual(data["requests_last_minute"], 1)
+
+    def test_feed_includes_recent_security_events_and_audit_actions(self):
+        SecurityEvent.objects.create(user=self.superuser, event_type="login", severity="info")
+        AdminAuditLog.objects.create(actor=self.superuser, action="block", target_user=self.superuser)
+        data = self.client.get(reverse("admin_live_platform_data")).json()
+        self.assertGreaterEqual(len(data["feed"]), 2)
+
+
+class AdminQuickSearchTests(TestCase):
+    def setUp(self):
+        self.superuser = User.objects.create_superuser(username="admin", password="testpass123", email="a@example.com")
+        self.client.force_login(self.superuser)
+        User.objects.create_user(username="findme", email="findme@example.com", password="x")
+        User.objects.create_user(username="other", email="other@example.com", password="x")
+
+    def test_empty_query_returns_empty_groups(self):
+        data = self.client.get(reverse("admin_quick_search")).json()
+        self.assertEqual(data["users"], [])
+        self.assertEqual(data["chats"], [])
+
+    def test_matches_by_username(self):
+        data = self.client.get(reverse("admin_quick_search"), {"q": "findme"}).json()
+        usernames = [r["username"] for r in data["users"]]
+        self.assertIn("findme", usernames)
+        self.assertNotIn("other", usernames)
+
+    def test_matches_by_email(self):
+        data = self.client.get(reverse("admin_quick_search"), {"q": "findme@example.com"}).json()
+        self.assertEqual(len(data["users"]), 1)
+        self.assertEqual(data["users"][0]["username"], "findme")
+
+    def test_matches_chat_session_by_title(self):
+        user = User.objects.filter(username="findme").first()
+        ChatSession.objects.create(user=user, title="Unique Chat Title About Rockets")
+        data = self.client.get(reverse("admin_quick_search"), {"q": "Rockets"}).json()
+        titles = [c["title"] for c in data["chats"]]
+        self.assertIn("Unique Chat Title About Rockets", titles)
+
+    def test_matches_feature_flag_by_key(self):
+        FeatureFlag.objects.create(key="unique_search_flag", description="test")
+        data = self.client.get(reverse("admin_quick_search"), {"q": "unique_search_flag"}).json()
+        keys = [f["key"] for f in data["feature_flags"]]
+        self.assertIn("unique_search_flag", keys)
+
+
+class UsersListFilterSortExportTests(TestCase):
+    def setUp(self):
+        self.superuser = User.objects.create_superuser(username="admin", password="testpass123", email="a@example.com")
+        self.client.force_login(self.superuser)
+        self.alice = User.objects.create_user(username="alice", email="alice@example.com", password="x")
+        self.bob = User.objects.create_user(username="bob", email="bob@example.com", password="x")
+        UserProfile.objects.filter(user=self.bob).update(role=Role.MODERATOR) if UserProfile.objects.filter(user=self.bob).exists() else UserProfile.objects.create(user=self.bob, role=Role.MODERATOR)
+
+    def test_role_filter(self):
+        response = self.client.get(reverse("admin_users_list"), {"role": "moderator"})
+        usernames = [u.username for u in response.context["page"]]
+        self.assertIn("bob", usernames)
+        self.assertNotIn("alice", usernames)
+
+    def test_sort_by_username_ascending(self):
+        response = self.client.get(reverse("admin_users_list"), {"sort": "username"})
+        usernames = [u.username for u in response.context["page"]]
+        self.assertEqual(usernames, sorted(usernames))
+
+    def test_sort_toggle_reverses_direction(self):
+        response = self.client.get(reverse("admin_users_list"), {"sort": "-username"})
+        usernames = [u.username for u in response.context["page"]]
+        self.assertEqual(usernames, sorted(usernames, reverse=True))
+
+    def test_invalid_sort_falls_back_to_default(self):
+        response = self.client.get(reverse("admin_users_list"), {"sort": "not_a_real_field; DROP TABLE"})
+        self.assertEqual(response.status_code, 200)
+
+    def test_csv_export_contains_filtered_rows(self):
+        response = self.client.get(reverse("admin_users_export_csv"), {"role": "moderator"})
+        self.assertEqual(response["Content-Type"], "text/csv")
+        rows = list(csv.reader(io.StringIO(response.content.decode())))
+        usernames = [r[1] for r in rows[1:]]
+        self.assertIn("bob", usernames)
+        self.assertNotIn("alice", usernames)
+
+    def test_csv_export_is_logged(self):
+        self.client.get(reverse("admin_users_export_csv"))
+        self.assertTrue(AdminAuditLog.objects.filter(action="export_users_csv", actor=self.superuser).exists())
+
+
+class AuditLogExportTests(TestCase):
+    def setUp(self):
+        self.superuser = User.objects.create_superuser(username="admin", password="testpass123", email="a@example.com")
+        self.client.force_login(self.superuser)
+        self.target = User.objects.create_user(username="target", password="x")
+        AdminAuditLog.objects.create(actor=self.superuser, action="block", target_user=self.target, detail="test")
+
+    def test_csv_export_contains_expected_columns_and_row(self):
+        response = self.client.get(reverse("admin_audit_log_export_csv"))
+        self.assertEqual(response["Content-Type"], "text/csv")
+        rows = list(csv.reader(io.StringIO(response.content.decode())))
+        self.assertEqual(rows[0], ["when", "actor", "action", "target", "detail", "ip_address", "browser", "success"])
+        actions = [r[2] for r in rows[1:]]
+        self.assertIn("block", actions)
+
+    def test_csv_export_respects_action_filter(self):
+        AdminAuditLog.objects.create(actor=self.superuser, action="unban", target_user=self.target)
+        response = self.client.get(reverse("admin_audit_log_export_csv"), {"action": "unban"})
+        rows = list(csv.reader(io.StringIO(response.content.decode())))
+        actions = [r[2] for r in rows[1:]]
+        self.assertEqual(set(actions), {"unban"})
+
+
+class DashboardExpansionTests(TestCase):
+    def setUp(self):
+        self.superuser = User.objects.create_superuser(username="admin", password="testpass123", email="a@example.com")
+        self.client.force_login(self.superuser)
+
+    def test_daily_active_users_counts_usage_only_activity(self):
+        # A user with AI usage today but no login event today must still
+        # count toward DAU - this is exactly the bug being fixed (DAU used
+        # to just redisplay the ~5min "Online Now" figure, which only ever
+        # reflects logins). force_login() in setUp already fires a real
+        # login signal for the superuser, so online_users is correctly 1 -
+        # the bug-fix assertion is that DAU also counts quiet_user's
+        # usage-only activity, growing DAU past that login-only figure.
+        quiet_user = User.objects.create_user(username="quiet", password="x")
+        UsageEvent.objects.create(
+            user=quiet_user, provider="groq", model_id="cyber-max",
+            event_type="chat", prompt_tokens=1, completion_tokens=1,
+        )
+        response = self.client.get(reverse("admin_dashboard"))
+        self.assertEqual(response.context["online_users"], 1)
+        self.assertEqual(response.context["daily_active_users"], 2)
+
+    def test_peak_hours_json_has_24_buckets(self):
+        response = self.client.get(reverse("admin_dashboard"))
+        peak_hours = json.loads(response.context["peak_hours_json"])
+        self.assertEqual(len(peak_hours), 24)
+        self.assertEqual([p["hour"] for p in peak_hours], list(range(24)))
+
+    def test_most_active_users_reflects_usage(self):
+        heavy_user = User.objects.create_user(username="heavy", password="x")
+        for _ in range(3):
+            UsageEvent.objects.create(
+                user=heavy_user, provider="groq", model_id="cyber-max",
+                event_type="chat", prompt_tokens=1, completion_tokens=1,
+            )
+        response = self.client.get(reverse("admin_dashboard"))
+        top = response.context["most_active_users"]
+        self.assertTrue(any(row["user__username"] == "heavy" and row["requests"] == 3 for row in top))
+
+    def test_db_stats_present(self):
+        response = self.client.get(reverse("admin_dashboard"))
+        db_stats = response.context["db_stats"]
+        for key in ("users", "chat_sessions", "messages", "usage_events", "security_events", "audit_log_entries"):
+            self.assertIn(key, db_stats)
+
+    def test_feature_flags_glance_present(self):
+        FeatureFlag.objects.create(key="a_test_flag", enabled=True)
+        response = self.client.get(reverse("admin_dashboard"))
+        keys = [f.key for f in response.context["feature_flags_glance"]]
+        self.assertIn("a_test_flag", keys)
+
+
+class SecurityBreakdownTests(TestCase):
+    def setUp(self):
+        self.superuser = User.objects.create_superuser(username="admin", password="testpass123", email="a@example.com")
+        self.client.force_login(self.superuser)
+
+    def test_top_ips_browsers_devices_populated(self):
+        for _ in range(3):
+            SecurityEvent.objects.create(
+                user=self.superuser, event_type="login", severity="info",
+                ip_address="10.0.0.1", browser="Chrome", device="Desktop",
+            )
+        response = self.client.get(reverse("admin_security"))
+        top_ips = response.context["top_ips"]
+        top_browsers = response.context["top_browsers"]
+        top_devices = response.context["top_devices"]
+        self.assertTrue(any(row["ip_address"] == "10.0.0.1" and row["count"] == 3 for row in top_ips))
+        self.assertTrue(any(row["browser"] == "Chrome" and row["count"] == 3 for row in top_browsers))
+        self.assertTrue(any(row["device"] == "Desktop" and row["count"] == 3 for row in top_devices))
+
+
+class ExportUserDataQueryEfficiencyTests(TestCase):
+    """Locks in the fix for the N+1 found in admin_export_user_data: query
+    count for exporting a user's data must not grow linearly with how many
+    chat sessions they have (a Prefetch with an explicit queryset, not a
+    bare prefetch_related('thread') followed by .order_by() on it)."""
+
+    def setUp(self):
+        self.superuser = User.objects.create_superuser(username="admin", password="testpass123", email="a@example.com")
+        self.client.force_login(self.superuser)
+        self.target = User.objects.create_user(username="target", password="x")
+
+    def _query_count_for_n_sessions(self, n):
+        from django.db import connection
+        from django.test.utils import CaptureQueriesContext
+
+        ChatSession.objects.filter(user=self.target).delete()
+        for i in range(n):
+            session = ChatSession.objects.create(user=self.target, title=f"session {i}")
+            append_turn(session, f"hello {i}", f"hi {i}")
+        with CaptureQueriesContext(connection) as ctx:
+            self.client.get(reverse("admin_export_user_data", args=[self.target.id]))
+        return len(ctx.captured_queries)
+
+    def test_query_count_does_not_scale_with_session_count(self):
+        few = self._query_count_for_n_sessions(2)
+        many = self._query_count_for_n_sessions(10)
+        # A handful of extra queries (pagination/aggregates) is fine; a real
+        # N+1 would add roughly one query per extra session (8 more here).
+        self.assertLess(many - few, 5, f"query count grew from {few} to {many} - looks like an N+1")
+
+
+class UserDetailRecoveryCodeStatusTests(TestCase):
+    def setUp(self):
+        self.superuser = User.objects.create_superuser(username="admin", password="testpass123", email="a@example.com")
+        self.client.force_login(self.superuser)
+        self.target = User.objects.create_user(username="target", password="testpass123", email="target@example.com")
+
+    def test_shows_not_set_when_no_recovery_code(self):
+        response = self.client.get(reverse("admin_user_detail", args=[self.target.id]))
+        self.assertContains(response, "NOT SET")
+
+    def test_shows_set_with_timestamp_when_present(self):
+        RecoveryCode.generate_for(self.target)
+        response = self.client.get(reverse("admin_user_detail", args=[self.target.id]))
+        self.assertContains(response, "SET")
+
+    def test_shows_na_for_google_only_account(self):
+        self.target.set_unusable_password()
+        self.target.save()
+        response = self.client.get(reverse("admin_user_detail", args=[self.target.id]))
+        self.assertContains(response, "N/A - signs in with Google")
+
+    def test_reset_password_action_still_generates_a_new_code(self):
+        self.client.post(reverse("admin_user_detail", args=[self.target.id]), {"action": "reset_password"})
+        self.assertTrue(RecoveryCode.objects.filter(user=self.target).exists())
+
+
+class ErrorLogModelTests(TestCase):
+    def test_first_occurrence_creates_a_row_with_count_one(self):
+        err = ErrorLog.record("chat_provider", "Something broke")
+        self.assertEqual(err.count, 1)
+        self.assertFalse(err.resolved)
+
+    def test_duplicate_error_increments_count_instead_of_creating_a_row(self):
+        ErrorLog.record("chat_provider", "Something broke")
+        ErrorLog.record("chat_provider", "Something broke")
+        ErrorLog.record("chat_provider", "Something broke")
+        self.assertEqual(ErrorLog.objects.count(), 1)
+        self.assertEqual(ErrorLog.objects.first().count, 3)
+
+    def test_different_category_is_a_separate_group(self):
+        ErrorLog.record("chat_provider", "Same message")
+        ErrorLog.record("vision_provider", "Same message")
+        self.assertEqual(ErrorLog.objects.count(), 2)
+
+    def test_resolved_error_recurring_starts_a_fresh_row(self):
+        first = ErrorLog.record("chat_provider", "Something broke")
+        first.resolved = True
+        first.save(update_fields=['resolved'])
+        second = ErrorLog.record("chat_provider", "Something broke")
+        self.assertNotEqual(first.id, second.id)
+        self.assertFalse(second.resolved)
+        self.assertEqual(second.count, 1)
+
+
+class ErrorCenterViewTests(TestCase):
+    def setUp(self):
+        self.superuser = User.objects.create_superuser(username="admin", password="testpass123", email="a@example.com")
+        self.client.force_login(self.superuser)
+
+    def test_unresolved_filter_is_default(self):
+        ErrorLog.record("chat_provider", "open error")
+        resolved = ErrorLog.record("chat_provider", "resolved error")
+        resolved.resolved = True
+        resolved.save(update_fields=['resolved'])
+        response = self.client.get(reverse("admin_errors"))
+        messages_shown = [e.message for e in response.context["page"]]
+        self.assertIn("open error", messages_shown)
+        self.assertNotIn("resolved error", messages_shown)
+
+    def test_category_filter(self):
+        ErrorLog.record("chat_provider", "chat error")
+        ErrorLog.record("vision_provider", "vision error")
+        response = self.client.get(reverse("admin_errors"), {"category": "vision_provider", "status": ""})
+        messages_shown = [e.message for e in response.context["page"]]
+        self.assertIn("vision error", messages_shown)
+        self.assertNotIn("chat error", messages_shown)
+
+    def test_resolve_action_marks_resolved_and_logs(self):
+        err = ErrorLog.record("chat_provider", "needs fixing")
+        self.client.post(reverse("admin_error_resolve", args=[err.id]))
+        err.refresh_from_db()
+        self.assertTrue(err.resolved)
+        self.assertEqual(err.resolved_by, self.superuser)
+        self.assertTrue(AdminAuditLog.objects.filter(action="error_resolved").exists())
+
+    def test_provider_error_capture_via_simba_logger(self):
+        from chat.utils.logger import SimbaLogger
+        SimbaLogger().log_request(
+            provider="groq", latency=0.1, prompt_length=5, response_length=0,
+            error="Provider timed out", category="chat_provider",
+        )
+        self.assertTrue(ErrorLog.objects.filter(category="chat_provider", message="Provider timed out").exists())
+
+    def test_unhandled_exception_signal_creates_error_log(self):
+        from django.core.signals import got_request_exception
+        try:
+            raise ValueError("boom")
+        except ValueError:
+            got_request_exception.send(sender=None, request=None)
+        self.assertTrue(ErrorLog.objects.filter(category="unhandled_exception", message__icontains="boom").exists())
+
+
+class SystemHealthViewTests(TestCase):
+    def setUp(self):
+        self.superuser = User.objects.create_superuser(username="admin", password="testpass123", email="a@example.com")
+        self.client.force_login(self.superuser)
+
+    def test_page_renders(self):
+        response = self.client.get(reverse("admin_system_health"))
+        self.assertEqual(response.status_code, 200)
+
+    def test_data_endpoint_shape(self):
+        data = self.client.get(reverse("admin_system_health_data")).json()
+        for key in ("db_ok", "db_latency_ms", "disk", "ram", "cpu", "requests_last_hour",
+                    "error_rate_percent", "providers", "queue_status"):
+            self.assertIn(key, data)
+
+    def test_pollinations_never_shows_not_configured(self):
+        # pollinations.ai is used keyless - there's no POLLINATIONS_API_KEY
+        # env var, so it must never be reported as "not configured" the way
+        # a genuinely missing key for another provider would be.
+        data = self.client.get(reverse("admin_system_health_data")).json()
+        self.assertTrue(data["providers"]["pollinations"]["configured"])
+
+
+class RoleManagementViewTests(TestCase):
+    def setUp(self):
+        self.superuser = User.objects.create_superuser(username="admin", password="testpass123", email="a@example.com")
+        self.client.force_login(self.superuser)
+
+    def test_page_renders_all_roles(self):
+        response = self.client.get(reverse("admin_roles"))
+        self.assertEqual(response.status_code, 200)
+        role_values = [r['value'] for r in response.context["roles"]]
+        self.assertEqual(set(role_values), {r for r, _ in Role.choices})
+
+    def test_permission_matrix_reflects_actual_permissions_module(self):
+        from chat.permissions import PERMISSIONS
+        response = self.client.get(reverse("admin_roles"))
+        actions_shown = {row['action'] for row in response.context["permission_matrix"]}
+        self.assertEqual(actions_shown, set(PERMISSIONS.keys()))
+
+    def test_role_counts_reflect_real_users(self):
+        UserProfile.objects.create(user=User.objects.create_user(username="mod1", password="x"), role=Role.MODERATOR)
+        response = self.client.get(reverse("admin_roles"))
+        moderator_row = next(r for r in response.context["roles"] if r['value'] == Role.MODERATOR)
+        self.assertEqual(moderator_row['count'], 1)
+
+
+class ReportGeneratorTests(TestCase):
+    def setUp(self):
+        self.superuser = User.objects.create_superuser(username="admin", password="testpass123", email="a@example.com")
+        self.client.force_login(self.superuser)
+        self.target = User.objects.create_user(username="target", password="x")
+
+    def test_reports_hub_renders(self):
+        response = self.client.get(reverse("admin_reports"))
+        self.assertEqual(response.status_code, 200)
+
+    def test_usage_report_contains_real_data(self):
+        UsageEvent.objects.create(user=self.target, provider="groq", model_id="cyber-max", event_type="chat", prompt_tokens=10, completion_tokens=5)
+        response = self.client.get(reverse("admin_report_download", args=["usage"]))
+        self.assertEqual(response["Content-Type"], "text/csv")
+        rows = list(csv.reader(io.StringIO(response.content.decode())))
+        self.assertEqual(rows[0], ["date", "provider", "model_id", "event_type", "requests", "total_tokens", "total_cost_usd"])
+        self.assertTrue(any(r[1] == "groq" for r in rows[1:]))
+
+    def test_images_report_only_includes_image_events(self):
+        UsageEvent.objects.create(user=self.target, provider="pollinations", model_id="image-studio", event_type="image")
+        UsageEvent.objects.create(user=self.target, provider="groq", model_id="cyber-max", event_type="chat")
+        response = self.client.get(reverse("admin_report_download", args=["images"]))
+        rows = list(csv.reader(io.StringIO(response.content.decode())))
+        self.assertEqual(len(rows) - 1, 1)  # header + exactly one image row
+
+    def test_security_report_respects_period(self):
+        # force_login(self.superuser) in setUp already fires a real login
+        # SecurityEvent for the admin, so "header only" isn't the right
+        # expectation here - what matters is that the 60-day-old event is
+        # excluded from a 1-day window while a fresh one is included.
+        old_event = SecurityEvent.objects.create(user=self.target, event_type="login", severity="info")
+        SecurityEvent.objects.filter(id=old_event.id).update(created_at=timezone.now() - timedelta(days=60))
+        response = self.client.get(reverse("admin_report_download", args=["security"]), {"period": "daily"})
+        rows = list(csv.reader(io.StringIO(response.content.decode())))
+        data_rows = rows[1:]
+        self.assertFalse(any(r[1] == "target" for r in data_rows), "the 60-day-old event should be outside a 1-day window")
+
+    def test_errors_report_contains_grouped_errors(self):
+        ErrorLog.record("chat_provider", "a recurring problem")
+        response = self.client.get(reverse("admin_report_download", args=["errors"]))
+        rows = list(csv.reader(io.StringIO(response.content.decode())))
+        self.assertTrue(any("a recurring problem" in r[1] for r in rows[1:]))
+
+    def test_unknown_report_type_rejected(self):
+        response = self.client.get(reverse("admin_report_download", args=["not-a-report"]))
+        self.assertEqual(response.status_code, 403)
+
+    def test_report_download_is_logged(self):
+        self.client.get(reverse("admin_report_download", args=["usage"]))
+        self.assertTrue(AdminAuditLog.objects.filter(action="report_generated").exists())
+
+
+class AiControlCenterTests(TestCase):
+    def setUp(self):
+        self.superuser = User.objects.create_superuser(username="admin", password="testpass123", email="a@example.com")
+        self.client.force_login(self.superuser)
+
+    def test_page_renders_with_curated_flags(self):
+        response = self.client.get(reverse("admin_ai_control"))
+        self.assertEqual(response.status_code, 200)
+        keys_shown = [f['key'] for f in response.context["flags"]]
+        self.assertEqual(set(keys_shown), {"ai_chat", "image_generation", "vision", "file_upload", "web_search"})
+
+    def test_toggle_creates_flag_if_missing_then_flips_it(self):
+        self.assertFalse(FeatureFlag.objects.filter(key="web_search").exists())
+        self.client.post(reverse("admin_ai_control"), {"key": "web_search"})
+        flag = FeatureFlag.objects.get(key="web_search")
+        self.assertFalse(flag.enabled)  # created enabled=True, then immediately flipped off by this same POST
+
+    def test_toggle_rejects_unknown_key(self):
+        self.client.post(reverse("admin_ai_control"), {"key": "not_a_real_flag"})
+        self.assertFalse(FeatureFlag.objects.filter(key="not_a_real_flag").exists())
+
+    def test_model_registry_shown_with_min_role(self):
+        response = self.client.get(reverse("admin_ai_control"))
+        model_ids = [m['id'] for m in response.context["models"]]
+        self.assertIn("cyber-max", model_ids)
+        cyber_max = next(m for m in response.context["models"] if m['id'] == 'cyber-max')
+        self.assertEqual(cyber_max['min_role'], 'user')
+
+
+class SettingsHubViewTests(TestCase):
+    def test_page_renders_with_categories_and_system_info(self):
+        superuser = User.objects.create_superuser(username="admin", password="testpass123", email="a@example.com")
+        self.client.force_login(superuser)
+        response = self.client.get(reverse("admin_settings"))
+        self.assertEqual(response.status_code, 200)
+        category_names = [c['name'] for c in response.context["categories"]]
+        for expected in ("Authentication", "Security", "AI", "Models", "Analytics", "Platform", "System"):
+            self.assertIn(expected, category_names)
+        self.assertIn("database_engine", response.context["system_info"])
+
+
+class LogRingBufferTests(TestCase):
+    def test_ring_buffer_captures_and_returns_records(self):
+        import logging
+        from chat.log_buffer import RingBufferHandler, get_recent_logs
+        logger = logging.getLogger("simba_intel_test_ring_buffer")
+        logger.addHandler(RingBufferHandler())
+        logger.setLevel(logging.INFO)
+        logger.info("a distinctive test log line")
+        recent = get_recent_logs(limit=50)
+        self.assertTrue(any("a distinctive test log line" in e['message'] for e in recent))
+
+    def test_live_log_stream_endpoint_returns_captured_logs(self):
+        import logging
+        superuser = User.objects.create_superuser(username="admin", password="testpass123", email="a@example.com")
+        self.client.force_login(superuser)
+        logging.getLogger("django").warning("another distinctive marker line")
+        data = self.client.get(reverse("admin_live_log_stream")).json()
+        self.assertTrue(any("another distinctive marker line" in e['message'] for e in data['logs']))
+
+
+class BroadcastPopupDismissibleTests(TestCase):
+    def setUp(self):
+        self.superuser = User.objects.create_superuser(username="admin", password="testpass123", email="a@example.com")
+        self.user = User.objects.create_user(username="dhruv", password="testpass123")
+
+    def test_create_popup_broadcast(self):
+        self.client.force_login(self.superuser)
+        self.client.post(reverse("admin_broadcasts"), {
+            # dismissible=on: the template's checkbox defaults to checked in
+            # a real browser, so a real submission includes it unless an
+            # admin explicitly unchecks it - included here to match that.
+            "action": "create", "message": "popup test", "level": "warning", "is_popup": "on", "dismissible": "on",
+        })
+        broadcast = Broadcast.objects.get(message="popup test")
+        self.assertTrue(broadcast.is_popup)
+        self.assertTrue(broadcast.dismissible)
+
+    def test_non_popup_broadcast_defaults_to_banner(self):
+        self.client.force_login(self.superuser)
+        self.client.post(reverse("admin_broadcasts"), {"action": "create", "message": "banner test", "level": "info"})
+        broadcast = Broadcast.objects.get(message="banner test")
+        self.assertFalse(broadcast.is_popup)
+
+    def test_popup_broadcast_renders_as_overlay_on_chat_home(self):
+        Broadcast.objects.create(message="Popup announcement", active=True, is_popup=True, dismissible=True)
+        self.client.force_login(self.user)
+        response = self.client.get(reverse("home"))
+        self.assertContains(response, "broadcastPopupOverlay")
+        self.assertContains(response, "Popup announcement")
+
+    def test_banner_broadcast_does_not_render_popup_overlay(self):
+        # The shared cleanup script always *references*
+        # getElementById('broadcastPopupOverlay') defensively (in case a
+        # stale localStorage entry exists from a previously-shown popup) -
+        # so the bare string legitimately appears in the JS either way.
+        # What must actually be absent is the DOM element itself.
+        Broadcast.objects.create(message="Banner announcement", active=True, is_popup=False, dismissible=True)
+        self.client.force_login(self.user)
+        response = self.client.get(reverse("home"))
+        self.assertNotContains(response, 'id="broadcastPopupOverlay"')
+        self.assertContains(response, 'id="broadcastBanner"')
+
+    def test_non_dismissible_broadcast_has_no_dismiss_button(self):
+        # dismissBroadcast() the function is always defined (shared JS) -
+        # what must be absent is a call site (an onclick invoking it).
+        Broadcast.objects.create(message="Pinned notice", active=True, is_popup=False, dismissible=False)
+        self.client.force_login(self.user)
+        response = self.client.get(reverse("home"))
+        self.assertNotContains(response, 'onclick="dismissBroadcast(')
+
+
+class PasswordChangedTimelineTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(username="dhruv", password="OldPass123!", email="dhruv@example.com")
+
+    def test_allauth_password_change_signal_creates_security_event(self):
+        from allauth.account.signals import password_changed
+        password_changed.send(sender=None, request=None, user=self.user)
+        self.assertTrue(SecurityEvent.objects.filter(user=self.user, event_type="password_changed").exists())
+
+    def test_recovery_code_reset_flow_logs_password_changed_explicitly(self):
+        recovery_code, raw_code = RecoveryCode.generate_for(self.user)
+        self.client.post(reverse("forgot_password"), {"identifier": "dhruv"})
+        self.client.post(reverse("verify_recovery_code"), {"code": raw_code})
+        self.client.post(reverse("reset_password_recovery"), {
+            "password1": "BrandNewPass456!", "password2": "BrandNewPass456!",
+        })
+        self.assertTrue(SecurityEvent.objects.filter(user=self.user, event_type="password_changed").exists())
+
+
+class UserTimelineTests(TestCase):
+    def setUp(self):
+        self.superuser = User.objects.create_superuser(username="admin", password="testpass123", email="a@example.com")
+        self.client.force_login(self.superuser)
+        self.target = User.objects.create_user(username="target", password="x", email="target@example.com")
+
+    def test_timeline_includes_account_created(self):
+        response = self.client.get(reverse("admin_user_detail", args=[self.target.id]))
+        texts = [e['text'] for e in response.context["timeline"]]
+        self.assertIn("Account created", texts)
+
+    def test_timeline_includes_recovery_code_generation(self):
+        RecoveryCode.generate_for(self.target)
+        response = self.client.get(reverse("admin_user_detail", args=[self.target.id]))
+        texts = [e['text'] for e in response.context["timeline"]]
+        self.assertTrue(any("Recovery code generated" in t for t in texts))
+
+    def test_timeline_includes_admin_actions(self):
+        self.client.post(reverse("admin_user_detail", args=[self.target.id]), {"action": "warn_user", "warning": "test warning"})
+        response = self.client.get(reverse("admin_user_detail", args=[self.target.id]))
+        texts = [e['text'] for e in response.context["timeline"]]
+        self.assertTrue(any("warn_user" in t for t in texts))
+
+    def test_timeline_includes_recent_usage(self):
+        UsageEvent.objects.create(user=self.target, provider="groq", model_id="cyber-max", event_type="chat")
+        response = self.client.get(reverse("admin_user_detail", args=[self.target.id]))
+        texts = [e['text'] for e in response.context["timeline"]]
+        self.assertTrue(any("chat request" in t for t in texts))
+
+    def test_timeline_is_sorted_newest_first(self):
+        UsageEvent.objects.create(user=self.target, provider="groq", model_id="cyber-max", event_type="chat")
+        response = self.client.get(reverse("admin_user_detail", args=[self.target.id]))
+        timestamps = [e['at'] for e in response.context["timeline"]]
+        self.assertEqual(timestamps, sorted(timestamps, reverse=True))
+
+
+class WarnUserActionTests(TestCase):
+    def setUp(self):
+        self.superuser = User.objects.create_superuser(username="admin", password="testpass123", email="a@example.com")
+        self.client.force_login(self.superuser)
+        self.target = User.objects.create_user(username="target", password="x")
+
+    def test_warn_user_does_not_change_account_status(self):
+        self.client.post(reverse("admin_user_detail", args=[self.target.id]), {"action": "warn_user", "warning": "be careful"})
+        self.target.refresh_from_db()
+        self.assertTrue(self.target.is_active)
+
+    def test_warn_user_is_audit_logged(self):
+        self.client.post(reverse("admin_user_detail", args=[self.target.id]), {"action": "warn_user", "warning": "be careful"})
+        self.assertTrue(AdminAuditLog.objects.filter(action="warn_user", target_user=self.target, detail__icontains="be careful").exists())
+
+    def test_blank_warning_is_not_logged(self):
+        self.client.post(reverse("admin_user_detail", args=[self.target.id]), {"action": "warn_user", "warning": "   "})
+        self.assertFalse(AdminAuditLog.objects.filter(action="warn_user", target_user=self.target).exists())
+
+
+class GlobalSearchExtendedTests(TestCase):
+    def setUp(self):
+        self.superuser = User.objects.create_superuser(username="admin", password="testpass123", email="a@example.com")
+        self.client.force_login(self.superuser)
+
+    def test_searches_audit_log(self):
+        target = User.objects.create_user(username="target", password="x")
+        AdminAuditLog.objects.create(actor=self.superuser, action="ban", target_user=target, detail="unique audit search marker")
+        data = self.client.get(reverse("admin_quick_search"), {"q": "unique audit search marker"}).json()
+        self.assertTrue(any("unique audit search marker" in a['detail'] for a in data['audit_log']))
+
+    def test_searches_broadcasts(self):
+        Broadcast.objects.create(message="unique broadcast search marker", active=False)
+        data = self.client.get(reverse("admin_quick_search"), {"q": "unique broadcast search marker"}).json()
+        self.assertTrue(any("unique broadcast search marker" in b['message'] for b in data['broadcasts']))

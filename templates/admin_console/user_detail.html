@@ -23,6 +23,11 @@
             </td></tr>
             <tr><td style="color:var(--text-dim);">Signup source</td><td>{{ profile.get_registration_source_display }}</td></tr>
             <tr><td style="color:var(--text-dim);">Google account</td><td>{% if google_linked %}<span class="badge ok">LINKED</span>{% else %}<span style="color:var(--text-dim);">Not linked</span>{% endif %}</td></tr>
+            <tr><td style="color:var(--text-dim);">Recovery code</td><td>
+                {% if not target.has_usable_password %}<span style="color:var(--text-dim);">N/A - signs in with Google</span>
+                {% elif recovery_code %}<span class="badge ok">SET</span> <span style="color:var(--text-dim); font-size:11px;">(generated {{ recovery_code.created_at|date:"M j, Y H:i" }})</span>
+                {% else %}<span class="badge warn">NOT SET</span>{% endif %}
+            </td></tr>
             <tr><td style="color:var(--text-dim);">Joined</td><td>{{ target.date_joined|date:"M j, Y H:i" }}</td></tr>
             <tr><td style="color:var(--text-dim);">Last login</td><td>{{ target.last_login|date:"M j, Y H:i"|default:"Never" }} {% if profile.last_login_browser %}<span style="color:var(--text-dim); font-size:11px;">({{ profile.last_login_browser }} &middot; {{ profile.last_login_device }} &middot; {{ profile.last_login_os }})</span>{% endif %}</td></tr>
             <tr><td style="color:var(--text-dim);">Status</td><td>
@@ -81,10 +86,12 @@
             </form>
             {% endif %}
 
+            {% if target.has_usable_password %}
             <form method="post">
                 {% csrf_token %}<input type="hidden" name="action" value="reset_password">
-                <button type="submit" class="btn" onclick="return confirm('Email this user a password reset code?')"><i class="fa-solid fa-key"></i> Reset Password</button>
+                <button type="submit" class="btn" onclick="return confirm('Generate a new recovery code for this user? The old one stops working immediately, and the new one is shown once, here, for you to relay to them.')"><i class="fa-solid fa-key"></i> Generate New Recovery Code</button>
             </form>
+            {% endif %}
 
             <a href="{% url 'admin_export_user_data' target.id %}" class="btn"><i class="fa-solid fa-download"></i> Export User Data</a>
 
@@ -182,6 +189,34 @@
                 <button type="submit" class="btn primary">Add</button>
             </form>
         </details>
+
+        <details style="margin-top:12px;">
+            <summary style="cursor:pointer; color:var(--text-dim); font-size:12.5px; margin-bottom:8px;">Issue warning</summary>
+            <p style="font-size:11px; color:var(--text-dim); margin:0 0 8px;">Recorded on this user's Timeline and the audit log - doesn't itself change account status.</p>
+            <form method="post" style="display:flex; gap:8px; margin-top:8px;">
+                {% csrf_token %}<input type="hidden" name="action" value="warn_user">
+                <textarea name="warning" rows="2" placeholder="Reason for this warning..." style="flex:1;" required></textarea>
+                <button type="submit" class="btn danger">Warn</button>
+            </form>
+        </details>
+    </div>
+</div>
+
+<div class="glass-card" style="margin-top:16px;">
+    <h2 class="section-title">Timeline</h2>
+    <p style="font-size:11px; color:var(--text-dim); margin:-8px 0 12px;">Signup, security events, admin actions, and recent AI usage, merged and sorted - capped to the most recent 60 entries.</p>
+    <div class="table-scroll" style="max-height:340px;">
+        <ul style="list-style:none; margin:0; padding:0;">
+        {% for entry in timeline %}
+            <li style="display:flex; gap:10px; padding:7px 4px; border-bottom:1px solid var(--border-soft); font-size:12.5px;">
+                <span class="badge {% if entry.kind == 'security' %}warn{% elif entry.kind == 'admin' %}bad{% elif entry.kind == 'usage' %}{% else %}ok{% endif %}" style="flex-shrink:0;">{{ entry.kind|upper }}</span>
+                <span style="flex:1;">{{ entry.text }}</span>
+                <span style="color:var(--text-dim); flex-shrink:0;">{{ entry.at|date:"M j, Y H:i" }}</span>
+            </li>
+        {% empty %}
+            <li><div class="empty-state"><i class="fa-solid fa-timeline"></i><span>No activity recorded yet.</span></div></li>
+        {% endfor %}
+        </ul>
     </div>
 </div>
 

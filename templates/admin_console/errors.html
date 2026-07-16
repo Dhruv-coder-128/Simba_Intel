@@ -1,0 +1,83 @@
+{% extends "admin_console/base.html" %}
+{% block title %}Error Center{% endblock %}
+{% block content %}
+<div class="admin-header">
+    <h1><i class="fa-solid fa-triangle-exclamation"></i> ERROR CENTER</h1>
+    <span class="badge {% if unresolved_count %}bad{% else %}ok{% endif %}">{{ unresolved_count }} UNRESOLVED</span>
+</div>
+
+<div class="glass-card" style="margin-bottom:16px;">
+    <form method="get" class="filter-bar">
+        <select name="status">
+            <option value="unresolved" {% if status_filter == 'unresolved' %}selected{% endif %}>Unresolved</option>
+            <option value="resolved" {% if status_filter == 'resolved' %}selected{% endif %}>Resolved</option>
+            <option value="" {% if not status_filter %}selected{% endif %}>All</option>
+        </select>
+        <select name="category">
+            <option value="">All categories</option>
+            {% for value, label in category_choices %}
+            <option value="{{ value }}" {% if category_filter == value %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+        </select>
+        <button type="submit" class="btn primary"><i class="fa-solid fa-filter"></i> Filter</button>
+    </form>
+</div>
+
+<div class="glass-card">
+    <h2 class="section-title">Grouped Errors</h2>
+    <p style="font-size:11.5px; color:var(--text-dim); margin:-8px 0 12px;">Duplicate errors are grouped by category + message - "count" is how many times this exact error has recurred since it was last resolved.</p>
+    <div class="table-scroll">
+    <table>
+        <thead><tr><th>Category</th><th>Message</th><th>Count</th><th>First Seen</th><th>Last Seen</th><th>Status</th><th></th></tr></thead>
+        <tbody>
+            {% for err in page %}
+            <tr>
+                <td><span class="badge warn">{{ err.get_category_display }}</span></td>
+                <td style="max-width:360px;">{{ err.message|truncatechars:120 }}</td>
+                <td>{{ err.count }}</td>
+                <td>{{ err.first_seen|date:"M j, H:i" }}</td>
+                <td>{{ err.last_seen|date:"M j, H:i" }}</td>
+                <td>{% if err.resolved %}<span class="badge ok">RESOLVED</span>{% else %}<span class="badge bad">OPEN</span>{% endif %}</td>
+                <td>
+                    {% if not err.resolved %}
+                    <form method="post" action="{% url 'admin_error_resolve' err.id %}">
+                        {% csrf_token %}
+                        <button type="submit" class="btn"><i class="fa-solid fa-check"></i> Resolve</button>
+                    </form>
+                    {% endif %}
+                </td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="7"><div class="empty-state"><i class="fa-solid fa-check-circle"></i><span>No errors recorded{% if status_filter == 'unresolved' %} - platform is healthy{% endif %}.</span></div></td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    </div>
+    <div class="pagination">
+        {% if page.has_previous %}<a href="{% querystring page=page.previous_page_number %}">Previous</a>{% endif %}
+        <span class="current">{{ page.number }} / {{ page.paginator.num_pages }}</span>
+        {% if page.has_next %}<a href="{% querystring page=page.next_page_number %}">Next</a>{% endif %}
+    </div>
+</div>
+
+<div class="glass-card" style="margin-top:16px;">
+    <h2 class="section-title">Recent Authentication Errors</h2>
+    <p style="font-size:11.5px; color:var(--text-dim); margin:-8px 0 12px;">Sourced from FailedLoginAttempt, not duplicated into the grouped list above.</p>
+    <div class="table-scroll">
+    <table>
+        <thead><tr><th>When</th><th>Email attempted</th><th>IP</th></tr></thead>
+        <tbody>
+            {% for f in recent_auth_errors %}
+            <tr><td>{{ f.created_at|date:"M j, H:i:s" }}</td><td>{{ f.email_attempted|default:"(blank)" }}</td><td>{{ f.ip_address|default:"Unknown IP" }}</td></tr>
+            {% empty %}
+            <tr><td colspan="3"><div class="empty-state"><i class="fa-solid fa-check"></i><span>None recorded.</span></div></td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    </div>
+</div>
+
+<style>
+    .section-title { font-family:'JetBrains Mono',monospace; font-size:12px; text-transform:uppercase; color:var(--text-dim); margin:0 0 14px; }
+</style>
+{% endblock %}

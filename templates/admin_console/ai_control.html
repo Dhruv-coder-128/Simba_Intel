@@ -1,0 +1,67 @@
+{% extends "admin_console/base.html" %}
+{% block title %}AI Control Center{% endblock %}
+{% block content %}
+<div class="admin-header"><h1><i class="fa-solid fa-brain"></i> AI CONTROL CENTER</h1></div>
+
+<div class="glass-card" style="margin-bottom:16px;">
+    <h2 class="section-title">Feature Toggles</h2>
+    <p style="font-size:11.5px; color:var(--text-dim); margin:-8px 0 12px;">Each toggle changes live product behavior immediately - no redeploy needed.</p>
+    <table>
+        <thead><tr><th>Feature</th><th>Description</th><th>Status</th><th></th></tr></thead>
+        <tbody>
+            {% for flag in flags %}
+            <tr>
+                <td>{{ flag.label }}</td>
+                <td style="color:var(--text-dim); font-size:12.5px;">{{ flag.description }}</td>
+                <td><span class="badge {% if flag.enabled %}ok{% else %}bad{% endif %}">{% if flag.enabled %}ON{% else %}OFF{% endif %}</span></td>
+                <td>
+                    <form method="post">
+                        {% csrf_token %}<input type="hidden" name="key" value="{{ flag.key }}">
+                        <button type="submit" class="btn {% if flag.enabled %}danger{% endif %}">{% if flag.enabled %}Disable{% else %}Enable{% endif %}</button>
+                    </form>
+                </td>
+            </tr>
+            {% endfor %}
+            <tr>
+                <td>Streaming</td>
+                <td style="color:var(--text-dim); font-size:12.5px;">Chat responses stream token-by-token - this is the only response mode this app implements today, so there's no non-streaming fallback to switch to yet.</td>
+                <td><span class="badge ok">ALWAYS ON</span></td>
+                <td><span style="color:var(--text-dim); font-size:11px;">Not switchable</span></td>
+            </tr>
+            <tr style="opacity:0.5;">
+                <td>Code Interpreter</td>
+                <td style="color:var(--text-dim); font-size:12.5px;">Sandboxed code execution - not built yet.</td>
+                <td><span class="badge">COMING SOON</span></td>
+                <td></td>
+            </tr>
+        </tbody>
+    </table>
+</div>
+
+<div class="glass-card">
+    <h2 class="section-title">Model Access</h2>
+    <p style="font-size:11.5px; color:var(--text-dim); margin:-8px 0 12px;">
+        Per-role access is enforced (chat/views.py rejects a request for a model below its required role) - every model here requires only "User" today, since the model registry is defined in code, not the database, so per-model role requirements aren't yet admin-editable without a deploy.
+    </p>
+    <div class="table-scroll">
+    <table>
+        <thead><tr><th>Model</th><th>Provider</th><th>Vision</th><th>Image Gen</th><th>Minimum Role</th></tr></thead>
+        <tbody>
+            {% for m in models %}
+            <tr>
+                <td>{{ m.display_name }}</td>
+                <td>{{ m.provider }}</td>
+                <td>{% if m.supports_vision %}<i class="fa-solid fa-check" style="color:var(--good);"></i>{% else %}&mdash;{% endif %}</td>
+                <td>{% if m.supports_image_gen %}<i class="fa-solid fa-check" style="color:var(--good);"></i>{% else %}&mdash;{% endif %}</td>
+                <td><span class="badge ok">{{ m.min_role|title }}</span></td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    </div>
+</div>
+
+<style>
+    .section-title { font-family:'JetBrains Mono',monospace; font-size:12px; text-transform:uppercase; color:var(--text-dim); margin:0 0 14px; }
+</style>
+{% endblock %}

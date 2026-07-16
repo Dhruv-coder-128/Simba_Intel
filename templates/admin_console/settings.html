@@ -1,0 +1,35 @@
+{% extends "admin_console/base.html" %}
+{% block title %}Settings{% endblock %}
+{% block content %}
+<div class="admin-header"><h1><i class="fa-solid fa-gear"></i> SETTINGS</h1></div>
+
+<p style="color:var(--text-dim); font-size:12.5px; margin:-10px 0 20px; max-width:720px;">
+    Each category links to its own dedicated management page, so a setting only ever lives in one place.
+</p>
+
+<div class="stat-grid" style="grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));">
+    {% for cat in categories %}
+    <div class="glass-card">
+        <h2 class="section-title"><i class="fa-solid {{ cat.icon }}"></i> {{ cat.name }}</h2>
+        {% for label, url_name in cat.links %}
+        <div style="margin-bottom:8px;"><a href="{% url url_name %}" style="color:var(--accent); text-decoration:none; font-size:13px;">{{ label }} <i class="fa-solid fa-chevron-right" style="font-size:10px;"></i></a></div>
+        {% endfor %}
+    </div>
+    {% endfor %}
+</div>
+
+<div class="glass-card" style="margin-top:16px;">
+    <h2 class="section-title">System Info (read-only)</h2>
+    <div class="kv-row"><span>Debug mode</span><span>{% if system_info.debug %}<span class="badge warn">ON</span>{% else %}<span class="badge ok">OFF</span>{% endif %}</span></div>
+    <div class="kv-row"><span>Database engine</span><span>{{ system_info.database_engine }}</span></div>
+    <div class="kv-row"><span>Email backend</span><span>{{ system_info.email_backend }}</span></div>
+    <div class="kv-row"><span>Site ID</span><span>{{ system_info.site_id }}</span></div>
+    <div class="kv-row"><span>Allowed hosts</span><span>{{ system_info.allowed_hosts }}</span></div>
+</div>
+
+<style>
+    .section-title { font-family:'JetBrains Mono',monospace; font-size:12px; text-transform:uppercase; color:var(--text-dim); margin:0 0 14px; }
+    .kv-row { display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px solid var(--border-soft); font-size:13px; }
+    .kv-row:last-child { border-bottom:none; }
+</style>
+{% endblock %}

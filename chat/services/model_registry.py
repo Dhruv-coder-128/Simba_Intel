@@ -10,6 +10,16 @@ class ModelConfig:
     actual_model: str
     supports_vision: bool = False
     supports_image_gen: bool = False
+    # Role-gated model access (AI Control Center) - "user" (chat/models.py's
+    # Role.USER) means open to everyone, which is every model's default
+    # today, so this changes nothing unless a future model is registered
+    # with a higher minimum. MODEL_REGISTRY is a static, code-defined dict,
+    # not a database table - so this is a real, enforced mechanism (see
+    # chat/views.py's ask_ai, where it's checked), but not yet something an
+    # admin can change without a deploy. Moving MODEL_REGISTRY into the
+    # database is the natural next step if per-model role requirements need
+    # to become runtime-editable.
+    min_role: str = "user"
 
 
 MODEL_REGISTRY: Dict[str, ModelConfig] = {
@@ -79,6 +89,20 @@ def list_available_models() -> list[dict]:
             "provider": config.provider,
             "supports_vision": config.supports_vision,
             "supports_image_gen": config.supports_image_gen,
+            "min_role": config.min_role,
         }
         for mid, config in MODEL_REGISTRY.items()
     ]
+
+
+def is_model_allowed_for_user(model_id: str, user) -> bool:
+    """The one enforcement point for ModelConfig.min_role - called from
+    chat/views.py's ask_ai right after resolving the requested model, so a
+    request for a role-gated model a user isn't entitled to fails before
+    any provider call is made."""
+    from chat.permissions import has_role_at_least
+
+    config = MODEL_REGISTRY.get(model_id.lower())
+    if config is None:
+        return False
+    return has_role_at_least(user, config.min_role)
