@@ -17,16 +17,11 @@ COPY . .
 
 EXPOSE 8000
 
-# --timeout 60, explicit rather than left at gunicorn's own default (also
-# ~30s): that implicit default was nearly tied with EMAIL_TIMEOUT (also
-# 30s), and since gunicorn's silence clock starts the instant a request
-# arrives while EMAIL_TIMEOUT's clock only starts once the SMTP socket call
-# itself begins, gunicorn's SIGKILL was winning the race - killing the
-# worker while still blocked inside socket.create_connection(), before the
-# lower-level timeout ever got a chance to raise a catchable, logged
-# exception. See simba_web/settings.py's EMAIL_TIMEOUT comment for the full
-# root-cause writeup. 60s leaves generous headroom over the now-10s
-# EMAIL_TIMEOUT for normal request overhead, and is strictly more lenient
-# than the previous implicit ~30s for every other view too (nothing else in
-# this app needed the tighter default).
+# --timeout 60, explicit rather than left at gunicorn's own implicit
+# default (~30s): originally raised to fix a race between this timeout and
+# a since-removed SMTP socket timeout (SMTP is gone entirely - see
+# chat/services/resend_backend.py). Kept at 60s regardless: it's still a
+# generally more generous, safer worker-silence ceiling for every view in
+# this app than the old implicit default, and Resend's HTTP calls (capped
+# at 10s/attempt, up to 3 attempts) complete far under it either way.
 CMD ["sh", "-c", "python manage.py migrate --noinput && python manage.py collectstatic --noinput && gunicorn simba_web.wsgi:application --bind 0.0.0.0:8000 --timeout 60"]

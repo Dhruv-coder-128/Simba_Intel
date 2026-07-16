@@ -152,11 +152,9 @@ GROQ_API_KEY=your-groq-api-key
 MISTRAL_API_KEY=your-mistral-api-key
 TAVILY_API_KEY=your-tavily-api-key      # optional, enables live web search
 
-# Email (for account verification / password reset)
-EMAIL_HOST=smtp.gmail.com
-EMAIL_PORT=587
-EMAIL_HOST_USER=your-email@gmail.com
-EMAIL_HOST_PASSWORD=your-gmail-app-password
+# Email (for account verification / password reset) - sent via the Resend
+# API, not SMTP. Get a key from https://resend.com/api-keys.
+RESEND_API_KEY=your-resend-api-key
 
 # Database - PostgreSQL only, no SQLite fallback. Either set DATABASE_URL
 # directly, or leave it unset and use the POSTGRES_* vars below against a

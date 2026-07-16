@@ -1154,10 +1154,11 @@ def email_verified_success(request):
 
 def _send_otp_email(user, otp):
     """Thin wrapper kept under its original name/signature (admin_views.py
-    imports it directly) - all the actual work, including the timeout/
-    exception hardening that fixed the production SMTP hang, lives in
-    chat/services/email.py. Returns the EmailSendResult rather than raising,
-    so every call site below decides for itself how to degrade."""
+    imports it directly) - all the actual work, including delivery via the
+    Resend API (SMTP is unreachable from Render entirely - see
+    chat/services/email.py), lives in chat/services/email.py. Returns the
+    EmailSendResult rather than raising, so every call site below decides
+    for itself how to degrade."""
     return send_otp_email_hardened(user, otp)
 
 

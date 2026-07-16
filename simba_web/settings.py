@@ -221,41 +221,27 @@ if not DEBUG:
     CSRF_TRUSTED_ORIGINS = os.getenv('CSRF_TRUSTED_ORIGINS', 'http://localhost:8000,https://simba-intel.onrender.com').split(',')
 
 # Email Configuration
-# Was hardcoded to the console backend regardless of environment, which
-# meant OTP/verification emails could never be delivered no matter what SMTP
-# credentials were configured below - only ever printed to stdout. Now it's
-# env-driven, but deliberately still *defaults* to console rather than
-# inferring SMTP from the mere presence of EMAIL_HOST_USER/PASSWORD - this
-# repo's own .env already has those set for local dev, and silently starting
-# to send real mail through them the moment this shipped would be a surprise
-# nobody asked for. Set EMAIL_BACKEND=django.core.mail.backends.smtp.EmailBackend
-# explicitly (e.g. in Render's environment) to actually send in production.
-EMAIL_HOST = os.getenv('EMAIL_HOST', 'smtp.gmail.com')
-EMAIL_PORT = int(os.getenv('EMAIL_PORT', '587'))
-EMAIL_USE_TLS = os.getenv('EMAIL_USE_TLS', 'True') == 'True'
-EMAIL_USE_SSL = os.getenv('EMAIL_USE_SSL', 'False') == 'True'
-EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER', '')
-EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD', '')
-DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', EMAIL_HOST_USER)
-EMAIL_BACKEND = os.getenv('EMAIL_BACKEND', 'django.core.mail.backends.console.EmailBackend')
-
-# Root-caused a production-only incident: this was 30s, and gunicorn's own
-# worker --timeout (Dockerfile CMD) was left at its default, which is ALSO
-# ~30s. gunicorn's clock starts the instant a request is received (covering
-# routing/view/DB overhead before the SMTP call even begins), while this
-# timeout's clock only starts once the socket call itself begins - with the
-# two nearly tied, gunicorn's SIGKILL wins the race almost every time,
-# killing the worker while it's still blocked inside socket.create_
-# connection(), before Python ever regains control to raise (let alone log)
-# a timeout exception. That's why production logs showed "Worker Timeout" /
-# SIGKILL with no SMTPAuthenticationError and no traceback at all: the
-# process was killed mid-syscall, not mid-exception. Fix has two parts,
-# both required: this is now well under gunicorn's own --timeout (60s, set
-# explicitly in the Dockerfile rather than left at its implicit default),
-# AND chat/services/email.py drives the SMTP connection by hand rather than
-# through a bare send_mail() call, so a slow/black-holed connection now
-# fails fast with a logged, catchable exception instead of hanging.
-EMAIL_TIMEOUT = int(os.getenv('EMAIL_TIMEOUT', '10'))
+# SMTP is not usable from Render at all: Render's outbound network cannot
+# reach smtp.gmail.com (OSError: [Errno 101] Network is unreachable - a
+# routing/firewall restriction, not a timeout or credentials problem), so no
+# amount of SMTP tuning could fix it. Email now goes out through Resend's
+# HTTPS API instead (see chat/services/resend_backend.py), which travels
+# over the same outbound path this app already uses for Groq/Mistral/
+# Tavily - that path is known to work from Render. EMAIL_BACKEND stays env-
+# overridable (e.g. to the console backend for local debugging without a
+# real API key), but defaults straight to the Resend backend since that's
+# the only backend this app actually ships against now.
+EMAIL_BACKEND = os.getenv('EMAIL_BACKEND', 'chat.services.resend_backend.ResendEmailBackend')
+# The only credential this needs. Read securely from the environment, never
+# hardcoded; chat/services/resend_backend.py fails gracefully (logs a
+# warning, sends nothing, never raises) if this is blank rather than
+# crashing whatever request triggered the send.
+RESEND_API_KEY = os.getenv('RESEND_API_KEY', '')
+# onboarding@resend.dev is Resend's own sandbox sender - it works without a
+# verified sending domain, purely so a fresh checkout has a working default
+# rather than a silently-broken one. Replace with a real address on a
+# domain verified in the Resend dashboard once ready.
+DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', 'onboarding@resend.dev')
 SERVER_EMAIL = DEFAULT_FROM_EMAIL
 
 # Allauth Config
