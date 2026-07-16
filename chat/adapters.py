@@ -7,6 +7,7 @@ flows are unaffected unless a flag is deliberately turned off.
 """
 from django.contrib import messages
 from django.shortcuts import redirect
+from django.urls import reverse
 
 from allauth.account.adapter import DefaultAccountAdapter
 from allauth.core.exceptions import ImmediateHttpResponse
@@ -18,6 +19,16 @@ from chat.models import FeatureFlag
 class SimbaAccountAdapter(DefaultAccountAdapter):
     def is_open_for_signup(self, request):
         return FeatureFlag.is_enabled('registration', default=True)
+
+    def get_signup_redirect_url(self, request):
+        # chat/signals.py's generate_recovery_code_for_local_signup only
+        # ever sets this session key for a LOCAL signup (never a Google
+        # one) - falling through to the normal default whenever it's absent
+        # means this can never accidentally divert the Google flow, since
+        # nothing sets the marker there in the first place.
+        if request.session.get('pending_recovery_code'):
+            return reverse('recovery_code_display')
+        return super().get_signup_redirect_url(request)
 
 
 class SimbaSocialAccountAdapter(DefaultSocialAccountAdapter):

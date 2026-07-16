@@ -1,16 +1,13 @@
 import importlib
-from datetime import timedelta
 from unittest.mock import patch
 
 from django.apps import apps as live_apps
 from django.contrib.auth import get_user_model
-from django.core import mail
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase, override_settings
 from django.urls import reverse
-from django.utils import timezone
 
-from chat.models import ChatMessage, ChatSession, Message, PasswordResetOTP, UsageEvent, UserProfile
+from chat.models import ChatMessage, ChatSession, Message, RecoveryCode, UsageEvent, UserProfile
 from chat.providers.pollinations_image_provider import PollinationsImageProvider
 from chat.services.cost_table import estimate_cost
 from chat.services.memory import get_conversation_history
@@ -964,74 +961,77 @@ class AnalyticsDashboardTests(TestCase):
         self.assertTrue(response.context["has_estimated_tokens"])
 
 
-class PasswordResetOTPModelTests(TestCase):
+class RecoveryCodeModelTests(TestCase):
     def setUp(self):
         self.user = User.objects.create_user(username="dhruv", password="testpass123", email="dhruv@example.com")
 
-    def test_generated_code_is_six_digits(self):
-        otp = PasswordResetOTP.generate_for(self.user)
-        self.assertEqual(len(otp.code), 6)
-        self.assertTrue(otp.code.isdigit())
+    def test_generated_code_matches_expected_format(self):
+        _obj, raw = RecoveryCode.generate_for(self.user)
+        self.assertRegex(raw, r"^SIMBA-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}$")
 
-    def test_fresh_code_is_valid(self):
-        otp = PasswordResetOTP.generate_for(self.user)
-        self.assertTrue(otp.is_valid())
+    def test_raw_code_verifies_against_stored_hash(self):
+        obj, raw = RecoveryCode.generate_for(self.user)
+        self.assertTrue(obj.verify(raw))
 
-    def test_used_code_is_invalid(self):
-        otp = PasswordResetOTP.generate_for(self.user)
-        otp.used = True
-        otp.save()
-        self.assertFalse(otp.is_valid())
+    def test_wrong_code_does_not_verify(self):
+        obj, _raw = RecoveryCode.generate_for(self.user)
+        self.assertFalse(obj.verify("SIMBA-0000-0000-0000"))
 
-    def test_expired_code_is_invalid(self):
-        otp = PasswordResetOTP.generate_for(self.user)
-        PasswordResetOTP.objects.filter(id=otp.id).update(
-            created_at=timezone.now() - timedelta(minutes=PasswordResetOTP.OTP_VALID_MINUTES + 1)
-        )
-        otp.refresh_from_db()
-        self.assertFalse(otp.is_valid())
+    def test_code_hash_never_contains_the_raw_code(self):
+        obj, raw = RecoveryCode.generate_for(self.user)
+        self.assertNotIn(raw, obj.code_hash)
 
     def test_generating_a_new_code_invalidates_the_previous_one(self):
-        first = PasswordResetOTP.generate_for(self.user)
-        second = PasswordResetOTP.generate_for(self.user)
-        first.refresh_from_db()
-        self.assertTrue(first.used)
-        self.assertTrue(second.is_valid())
+        first_obj, first_raw = RecoveryCode.generate_for(self.user)
+        second_obj, second_raw = RecoveryCode.generate_for(self.user)
+        first_obj.refresh_from_db()
+        self.assertFalse(first_obj.verify(first_raw))
+        self.assertTrue(first_obj.verify(second_raw))  # same row, overwritten in place
+        self.assertEqual(first_obj.id, second_obj.id)
 
 
-class OTPPasswordResetFlowTests(TestCase):
-    """Forgot Password -> Email OTP -> Verify OTP -> New Password -> Login."""
+class RecoveryCodePasswordResetFlowTests(TestCase):
+    """Forgot Password -> Recovery Code -> New Password -> New Recovery Code."""
 
     def setUp(self):
         self.user = User.objects.create_user(username="dhruv", password="OldPass123!", email="dhruv@example.com")
+        self.recovery_code, self.raw_code = RecoveryCode.generate_for(self.user)
 
-    def test_forgot_password_sends_email_for_real_account(self):
-        response = self.client.post(reverse("forgot_password"), {"email": "dhruv@example.com"})
-        self.assertRedirects(response, reverse("verify_otp"))
-        self.assertEqual(len(mail.outbox), 1)
-        self.assertIn("dhruv@example.com", mail.outbox[0].to)
-        self.assertTrue(PasswordResetOTP.objects.filter(user=self.user).exists())
+    def test_forgot_password_accepts_username_or_email(self):
+        r1 = self.client.post(reverse("forgot_password"), {"identifier": "dhruv"})
+        self.assertRedirects(r1, reverse("verify_recovery_code"))
+        self.client.session.flush()
+        r2 = self.client.post(reverse("forgot_password"), {"identifier": "dhruv@example.com"})
+        self.assertRedirects(r2, reverse("verify_recovery_code"))
 
-    def test_forgot_password_does_not_leak_whether_email_exists(self):
-        response = self.client.post(reverse("forgot_password"), {"email": "nobody@example.com"})
+    def test_forgot_password_does_not_leak_whether_account_exists(self):
+        response = self.client.post(reverse("forgot_password"), {"identifier": "nobody"})
         # Same immediate redirect target either way - the endpoint must not
-        # reveal account existence. (verify_otp itself then bounces back to
-        # forgot_password since no OTP session was ever set up for a
-        # nonexistent account - not followed here, that's a separate concern.)
-        self.assertRedirects(response, reverse("verify_otp"), fetch_redirect_response=False)
-        self.assertEqual(len(mail.outbox), 0)
+        # reveal account existence or whether it's eligible for recovery
+        # codes (e.g. a Google-only account).
+        self.assertRedirects(response, reverse("verify_recovery_code"), fetch_redirect_response=False)
+
+    def test_google_only_account_is_not_recovery_eligible(self):
+        google_user = User.objects.create_user(username="googleuser", email="googleuser@example.com")
+        google_user.set_unusable_password()
+        google_user.save()
+        response = self.client.post(reverse("forgot_password"), {"identifier": "googleuser"})
+        self.assertRedirects(response, reverse("verify_recovery_code"), fetch_redirect_response=False)
+        # No session state was set for this account, so any code entered
+        # next is rejected exactly like a nonexistent account would be.
+        verify_response = self.client.post(reverse("verify_recovery_code"), {"code": "SIMBA-0000-0000-0000"})
+        self.assertContains(verify_response, "invalid")
 
     def test_full_flow_reset_password_and_login_with_new_password(self):
-        self.client.post(reverse("forgot_password"), {"email": "dhruv@example.com"})
-        otp = PasswordResetOTP.objects.get(user=self.user)
+        self.client.post(reverse("forgot_password"), {"identifier": "dhruv"})
 
-        verify_response = self.client.post(reverse("verify_otp"), {"code": otp.code})
-        self.assertRedirects(verify_response, reverse("reset_password_otp"))
+        verify_response = self.client.post(reverse("verify_recovery_code"), {"code": self.raw_code})
+        self.assertRedirects(verify_response, reverse("reset_password_recovery"))
 
-        reset_response = self.client.post(reverse("reset_password_otp"), {
+        reset_response = self.client.post(reverse("reset_password_recovery"), {
             "password1": "BrandNewPass456!", "password2": "BrandNewPass456!",
         })
-        self.assertRedirects(reset_response, reverse("account_login"))
+        self.assertRedirects(reset_response, reverse("recovery_code_display"))
 
         self.user.refresh_from_db()
         self.assertTrue(self.user.check_password("BrandNewPass456!"))
@@ -1040,31 +1040,34 @@ class OTPPasswordResetFlowTests(TestCase):
         self.assertTrue(login_ok)
 
     def test_wrong_code_is_rejected(self):
-        self.client.post(reverse("forgot_password"), {"email": "dhruv@example.com"})
-        response = self.client.post(reverse("verify_otp"), {"code": "000000"})
-        self.assertContains(response, "invalid or has expired")
+        self.client.post(reverse("forgot_password"), {"identifier": "dhruv"})
+        response = self.client.post(reverse("verify_recovery_code"), {"code": "SIMBA-0000-0000-0000"})
+        self.assertContains(response, "invalid")
 
-    def test_used_code_cannot_be_reused(self):
-        self.client.post(reverse("forgot_password"), {"email": "dhruv@example.com"})
-        otp = PasswordResetOTP.objects.get(user=self.user)
-        self.client.post(reverse("verify_otp"), {"code": otp.code})
+    def test_reset_generates_a_new_code_that_replaces_the_old_one(self):
+        self.client.post(reverse("forgot_password"), {"identifier": "dhruv"})
+        self.client.post(reverse("verify_recovery_code"), {"code": self.raw_code})
+        self.client.post(reverse("reset_password_recovery"), {
+            "password1": "BrandNewPass456!", "password2": "BrandNewPass456!",
+        })
+        self.recovery_code.refresh_from_db()
+        self.assertFalse(self.recovery_code.verify(self.raw_code))
 
-        # Start a fresh session and try the same (now-used) code again.
-        self.client.session.flush()
-        self.client.post(reverse("forgot_password"), {"email": "dhruv@example.com"})
-        response = self.client.post(reverse("verify_otp"), {"code": otp.code})
-        self.assertContains(response, "invalid or has expired")
+        display_response = self.client.get(reverse("recovery_code_display"))
+        self.assertContains(display_response, "SIMBA-")
 
-    def test_resend_otp_respects_cooldown(self):
-        self.client.post(reverse("forgot_password"), {"email": "dhruv@example.com"})
-        response = self.client.post(reverse("resend_otp"))
-        self.assertEqual(response.status_code, 429)
+        # The one-time page can't be replayed - a second GET (session key
+        # already popped) bounces away without showing anything. Not
+        # following the redirect here: this client is anonymous at this
+        # point in the flow, so "home" itself redirects again to login -
+        # a separate, unrelated concern from what this test is checking.
+        second_view = self.client.get(reverse("recovery_code_display"))
+        self.assertRedirects(second_view, reverse("home"), fetch_redirect_response=False)
 
     def test_reset_password_rejects_mismatched_passwords(self):
-        self.client.post(reverse("forgot_password"), {"email": "dhruv@example.com"})
-        otp = PasswordResetOTP.objects.get(user=self.user)
-        self.client.post(reverse("verify_otp"), {"code": otp.code})
-        response = self.client.post(reverse("reset_password_otp"), {
+        self.client.post(reverse("forgot_password"), {"identifier": "dhruv"})
+        self.client.post(reverse("verify_recovery_code"), {"code": self.raw_code})
+        response = self.client.post(reverse("reset_password_recovery"), {
             "password1": "BrandNewPass456!", "password2": "SomethingElse789!",
         })
         self.assertContains(response, "Those passwords don")  # avoids the apostrophe, HTML-escaped in the response
@@ -1072,7 +1075,7 @@ class OTPPasswordResetFlowTests(TestCase):
         self.assertTrue(self.user.check_password("OldPass123!"))
 
     def test_cannot_reset_password_without_verifying_first(self):
-        response = self.client.get(reverse("reset_password_otp"))
+        response = self.client.get(reverse("reset_password_recovery"))
         self.assertRedirects(response, reverse("forgot_password"))
 
 

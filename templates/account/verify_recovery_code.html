@@ -1,0 +1,51 @@
+{% extends "account/base.html" %}
+{% load i18n %}
+
+{% block title %}Enter Recovery Code{% endblock %}
+
+{% block content %}
+    <div class="auth-header">
+        <div class="auth-logo">
+            <i class="fa-solid fa-shield-halved"></i>
+            <h1>SIMBA_INTEL</h1>
+        </div>
+        <p class="auth-subtitle">ENTER RECOVERY CODE</p>
+    </div>
+
+    {% if error %}
+        <div class="error-message">
+            <i class="fa-solid fa-exclamation-triangle"></i>
+            {{ error }}
+        </div>
+    {% endif %}
+
+    <p style="color: rgba(255,255,255,0.6); font-size: 13px; margin-bottom: 20px; line-height: 1.6;">
+        Enter the recovery code you were given when you created your account or last regenerated one.
+    </p>
+
+    <form method="post" action="{% url 'verify_recovery_code' %}">
+        {% csrf_token %}
+        <div class="form-group">
+            <label for="id_code" class="form-label">RECOVERY CODE</label>
+            <input type="text" id="id_code" name="code" class="form-input recovery-code-input"
+                   placeholder="SIMBA-XXXX-XXXX-XXXX" autocapitalize="characters" autocomplete="off" required autofocus>
+        </div>
+
+        <button type="submit" class="btn btn-primary btn-block">
+            <i class="fa-solid fa-check"></i>
+            VERIFY CODE
+        </button>
+    </form>
+
+    <div class="auth-footer">
+        <a href="{% url 'forgot_password' %}"><i class="fa-solid fa-arrow-left"></i> Start over</a>
+    </div>
+
+    <style>
+        .recovery-code-input {
+            font-family: 'JetBrains Mono', monospace;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+    </style>
+{% endblock %}

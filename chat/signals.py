@@ -15,10 +15,10 @@ from django.contrib.auth.signals import user_login_failed, user_logged_in
 from django.dispatch import receiver
 from django.utils import timezone
 
-from allauth.account.signals import email_confirmed
+from allauth.account.signals import email_confirmed, user_signed_up
 from allauth.socialaccount.signals import social_account_added, social_account_updated
 
-from chat.models import FailedLoginAttempt, Role, SecurityEvent, UserProfile, UserSession
+from chat.models import FailedLoginAttempt, RecoveryCode, Role, SecurityEvent, UserProfile, UserSession
 from chat.utils.device import UNKNOWN_BROWSER, UNKNOWN_DEVICE, UNKNOWN_OS, parse_client_info
 from chat.utils.request_info import client_ip, raw_user_agent
 
@@ -163,3 +163,21 @@ def record_google_link(sender, request, sociallogin, **kwargs):
         profile.registration_source = 'google'
 
     profile.save()
+
+
+@receiver(user_signed_up)
+@_guarded("generate_recovery_code_for_local_signup")
+def generate_recovery_code_for_local_signup(sender, request, user, **kwargs):
+    """Recovery codes are a LOCAL-account-only concept (Google users recover
+    through Google) - allauth fires this exact signal for both local and
+    social signup, but only social signup passes a `sociallogin` kwarg, so
+    that's what distinguishes the two here. The raw code is stashed in the
+    session (never the database - see RecoveryCode's docstring) for
+    chat/adapters.py's get_signup_redirect_url to send the user to the
+    one-time display page for; if that key is never read, it simply
+    expires with the session, never silently leaking into a page later."""
+    if kwargs.get('sociallogin') is not None:
+        return
+    _recovery_code, raw_code = RecoveryCode.generate_for(user)
+    request.session['pending_recovery_code'] = raw_code
+    request.session['pending_recovery_code_next'] = 'home'

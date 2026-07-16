@@ -745,6 +745,18 @@
                         </div>
                     </div>
 
+                    {% if user.has_usable_password %}
+                    <div class="settings-card">
+                        <h2 class="card-title"><i class="fa-solid fa-key"></i> Recovery Code</h2>
+                        <p class="card-desc">Used to reset your password if you forget it - you only ever have one, and generating a new one retires the old.</p>
+                        <div style="margin-top:12px;">
+                            <button type="button" class="logout-btn" id="regenRecoveryBtn" onclick="regenerateRecoveryCode()">
+                                <i class="fa-solid fa-rotate"></i> GENERATE NEW RECOVERY CODE
+                            </button>
+                        </div>
+                    </div>
+                    {% endif %}
+
                     <div class="settings-card">
                         <h2 class="card-title"><i class="fa-solid fa-display"></i> Active Sessions</h2>
                         <p class="card-desc">Devices currently signed in to your account.</p>
@@ -868,6 +880,31 @@
                     }
                 })
                 .catch(() => alert('Network error - please try again.'));
+        }
+
+        function regenerateRecoveryCode() {
+            const btn = document.getElementById('regenRecoveryBtn');
+            if (btn.disabled) return;
+            if (!confirm('Generate a new recovery code? Your current one will stop working immediately.')) return;
+            btn.disabled = true;
+            fetch('{% url "regenerate_recovery_code" %}', {
+                method: 'POST',
+                headers: { 'X-CSRFToken': csrfToken },
+                signal: AbortSignal.timeout(10000),
+            })
+                .then(res => res.json().then(data => ({ ok: res.ok, data })))
+                .then(({ ok, data }) => {
+                    if (ok) {
+                        window.location.href = data.redirect;
+                    } else {
+                        btn.disabled = false;
+                        alert(data.error || 'Could not generate a new recovery code.');
+                    }
+                })
+                .catch(() => {
+                    btn.disabled = false;
+                    alert('Network error - please try again.');
+                });
         }
 
         function resendVerificationEmail() {

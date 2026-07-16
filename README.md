@@ -140,12 +140,15 @@ ALLOWED_HOSTS=localhost,127.0.0.1
 SITE_ID=1
 CSRF_TRUSTED_ORIGINS=http://localhost:8000
 
-# Google OAuth (optional, for "Continue with Google") is NOT configured via
-# env vars - allauth reads the Client ID/Secret from a SocialApp row in
-# Django admin (/admin/socialaccount/socialapp/), tied to the Site matching
-# SITE_ID above. Create that row once you have credentials from
-# https://console.cloud.google.com/apis/credentials (authorized redirect URI:
-# <your-domain>/accounts/google/login/callback/).
+# Google OAuth (optional, for "Continue with Google"). allauth reads the
+# Client ID/Secret from a SocialApp row, not these two directly - set them
+# here and chat/migrations/0025_setup_google_socialapp.py creates/updates
+# that row automatically on `manage.py migrate` (re-run
+# `manage.py setup_google_oauth` after rotating either value). Get
+# credentials from https://console.cloud.google.com/apis/credentials
+# (authorized redirect URI: <your-domain>/accounts/google/login/callback/).
+GOOGLE_CLIENT_ID=your-google-client-id.apps.googleusercontent.com
+GOOGLE_CLIENT_SECRET=your-google-client-secret
 
 # AI Providers
 GROQ_API_KEY=your-groq-api-key

@@ -8,6 +8,7 @@ console - stay easy to tell apart.
 import json
 from datetime import timedelta
 
+from django.contrib import messages
 from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import login_required
 from django.contrib.sessions.models import Session
@@ -394,13 +395,21 @@ def admin_user_detail(request, user_id):
             # to delete here today. Logged anyway for a complete audit trail.
             _log(request, 'delete_uploads', target, "no persisted uploads to delete (ephemeral by design)")
         elif action == 'reset_password':
-            from chat.models import PasswordResetOTP
-            from chat.views import _send_otp_email
-            if target.email:
-                otp = PasswordResetOTP.generate_for(target)
-                result = _send_otp_email(target, otp)
-                detail = "OTP emailed" if result.success else f"OTP email failed: {result.error}"
-                _log(request, 'reset_password', target, detail, success=result.success)
+            from chat.models import RecoveryCode
+            if target.has_usable_password():
+                _recovery_code, raw_code = RecoveryCode.generate_for(target)
+                # Shown once, here, in a flash message - there is no email
+                # step to fall back on (see chat/models.py's RecoveryCode
+                # docstring), so the admin is responsible for relaying this
+                # to the account holder out-of-band right now.
+                messages.success(
+                    request,
+                    f"New recovery code for {target.username} (copy this now, it will not be shown again): {raw_code}",
+                )
+                _log(request, 'reset_password', target, "New recovery code generated", success=True)
+            else:
+                messages.error(request, f"{target.username} signs in with Google and has no recovery code to reset.")
+                _log(request, 'reset_password', target, "Skipped - Google-linked account has no recovery code", success=False)
         elif action == 'verify_email':
             from allauth.account.models import EmailAddress
             email_address, _created = EmailAddress.objects.get_or_create(

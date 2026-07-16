@@ -16,8 +16,7 @@ import requests
 from django.contrib.auth import get_user_model
 from django.test import TestCase, override_settings
 
-from chat.models import PasswordResetOTP
-from chat.services.email import EmailSendResult, log_email_configuration, send_html_email, send_otp_email
+from chat.services.email import EmailSendResult, log_email_configuration, send_html_email
 from chat.services.resend_backend import ResendEmailBackend, _build_payload
 
 User = get_user_model()
@@ -40,13 +39,15 @@ def _response(status_code, text=""):
 class ResendEmailBackendTests(TestCase):
     def setUp(self):
         self.user = User.objects.create_user(username="u", password="x", email="u@example.com")
-        self.otp = PasswordResetOTP.generate_for(self.user)
+
+    def _send(self):
+        return send_html_email(self.user.email, "Test Subject", "Test body")
 
     @patch("chat.services.resend_backend.time.sleep")
     @patch("chat.services.resend_backend.requests.post")
     def test_success_on_first_attempt_no_retry(self, mock_post, mock_sleep):
         mock_post.return_value = _response(200)
-        result = send_otp_email(self.user, self.otp)
+        result = self._send()
         self.assertTrue(result.success)
         self.assertEqual(mock_post.call_count, 1)
         mock_sleep.assert_not_called()
@@ -55,7 +56,7 @@ class ResendEmailBackendTests(TestCase):
     @patch("chat.services.resend_backend.requests.post")
     def test_missing_api_key_skips_send_without_network_call(self, mock_post, mock_sleep):
         with override_settings(RESEND_API_KEY=""):
-            result = send_otp_email(self.user, self.otp)
+            result = self._send()
         self.assertFalse(result.success)
         mock_post.assert_not_called()
 
@@ -63,7 +64,7 @@ class ResendEmailBackendTests(TestCase):
     @patch("chat.services.resend_backend.requests.post")
     def test_retryable_5xx_then_success(self, mock_post, mock_sleep):
         mock_post.side_effect = [_response(500), _response(200)]
-        result = send_otp_email(self.user, self.otp)
+        result = self._send()
         self.assertTrue(result.success)
         self.assertEqual(mock_post.call_count, 2)
         self.assertEqual(mock_sleep.call_count, 1)
@@ -72,7 +73,7 @@ class ResendEmailBackendTests(TestCase):
     @patch("chat.services.resend_backend.requests.post")
     def test_retryable_429_exhausts_max_three_attempts_then_fails(self, mock_post, mock_sleep):
         mock_post.return_value = _response(429, "rate limited")
-        result = send_otp_email(self.user, self.otp)
+        result = self._send()
         self.assertFalse(result.success)
         self.assertEqual(mock_post.call_count, 3)
         self.assertEqual(mock_sleep.call_count, 2)  # backoff between attempts, not after the last
@@ -81,7 +82,7 @@ class ResendEmailBackendTests(TestCase):
     @patch("chat.services.resend_backend.requests.post")
     def test_non_retryable_401_fails_immediately_without_retrying(self, mock_post, mock_sleep):
         mock_post.return_value = _response(401, "invalid api key")
-        result = send_otp_email(self.user, self.otp)
+        result = self._send()
         self.assertFalse(result.success)
         self.assertEqual(mock_post.call_count, 1)
         mock_sleep.assert_not_called()
@@ -90,7 +91,7 @@ class ResendEmailBackendTests(TestCase):
     @patch("chat.services.resend_backend.requests.post")
     def test_network_exception_is_retried_then_can_succeed(self, mock_post, mock_sleep):
         mock_post.side_effect = [requests.exceptions.ConnectionError("refused"), _response(200)]
-        result = send_otp_email(self.user, self.otp)
+        result = self._send()
         self.assertTrue(result.success)
         self.assertEqual(mock_post.call_count, 2)
 
@@ -98,7 +99,7 @@ class ResendEmailBackendTests(TestCase):
     @patch("chat.services.resend_backend.requests.post")
     def test_persistent_network_exception_exhausts_retries_and_fails_gracefully(self, mock_post, mock_sleep):
         mock_post.side_effect = requests.exceptions.Timeout("timed out")
-        result = send_otp_email(self.user, self.otp)
+        result = self._send()
         self.assertFalse(result.success)
         self.assertEqual(mock_post.call_count, 3)
 
@@ -117,7 +118,7 @@ class ResendEmailBackendTests(TestCase):
     def test_api_key_is_never_logged(self, mock_post, mock_sleep):
         mock_post.return_value = _response(401, "invalid api key")
         with self.assertLogs("chat.services.resend_backend", level="WARNING") as logs:
-            send_otp_email(self.user, self.otp)
+            self._send()
         joined = " ".join(logs.output)
         self.assertNotIn("re_test_key_123", joined)
 
@@ -162,9 +163,7 @@ class BuildPayloadTests(TestCase):
 @override_settings(EMAIL_BACKEND="django.core.mail.backends.console.EmailBackend")
 class ConsoleBackendFallbackTests(TestCase):
     def test_console_backend_still_works_for_local_debugging(self):
-        user = User.objects.create_user(username="u2", password="x", email="u2@example.com")
-        otp = PasswordResetOTP.generate_for(user)
-        result = send_otp_email(user, otp)
+        result = send_html_email("u2@example.com", "Test Subject", "Test body")
         self.assertTrue(result.success)
 
 

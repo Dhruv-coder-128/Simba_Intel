@@ -1,0 +1,97 @@
+{% extends "account/base.html" %}
+{% load i18n %}
+
+{% block title %}Your Recovery Code{% endblock %}
+
+{% block back_button %}{% endblock %}
+
+{% block content %}
+    <div class="auth-header">
+        <div class="auth-logo">
+            <i class="fa-solid fa-key"></i>
+            <h1>SIMBA_INTEL</h1>
+        </div>
+        <p class="auth-subtitle">YOUR RECOVERY CODE</p>
+    </div>
+
+    <div class="error-message" style="color: #ffb84d; border-color: rgba(255,184,77,0.3); background: rgba(255,184,77,0.08);">
+        <i class="fa-solid fa-triangle-exclamation"></i>
+        This code is shown <strong>once</strong>. If you lose it, you'll need to generate a new one from
+        Account Settings &rarr; Security (or ask an admin). It's the only way to reset your password without Google.
+    </div>
+
+    <div class="recovery-code-box" id="recoveryCodeBox">{{ recovery_code }}</div>
+
+    <div style="display:flex; gap:10px; margin-bottom:18px;">
+        <button type="button" class="btn" onclick="copyRecoveryCode()">
+            <i class="fa-solid fa-copy"></i> COPY
+        </button>
+        <button type="button" class="btn" onclick="downloadRecoveryCode()">
+            <i class="fa-solid fa-download"></i> DOWNLOAD .TXT
+        </button>
+    </div>
+
+    <form method="post" action="{% url 'recovery_code_display' %}">
+        {% csrf_token %}
+        <input type="hidden" name="next" value="{{ next_key }}">
+
+        <div class="form-checkbox-group">
+            <label class="form-checkbox-label">
+                <input type="checkbox" id="confirmSaved" onchange="document.getElementById('continueBtn').disabled = !this.checked;">
+                I have saved this recovery code in a safe place.
+            </label>
+        </div>
+
+        <button type="submit" id="continueBtn" class="btn btn-primary btn-block" disabled>
+            <i class="fa-solid fa-arrow-right"></i>
+            CONTINUE
+        </button>
+    </form>
+
+    <style>
+        .recovery-code-box {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 18px;
+            letter-spacing: 1px;
+            text-align: center;
+            color: var(--accent);
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 18px;
+            margin-bottom: 16px;
+            word-break: break-all;
+            user-select: all;
+        }
+        #continueBtn:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+    </style>
+
+    <script>
+        const RECOVERY_CODE = {{ recovery_code|escapejs }};
+
+        function copyRecoveryCode() {
+            navigator.clipboard.writeText(RECOVERY_CODE)
+                .then(() => showToast('Recovery code copied.', 'success'))
+                .catch(() => showToast('Could not copy - select and copy manually.', 'error'));
+        }
+
+        function downloadRecoveryCode() {
+            const blob = new Blob(
+                ["SIMBA_INTEL Recovery Code\n\n" + RECOVERY_CODE +
+                 "\n\nKeep this somewhere safe. It is the only way to reset your password without Google sign-in.\n"],
+                { type: 'text/plain' }
+            );
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'simba-intel-recovery-code.txt';
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            URL.revokeObjectURL(url);
+        }
+    </script>
+{% endblock %}

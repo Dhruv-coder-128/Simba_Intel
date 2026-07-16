@@ -13,6 +13,7 @@ from django.core.exceptions import ValidationError
 from django.http import StreamingHttpResponse, JsonResponse
 from django.shortcuts import render, redirect, get_object_or_404
 from django.conf import settings
+from django.urls import reverse
 from django.utils import timezone
 import psutil
 
@@ -22,7 +23,7 @@ try:
 except ImportError:
     GPUtil_AVAILABLE = False
 
-from chat.models import ChatSession, Message, UserProfile, UsageEvent, PasswordResetOTP, Broadcast, UserSession, SecurityEvent, FeatureFlag
+from chat.models import ChatSession, Message, UserProfile, UsageEvent, RecoveryCode, Broadcast, UserSession, SecurityEvent, FeatureFlag
 from chat.services.ai_router import chat_stream, vision as ai_vision
 from chat.services.image_router import generate_image
 from chat.services.memory import get_conversation_history, build_messages, messages_to_history_dicts, SYSTEM_PROMPT
@@ -31,7 +32,6 @@ from chat.services.message_tree import (
 )
 from chat.services.model_registry import list_available_models, get_model_config
 from chat.services.usage import record_usage, check_rate_limit, check_daily_limit
-from chat.services.email import send_otp_email as send_otp_email_hardened
 from chat.services.verification import is_email_verified, verification_required
 from chat.utils.logger import SimbaLogger
 
@@ -1084,9 +1084,8 @@ def update_model_session(request):
 
 # ================= Email verification gating =================
 
-# Matches PasswordResetOTP.OTP_RESEND_COOLDOWN_SECONDS - same anti-spam
-# rationale, applied here since allauth's own send_confirmation() has no
-# built-in cooldown of its own.
+# 30s anti-spam cooldown, applied here since allauth's own
+# send_confirmation() has no built-in cooldown of its own.
 VERIFICATION_EMAIL_RESEND_COOLDOWN_SECONDS = 30
 
 
@@ -1146,103 +1145,55 @@ def email_verified_success(request):
     return render(request, 'account/email_verified_success.html')
 
 
-# ================= OTP-based password reset =================
-# A separate, additional path from django-allauth's own (link-based) reset
-# flow, which is untouched and still reachable at its original URL - this
-# exists because the requested UX is specifically Forgot Password -> Email
-# OTP -> Verify OTP -> New Password -> Login.
+# ================= Recovery-Code-based password reset =================
+# Replaces the old emailed-OTP flow entirely - no email dependency at all
+# for password recovery now. Local accounts only (see chat/models.py's
+# RecoveryCode docstring): Google-only accounts (no usable local password)
+# recover through Google itself, never through this flow.
 
-def _send_otp_email(user, otp):
-    """Thin wrapper kept under its original name/signature (admin_views.py
-    imports it directly) - all the actual work, including delivery via the
-    Resend API (SMTP is unreachable from Render entirely - see
-    chat/services/email.py), lives in chat/services/email.py. Returns the
-    EmailSendResult rather than raising, so every call site below decides
-    for itself how to degrade."""
-    return send_otp_email_hardened(user, otp)
+def _recovery_eligible(user):
+    return user is not None and user.has_usable_password() and RecoveryCode.objects.filter(user=user).exists()
 
 
 def forgot_password(request):
     if request.method == "POST":
-        email = request.POST.get("email", "").strip().lower()
-        user = User.objects.filter(email__iexact=email).first()
-        if user:
-            otp = PasswordResetOTP.generate_for(user)
-            result = _send_otp_email(user, otp)
-            if not result.success:
-                # Deliberately NOT surfaced differently to the client than
-                # the success path below - same anti-enumeration reasoning
-                # as before (a distinguishable response here would leak
-                # "this email exists but sending failed" vs "no such
-                # email"). The failure is fully logged server-side by
-                # send_otp_email_hardened; the user just doesn't get a code
-                # that was never actually sent, and can use "resend" (which
-                # DOES report failures) once the underlying issue clears.
-                pass
-            request.session["otp_reset_user_id"] = user.id
-            request.session["otp_reset_email"] = user.email
-        # Same response whether or not the email matched a real account -
-        # otherwise this endpoint becomes a way to enumerate registered users.
-        return redirect("verify_otp")
+        identifier = request.POST.get("identifier", "").strip()
+        user = None
+        if identifier:
+            user = User.objects.filter(username__iexact=identifier).first() \
+                or User.objects.filter(email__iexact=identifier).first()
+        if _recovery_eligible(user):
+            request.session["recovery_reset_user_id"] = user.id
+        # Same redirect regardless of whether the identifier matched an
+        # account, or whether that account even has a recovery code (e.g. a
+        # Google-only account) - otherwise this endpoint becomes a way to
+        # enumerate registered users and how they signed up.
+        return redirect("verify_recovery_code")
     return render(request, "account/forgot_password.html")
 
 
-def verify_otp(request):
-    user_id = request.session.get("otp_reset_user_id")
-    masked_email = request.session.get("otp_reset_email", "")
+def verify_recovery_code(request):
+    user_id = request.session.get("recovery_reset_user_id")
 
     if request.method == "POST":
-        if not user_id:
-            return render(request, "account/verify_otp.html", {
-                "error": "Your session expired. Please request a new code.",
-            })
-        code = request.POST.get("code", "").strip()
-        otp = PasswordResetOTP.objects.filter(user_id=user_id, code=code).order_by("-created_at").first()
-        if otp and otp.is_valid():
-            otp.used = True
-            otp.save(update_fields=["used"])
-            request.session["otp_verified_user_id"] = user_id
-            del request.session["otp_reset_user_id"]
-            return redirect("reset_password_otp")
-        return render(request, "account/verify_otp.html", {
-            "error": "That code is invalid or has expired.", "masked_email": masked_email,
+        code = request.POST.get("code", "").strip().upper()
+        user = User.objects.filter(id=user_id).first() if user_id else None
+        recovery_code = RecoveryCode.objects.filter(user=user).first() if user else None
+        if recovery_code and recovery_code.verify(code):
+            request.session["recovery_verified_user_id"] = user_id
+            del request.session["recovery_reset_user_id"]
+            return redirect("reset_password_recovery")
+        return render(request, "account/verify_recovery_code.html", {
+            "error": "That recovery code is invalid.",
         })
 
     if not user_id:
         return redirect("forgot_password")
-    return render(request, "account/verify_otp.html", {"masked_email": masked_email})
+    return render(request, "account/verify_recovery_code.html")
 
 
-def resend_otp(request):
-    if request.method != "POST":
-        return JsonResponse({"error": "Invalid request"}, status=400)
-    user_id = request.session.get("otp_reset_user_id")
-    user = User.objects.filter(id=user_id).first() if user_id else None
-    if not user:
-        return JsonResponse({"error": "Your session expired. Please start over."}, status=400)
-
-    last_otp = PasswordResetOTP.objects.filter(user=user).order_by("-created_at").first()
-    if last_otp:
-        seconds_since = (timezone.now() - last_otp.created_at).total_seconds()
-        if seconds_since < PasswordResetOTP.OTP_RESEND_COOLDOWN_SECONDS:
-            wait = int(PasswordResetOTP.OTP_RESEND_COOLDOWN_SECONDS - seconds_since)
-            return JsonResponse({"error": f"Please wait {wait}s before requesting another code."}, status=429)
-
-    otp = PasswordResetOTP.generate_for(user)
-    result = _send_otp_email(user, otp)
-    if not result.success:
-        # This endpoint is only reachable by someone who already passed the
-        # "does this email exist" gate in forgot_password, so there's no
-        # enumeration risk in reporting failure honestly here (unlike
-        # forgot_password itself) - the user needs to know a code wasn't
-        # actually sent rather than wait indefinitely for one that never
-        # arrives.
-        return JsonResponse({"error": result.error}, status=503)
-    return JsonResponse({"status": "sent"})
-
-
-def reset_password_otp(request):
-    user_id = request.session.get("otp_verified_user_id")
+def reset_password_recovery(request):
+    user_id = request.session.get("recovery_verified_user_id")
     if not user_id:
         return redirect("forgot_password")
 
@@ -1250,19 +1201,65 @@ def reset_password_otp(request):
         password1 = request.POST.get("password1", "")
         password2 = request.POST.get("password2", "")
         if not password1 or password1 != password2:
-            return render(request, "account/reset_password_otp.html", {
+            return render(request, "account/reset_password_recovery.html", {
                 "error": "Those passwords don't match.",
             })
         try:
             validate_password(password1)
         except ValidationError as e:
-            return render(request, "account/reset_password_otp.html", {"error": " ".join(e.messages)})
+            return render(request, "account/reset_password_recovery.html", {"error": " ".join(e.messages)})
 
         user = get_object_or_404(User, id=user_id)
         user.set_password(password1)
         user.save()
-        del request.session["otp_verified_user_id"]
-        messages.success(request, "Your password has been reset. Please log in.")
-        return redirect("account_login")
+        # A used recovery code is retired the moment it's used to reset a
+        # password - RecoveryCode.generate_for() overwrites the user's only
+        # code, so the just-used one can never be replayed.
+        _recovery_code, raw_code = RecoveryCode.generate_for(user)
+        del request.session["recovery_verified_user_id"]
+        request.session["pending_recovery_code"] = raw_code
+        request.session["pending_recovery_code_next"] = "login"
+        return redirect("recovery_code_display")
 
-    return render(request, "account/reset_password_otp.html")
+    return render(request, "account/reset_password_recovery.html")
+
+
+@login_required
+def regenerate_recovery_code(request):
+    """Account Settings > Security's "Generate New Recovery Code" button.
+    Overwrites (invalidates) whatever code existed before - a user only
+    ever has one at a time, see RecoveryCode.generate_for()."""
+    if request.method != "POST":
+        return JsonResponse({"error": "Invalid request"}, status=400)
+    if not request.user.has_usable_password():
+        return JsonResponse({"error": "Google-linked accounts don't use recovery codes."}, status=400)
+    _recovery_code, raw_code = RecoveryCode.generate_for(request.user)
+    request.session["pending_recovery_code"] = raw_code
+    request.session["pending_recovery_code_next"] = "settings"
+    return JsonResponse({"status": "ok", "redirect": reverse("recovery_code_display")})
+
+
+_RECOVERY_CODE_NEXT_URLS = {"home": "home", "login": "account_login", "settings": "profile_settings"}
+
+
+def recovery_code_display(request):
+    """One-time display for a freshly generated recovery code - reached
+    after local signup (chat/adapters.py's get_signup_redirect_url), after
+    a successful password reset, or after regenerating from Account
+    Settings > Security. The session key is popped (read once, discarded
+    immediately) on the GET that renders the page, so refreshing or
+    revisiting this URL afterwards can never show the same code twice -
+    the "next" destination travels in a hidden form field instead, not the
+    session, so the confirmation POST doesn't depend on session state that
+    was already cleared."""
+    if request.method == "POST":
+        next_key = request.POST.get("next", "home")
+        return redirect(_RECOVERY_CODE_NEXT_URLS.get(next_key, "home"))
+
+    raw_code = request.session.pop("pending_recovery_code", None)
+    next_key = request.session.pop("pending_recovery_code_next", "home")
+    if not raw_code:
+        return redirect("home")
+    return render(request, "account/recovery_code_display.html", {
+        "recovery_code": raw_code, "next_key": next_key,
+    })

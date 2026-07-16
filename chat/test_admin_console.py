@@ -201,12 +201,17 @@ class AdminUserManagementTests(TestCase):
         self.client.post(reverse("admin_user_detail", args=[self.target.id]), {"action": "add_note", "note": "Contacted about billing"})
         self.assertTrue(UserNote.objects.filter(user=self.target, note="Contacted about billing").exists())
 
-    def test_reset_password_sends_otp(self):
-        from django.core import mail
-        from chat.models import PasswordResetOTP
+    def test_reset_password_generates_a_recovery_code(self):
+        from chat.models import RecoveryCode
         self.client.post(reverse("admin_user_detail", args=[self.target.id]), {"action": "reset_password"})
-        self.assertTrue(PasswordResetOTP.objects.filter(user=self.target).exists())
-        self.assertEqual(len(mail.outbox), 1)
+        self.assertTrue(RecoveryCode.objects.filter(user=self.target).exists())
+
+    def test_reset_password_on_google_only_account_does_not_generate_a_code(self):
+        from chat.models import RecoveryCode
+        self.target.set_unusable_password()
+        self.target.save()
+        self.client.post(reverse("admin_user_detail", args=[self.target.id]), {"action": "reset_password"})
+        self.assertFalse(RecoveryCode.objects.filter(user=self.target).exists())
 
     def test_every_action_is_audited(self):
         self.client.post(reverse("admin_user_detail", args=[self.target.id]), {"action": "block"})

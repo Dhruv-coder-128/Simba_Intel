@@ -34,8 +34,17 @@ services:
         sync: false
       - key: TAVILY_API_KEY
         sync: false
-      # Google OAuth Client ID/Secret are NOT env vars - allauth reads them
-      # from a SocialApp row in Django admin instead (see README.md).
+      # allauth still reads Google's Client ID/Secret from a SocialApp row,
+      # not directly from these two env vars at request time - but nothing
+      # was ever creating that row (confirmed: SocialApp.objects.all() was
+      # empty), which is why Google Login has never actually worked. These
+      # two are read once by chat/migrations/0025_setup_google_socialapp.py
+      # (every deploy runs `migrate`) to create/update that row automatically -
+      # re-run `python manage.py setup_google_oauth` after rotating either one.
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
       # SMTP is not usable at all from Render (outbound network can't reach
       # smtp.gmail.com) - email goes out through Resend's HTTPS API instead
       # (see chat/services/resend_backend.py). EMAIL_BACKEND already

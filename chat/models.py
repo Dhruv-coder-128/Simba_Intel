@@ -1,6 +1,6 @@
-import random
-from datetime import timedelta
+import secrets
 
+from django.contrib.auth.hashers import check_password, make_password
 from django.core.cache import cache
 from django.db import models
 from django.contrib.auth import get_user_model
@@ -239,39 +239,53 @@ class UsageEvent(models.Model):
         return f"UsageEvent({self.user}, {self.model_id}, {self.event_type})"
 
 
-class PasswordResetOTP(models.Model):
-    """A single-use 6-digit code emailed to the user for the
-    Forgot Password -> Email OTP -> Verify OTP -> New Password flow.
-    Deliberately separate from django-allauth's own (link-based) reset flow -
-    that flow is untouched and still works, this is an additional path."""
+# No 0/O/1/I - all four are easy to mis-transcribe by hand (which is the
+# whole point of a recovery code: written down or downloaded, then typed
+# back in later from a screen or a piece of paper, not copy-pasted from a
+# link like the old emailed OTP was).
+_RECOVERY_CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
 
-    OTP_VALID_MINUTES = 10
-    OTP_RESEND_COOLDOWN_SECONDS = 30
 
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='password_reset_otps')
-    code = models.CharField(max_length=6)
+def _generate_raw_recovery_code() -> str:
+    groups = ["".join(secrets.choice(_RECOVERY_CODE_ALPHABET) for _ in range(4)) for _ in range(3)]
+    return "SIMBA-" + "-".join(groups)
+
+
+class RecoveryCode(models.Model):
+    """Replaces the old emailed-OTP password reset entirely: local accounts
+    get exactly one recovery code (shown once, at signup or on regeneration -
+    see chat/signals.py and chat/views.py's recovery_code_display), and
+    forgot_password/verify_recovery_code/reset_password_recovery in
+    chat/views.py check a submitted code against it. Google-only accounts
+    (no usable local password - see User.has_usable_password()) never get
+    one; they recover through Google itself.
+
+    Only ever stores make_password()'s hash, never the raw code - the raw
+    value exists only in memory for the single request that generates it,
+    and briefly in the session so the one-time display page can show it
+    (see recovery_code_display), never persisted to the database anywhere."""
+
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='recovery_code')
+    code_hash = models.CharField(max_length=255)
     created_at = models.DateTimeField(auto_now_add=True)
-    used = models.BooleanField(default=False)
-
-    class Meta:
-        indexes = [models.Index(fields=['user', 'created_at'])]
 
     def __str__(self):
-        return f"PasswordResetOTP({self.user}, used={self.used})"
+        return f"RecoveryCode({self.user})"
 
-    def is_valid(self):
-        if self.used:
-            return False
-        return timezone.now() - self.created_at < timedelta(minutes=self.OTP_VALID_MINUTES)
+    def verify(self, raw_code: str) -> bool:
+        return check_password(raw_code, self.code_hash)
 
     @classmethod
     def generate_for(cls, user):
-        # Invalidate any earlier still-usable codes so only the most recently
-        # emailed one can ever succeed - otherwise an old, previously-seen
-        # code would stay valid for its own full 10-minute window too.
-        cls.objects.filter(user=user, used=False).update(used=True)
-        code = f"{random.randint(0, 999999):06d}"
-        return cls.objects.create(user=user, code=code)
+        """Creates (or overwrites - a user only ever has one) this user's
+        recovery code. Returns (RecoveryCode, raw_code); the caller is
+        responsible for showing raw_code to the user exactly once and never
+        storing it anywhere itself."""
+        raw_code = _generate_raw_recovery_code()
+        obj, _created = cls.objects.update_or_create(
+            user=user, defaults={"code_hash": make_password(raw_code)},
+        )
+        return obj, raw_code
 
 
 # ================= Custom Super Admin Console =================

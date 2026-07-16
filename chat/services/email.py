@@ -1,6 +1,8 @@
-"""Centralized outbound email for this app - password-reset OTP codes today,
+"""Centralized outbound email for this app - allauth's own signup-
+confirmation email today (via Django's normal mail plumbing, see below),
 and the one place any future transactional email (welcome emails, security
-notifications, etc.) should be added, via send_html_email().
+notifications, etc.) should be added, via send_html_email(). Password reset
+no longer uses email at all - see chat/models.py's RecoveryCode.
 
 Actual delivery lives in chat/services/resend_backend.py, a custom Django
 EMAIL_BACKEND that sends through the Resend HTTP API. Everything here is a
@@ -59,20 +61,6 @@ class EmailSendResult:
     def __init__(self, success: bool, error: str = ""):
         self.success = success
         self.error = error
-
-
-def send_otp_email(user, otp) -> EmailSendResult:
-    """Sends the password-reset OTP code. Never raises - degrades to a
-    logged, user-facing-safe EmailSendResult instead, so a Resend outage can
-    never turn into a 500 or crash the forgot-password/resend-OTP/admin-
-    reset-password flows."""
-    subject = "Your Simba Intel password reset code"
-    message = (
-        f"Your password reset code is {otp.code}.\n\n"
-        f"It expires in {otp.OTP_VALID_MINUTES} minutes. "
-        "If you didn't request this, you can safely ignore this email."
-    )
-    return _send(subject, message, [user.email])
 
 
 def send_html_email(to_email, subject, text_body, html_body=None, reply_to=None) -> EmailSendResult:

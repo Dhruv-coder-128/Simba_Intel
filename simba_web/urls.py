@@ -35,13 +35,14 @@ urlpatterns = [
     path('admin-console/feature-flags/', admin_views.admin_feature_flags, name='admin_feature_flags'),
     path('admin-console/broadcasts/', admin_views.admin_broadcasts, name='admin_broadcasts'),
     path('favicon.ico', RedirectView.as_view(url='/static/favicon2.png', permanent=True)),
-    # OTP password reset (additional to allauth's own link-based reset flow
-    # below, which is untouched) - registered before the allauth include so
-    # these exact paths always resolve here first.
+    # Recovery-code password reset (additional to allauth's own link-based
+    # reset flow below, which is untouched) - registered before the allauth
+    # include so these exact paths always resolve here first.
     path('accounts/forgot-password/', views.forgot_password, name='forgot_password'),
-    path('accounts/verify-otp/', views.verify_otp, name='verify_otp'),
-    path('accounts/resend-otp/', views.resend_otp, name='resend_otp'),
-    path('accounts/reset-password-otp/', views.reset_password_otp, name='reset_password_otp'),
+    path('accounts/verify-recovery-code/', views.verify_recovery_code, name='verify_recovery_code'),
+    path('accounts/reset-password-recovery/', views.reset_password_recovery, name='reset_password_recovery'),
+    path('accounts/recovery-code/', views.recovery_code_display, name='recovery_code_display'),
+    path('accounts/recovery-code/regenerate/', views.regenerate_recovery_code, name='regenerate_recovery_code'),
     path('accounts/', include('allauth.urls')),
     path('verification/resend/', views.resend_verification_email, name='resend_verification_email'),
     path('verification/status/', views.verification_status, name='verification_status'),
