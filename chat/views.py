@@ -10,7 +10,6 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
-from django.core.mail import send_mail
 from django.http import StreamingHttpResponse, JsonResponse
 from django.shortcuts import render, redirect, get_object_or_404
 from django.conf import settings
@@ -32,6 +31,7 @@ from chat.services.message_tree import (
 )
 from chat.services.model_registry import list_available_models, get_model_config
 from chat.services.usage import record_usage, check_rate_limit, check_daily_limit
+from chat.services.email import send_otp_email as send_otp_email_hardened
 from chat.services.verification import is_email_verified, verification_required
 from chat.utils.logger import SimbaLogger
 
@@ -1153,17 +1153,12 @@ def email_verified_success(request):
 # OTP -> Verify OTP -> New Password -> Login.
 
 def _send_otp_email(user, otp):
-    send_mail(
-        subject="Your Simba Intel password reset code",
-        message=(
-            f"Your password reset code is {otp.code}.\n\n"
-            f"It expires in {PasswordResetOTP.OTP_VALID_MINUTES} minutes. "
-            "If you didn't request this, you can safely ignore this email."
-        ),
-        from_email=getattr(settings, "DEFAULT_FROM_EMAIL", None) or "noreply@simba-intel.local",
-        recipient_list=[user.email],
-        fail_silently=False,
-    )
+    """Thin wrapper kept under its original name/signature (admin_views.py
+    imports it directly) - all the actual work, including the timeout/
+    exception hardening that fixed the production SMTP hang, lives in
+    chat/services/email.py. Returns the EmailSendResult rather than raising,
+    so every call site below decides for itself how to degrade."""
+    return send_otp_email_hardened(user, otp)
 
 
 def forgot_password(request):
@@ -1172,7 +1167,17 @@ def forgot_password(request):
         user = User.objects.filter(email__iexact=email).first()
         if user:
             otp = PasswordResetOTP.generate_for(user)
-            _send_otp_email(user, otp)
+            result = _send_otp_email(user, otp)
+            if not result.success:
+                # Deliberately NOT surfaced differently to the client than
+                # the success path below - same anti-enumeration reasoning
+                # as before (a distinguishable response here would leak
+                # "this email exists but sending failed" vs "no such
+                # email"). The failure is fully logged server-side by
+                # send_otp_email_hardened; the user just doesn't get a code
+                # that was never actually sent, and can use "resend" (which
+                # DOES report failures) once the underlying issue clears.
+                pass
             request.session["otp_reset_user_id"] = user.id
             request.session["otp_reset_email"] = user.email
         # Same response whether or not the email matched a real account -
@@ -1223,7 +1228,15 @@ def resend_otp(request):
             return JsonResponse({"error": f"Please wait {wait}s before requesting another code."}, status=429)
 
     otp = PasswordResetOTP.generate_for(user)
-    _send_otp_email(user, otp)
+    result = _send_otp_email(user, otp)
+    if not result.success:
+        # This endpoint is only reachable by someone who already passed the
+        # "does this email exist" gate in forgot_password, so there's no
+        # enumeration risk in reporting failure honestly here (unlike
+        # forgot_password itself) - the user needs to know a code wasn't
+        # actually sent rather than wait indefinitely for one that never
+        # arrives.
+        return JsonResponse({"error": result.error}, status=503)
     return JsonResponse({"status": "sent"})
 
 

@@ -232,13 +232,30 @@ if not DEBUG:
 # explicitly (e.g. in Render's environment) to actually send in production.
 EMAIL_HOST = os.getenv('EMAIL_HOST', 'smtp.gmail.com')
 EMAIL_PORT = int(os.getenv('EMAIL_PORT', '587'))
-EMAIL_USE_TLS = True
+EMAIL_USE_TLS = os.getenv('EMAIL_USE_TLS', 'True') == 'True'
+EMAIL_USE_SSL = os.getenv('EMAIL_USE_SSL', 'False') == 'True'
 EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER', '')
 EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD', '')
 DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', EMAIL_HOST_USER)
 EMAIL_BACKEND = os.getenv('EMAIL_BACKEND', 'django.core.mail.backends.console.EmailBackend')
 
-EMAIL_TIMEOUT = 30
+# Root-caused a production-only incident: this was 30s, and gunicorn's own
+# worker --timeout (Dockerfile CMD) was left at its default, which is ALSO
+# ~30s. gunicorn's clock starts the instant a request is received (covering
+# routing/view/DB overhead before the SMTP call even begins), while this
+# timeout's clock only starts once the socket call itself begins - with the
+# two nearly tied, gunicorn's SIGKILL wins the race almost every time,
+# killing the worker while it's still blocked inside socket.create_
+# connection(), before Python ever regains control to raise (let alone log)
+# a timeout exception. That's why production logs showed "Worker Timeout" /
+# SIGKILL with no SMTPAuthenticationError and no traceback at all: the
+# process was killed mid-syscall, not mid-exception. Fix has two parts,
+# both required: this is now well under gunicorn's own --timeout (60s, set
+# explicitly in the Dockerfile rather than left at its implicit default),
+# AND chat/services/email.py drives the SMTP connection by hand rather than
+# through a bare send_mail() call, so a slow/black-holed connection now
+# fails fast with a logged, catchable exception instead of hanging.
+EMAIL_TIMEOUT = int(os.getenv('EMAIL_TIMEOUT', '10'))
 SERVER_EMAIL = DEFAULT_FROM_EMAIL
 
 # Allauth Config

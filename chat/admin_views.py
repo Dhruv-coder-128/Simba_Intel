@@ -398,8 +398,9 @@ def admin_user_detail(request, user_id):
             from chat.views import _send_otp_email
             if target.email:
                 otp = PasswordResetOTP.generate_for(target)
-                _send_otp_email(target, otp)
-                _log(request, 'reset_password', target, "OTP emailed")
+                result = _send_otp_email(target, otp)
+                detail = "OTP emailed" if result.success else f"OTP email failed: {result.error}"
+                _log(request, 'reset_password', target, detail, success=result.success)
         elif action == 'verify_email':
             from allauth.account.models import EmailAddress
             email_address, _created = EmailAddress.objects.get_or_create(
