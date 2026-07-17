@@ -27,16 +27,56 @@ class Role(models.TextChoices):
 
 
 class ChatSession(models.Model):
+    COLOR_CHOICES = [
+        ('', 'None'), ('red', 'Red'), ('orange', 'Orange'), ('yellow', 'Yellow'),
+        ('green', 'Green'), ('blue', 'Blue'), ('purple', 'Purple'),
+    ]
+
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='chat_sessions', null=True, blank=True)
     title = models.CharField(max_length=255, default="New Chat")
     created_at = models.DateTimeField(auto_now_add=True)
     is_pinned = models.BooleanField(default=False)
+    # Session-level organization (distinct from Message.extra_data's
+    # per-image "favorited" flag, which favorites one generated image, not
+    # a whole conversation). Archiving is a soft hide, not a delete - an
+    # archived session is excluded from the default sidebar list but never
+    # removed; only delete_session actually destroys data.
+    is_archived = models.BooleanField(default=False)
+    is_favorite = models.BooleanField(default=False)
+    # Flat, not nested - there's no existing folder hierarchy anywhere in
+    # this app to build on, and a full nested-tree UI (create/rename/move/
+    # reorder folders, drag-and-drop between them) is a much larger feature
+    # than one flat grouping label. A blank folder means "no folder".
+    folder = models.CharField(max_length=100, blank=True, default='')
+    color_label = models.CharField(max_length=10, choices=COLOR_CHOICES, blank=True, default='')
     # The current tip of the active branch in this session's message tree.
     # NULL means the session has no Message-tree history yet (e.g. legacy
     # sessions before this field existed, or a brand new session).
     active_leaf = models.ForeignKey(
         'Message', null=True, blank=True, on_delete=models.SET_NULL, related_name='+'
     )
+
+    # --- AI Memory (Part 2) ---
+    # A running, AI-generated compression of everything before the most
+    # recent window of turns - see chat/services/conversation_memory.py.
+    # summary_message_count is how many Message rows existed at the time
+    # `summary` was last generated, so a later check can cheaply tell
+    # "how much new content has accumulated since" without re-summarizing
+    # from scratch on every single turn.
+    summary = models.TextField(blank=True, default='')
+    summary_message_count = models.PositiveIntegerField(default=0)
+    # Cross-chat fact extraction (gated on UserProfile.memory_enabled) is
+    # attempted at most once per session, tracked here - a fixed one-shot
+    # rather than continuous extraction, since re-scanning the same early
+    # turns on every later message would just re-derive the same handful of
+    # durable facts at extra cost for no benefit.
+    facts_extracted = models.BooleanField(default=False)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=['user', 'is_archived', '-created_at']),
+            models.Index(fields=['user', 'folder']),
+        ]
 
     def __str__(self):
         return self.title
@@ -115,6 +155,15 @@ class UserProfile(models.Model):
     memory_enabled = models.BooleanField(default=False)
     notifications_enabled = models.BooleanField(default=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+    # --- Timezone (single source of truth for every timestamp in the app -
+    # see chat.middleware.TimezoneMiddleware) ---
+    # timezone_auto=True means the browser-detected IANA name (posted by
+    # chat.html on load) is still free to update this field; saving an
+    # explicit choice from Settings > General flips it to False so a
+    # deliberate pick never gets silently overwritten by auto-detection.
+    timezone = models.CharField(max_length=64, default='UTC')
+    timezone_auto = models.BooleanField(default=True)
 
     # --- RBAC ---
     # The single source of truth for every SIMBA_INTEL permission check -
@@ -201,6 +250,86 @@ class UserProfile(models.Model):
         return bool(self.suspended_until and self.suspended_until > timezone.now())
 
 
+class UserFact(models.Model):
+    """Cross-chat memory (Part 2) - a durable fact extracted from one
+    conversation and reused as light context in future, unrelated
+    conversations. Only ever written to when UserProfile.memory_enabled is
+    True (see conversation_memory.extract_and_store_facts) and only ever
+    read from under the same condition (get_user_memory_context) - flipping
+    the toggle off stops both new writes and any use of what's already
+    stored, and the Settings > Privacy "Clear memory" action gives the user
+    a way to delete everything here outright."""
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='facts')
+    fact = models.TextField()
+    source_session = models.ForeignKey(ChatSession, on_delete=models.SET_NULL, null=True, blank=True, related_name='+')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        indexes = [models.Index(fields=['user', '-created_at'])]
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"Fact({self.user}): {self.fact[:60]}"
+
+
+class SavedPrompt(models.Model):
+    """Prompt Library (Part 5) - Saved/Favorite/Templates/Categories all
+    live on this one model rather than as separate tables: a "template" is
+    just a saved prompt filed under a category, a "favorite" is a flag, and
+    "recent"/"history" don't need storage at all - those read directly from
+    the user's own past Message(role='user') rows (see recent_prompts view),
+    since that history already exists and duplicating it here would just be
+    two copies of the same text drifting apart."""
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='saved_prompts')
+    title = models.CharField(max_length=100)
+    content = models.TextField()
+    # Free text, not a fixed choice list - mirrors ChatSession.folder's own
+    # reasoning (a blank category means "uncategorized"), so a user's own
+    # label always works instead of forcing a fit into a fixed set.
+    category = models.CharField(max_length=50, blank=True, default='')
+    is_favorite = models.BooleanField(default=False)
+    use_count = models.PositiveIntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        indexes = [models.Index(fields=['user', '-created_at'])]
+        ordering = ['-is_favorite', '-updated_at']
+
+    def __str__(self):
+        return f"{self.title} ({self.user})"
+
+
+class Folder(models.Model):
+    """Folder metadata (name + color) for the sidebar's chat organization.
+
+    Membership deliberately stays on ChatSession.folder (a plain string),
+    NOT a ForeignKey here: this model is pure metadata layered on top of the
+    pre-existing string-based folders, so every already-filed chat keeps
+    working with zero data migration and a folder can exist with no metadata
+    row at all (it just renders with the default colour). Rename therefore
+    updates this row AND bulk-updates the matching ChatSession.folder
+    strings; delete removes this row AND unfiles its chats (folder='') but
+    never deletes the chats themselves - see the folder views for the full
+    workflow.
+
+    Flat, not nested - same reasoning as ChatSession.folder's own comment.
+    """
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='folders')
+    name = models.CharField(max_length=100)
+    color = models.CharField(max_length=10, choices=ChatSession.COLOR_CHOICES, blank=True, default='')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = [('user', 'name')]
+        ordering = ['name']
+
+    def __str__(self):
+        return f"Folder({self.user}): {self.name}"
+
+
 class UsageEvent(models.Model):
     """One record per AI call (chat turn, vision call, or image generation),
     used for cost estimation, analytics, and DB-backed rate limiting."""
@@ -225,6 +354,13 @@ class UsageEvent(models.Model):
     # rather than a real usage payload from the provider.
     tokens_are_estimated = models.BooleanField(default=True)
     latency = models.FloatField(null=True, blank=True)
+    # False marks a failed call (see usage.record_failure) - Part 7's
+    # success/error rate analytics reads this. check_rate_limit and
+    # check_daily_limit both explicitly filter to success=True: a call that
+    # never got a response must never eat into the user's rate/daily quota,
+    # or a provider outage would double-punish them (no answer AND a
+    # consumed request) instead of just failing gracefully.
+    success = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

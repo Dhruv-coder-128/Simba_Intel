@@ -1,4 +1,5 @@
 import importlib
+from datetime import timedelta
 from unittest.mock import patch
 
 from django.apps import apps as live_apps
@@ -6,8 +7,9 @@ from django.contrib.auth import get_user_model
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase, override_settings
 from django.urls import reverse
+from django.utils import timezone
 
-from chat.models import ChatMessage, ChatSession, FeatureFlag, Message, RecoveryCode, Role, UsageEvent, UserProfile
+from chat.models import ChatMessage, ChatSession, ErrorLog, FeatureFlag, Folder, Message, RecoveryCode, Role, SavedPrompt, UsageEvent, UserFact, UserProfile, UserSession
 from chat.providers.pollinations_image_provider import PollinationsImageProvider
 from chat.services.cost_table import estimate_cost
 from chat.services.memory import get_conversation_history
@@ -93,15 +95,21 @@ class ConversationHistoryTests(TestCase):
         for msg in history:
             self.assertNotEqual(msg, {"role": "assistant", "content": ""})
 
-    def test_history_respects_turn_limit_from_oldest(self):
+    def test_history_respects_turn_limit_from_most_recent(self):
+        # Part 2 (AI Memory / context optimization) deliberately flipped this
+        # from the oldest `limit` turns to the most recent `limit` turns - a
+        # long conversation's context window needs to advance as it goes, not
+        # stay frozen on the first couple of turns forever. Long-conversation
+        # continuity beyond this window comes from conversation_memory's
+        # summary injection, covered in its own tests.
         for i in range(5):
             append_turn(self.session, f"q{i}", f"a{i}")
         history = get_conversation_history(self.session, limit=2)
         self.assertEqual(history, [
-            {"role": "user", "content": "q0"},
-            {"role": "assistant", "content": "a0"},
-            {"role": "user", "content": "q1"},
-            {"role": "assistant", "content": "a1"},
+            {"role": "user", "content": "q3"},
+            {"role": "assistant", "content": "a3"},
+            {"role": "user", "content": "q4"},
+            {"role": "assistant", "content": "a4"},
         ])
 
     def test_history_empty_for_session_with_no_active_leaf(self):
@@ -156,7 +164,7 @@ class ModelAccessControlTests(TestCase):
             self.assertFalse(is_model_allowed_for_user("admin-only-test-model", self.user))
             self.assertTrue(is_model_allowed_for_user("admin-only-test-model", self.admin))
 
-    @patch("chat.views.chat_stream")
+    @patch("chat.views.chat_stream_with_failover")
     def test_ask_ai_rejects_role_restricted_model(self, mock_chat_stream):
         mock_chat_stream.return_value = iter(["ok"])
         restricted = ModelConfig(display_name="Admin Only", provider="groq", actual_model="x", min_role=Role.ADMIN)
@@ -167,7 +175,7 @@ class ModelAccessControlTests(TestCase):
             self.assertIn("doesn't have access", data.get("message", ""))
         mock_chat_stream.assert_not_called()
 
-    @patch("chat.views.chat_stream")
+    @patch("chat.views.chat_stream_with_failover")
     def test_ask_ai_allows_admin_for_role_restricted_model(self, mock_chat_stream):
         mock_chat_stream.return_value = iter(["ok"])
         self.client.force_login(self.admin)
@@ -186,7 +194,7 @@ class AiFeatureFlagEnforcementTests(TestCase):
         self.user = User.objects.create_user(username="dhruv", password="testpass123")
         self.client.force_login(self.user)
 
-    @patch("chat.views.chat_stream")
+    @patch("chat.views.chat_stream_with_failover")
     def test_file_upload_disabled_rejects_attachment(self, mock_chat_stream):
         mock_chat_stream.return_value = iter(["ok"])
         FeatureFlag.objects.create(key="file_upload", enabled=False)
@@ -196,7 +204,7 @@ class AiFeatureFlagEnforcementTests(TestCase):
         self.assertEqual(data.get("type"), "error")
         self.assertIn("disabled", data.get("message", ""))
 
-    @patch("chat.views.chat_stream")
+    @patch("chat.views.chat_stream_with_failover")
     @patch("chat.views._get_tavily_search")
     def test_web_search_disabled_skips_tavily(self, mock_search, mock_chat_stream):
         mock_chat_stream.return_value = iter(["ok"])
@@ -216,7 +224,7 @@ class AttachmentTests(TestCase):
     def _consume(self, response):
         return b"".join(response.streaming_content).decode()
 
-    @patch("chat.views.chat_stream")
+    @patch("chat.views.chat_stream_with_failover")
     def test_text_attachment_is_folded_into_query_context(self, mock_chat_stream):
         mock_chat_stream.return_value = iter(["Hello"])
         txt_file = SimpleUploadedFile("notes.txt", b"Some extracted context", content_type="text/plain")
@@ -248,7 +256,7 @@ class AttachmentTests(TestCase):
         mock_vision.assert_called_once()
 
     @patch("chat.views.analyze_file")
-    @patch("chat.views.chat_stream")
+    @patch("chat.views.chat_stream_with_failover")
     def test_image_attachment_without_vision_support_falls_back_to_ocr(self, mock_chat_stream, mock_analyze):
         mock_analyze.return_value = "OCR extracted text"
         mock_chat_stream.return_value = iter(["ok"])
@@ -284,7 +292,7 @@ class AttachmentTests(TestCase):
         })
         self.assertEqual(response.status_code, 400)
 
-    @patch("chat.views.chat_stream")
+    @patch("chat.views.chat_stream_with_failover")
     def test_empty_query_with_attachment_is_accepted(self, mock_chat_stream):
         mock_chat_stream.return_value = iter(["ok"])
         txt_file = SimpleUploadedFile("notes.txt", b"content", content_type="text/plain")
@@ -523,7 +531,7 @@ class MessageTreeWriteFlowTests(TestCase):
     def _consume(self, response):
         return b"".join(response.streaming_content).decode()
 
-    @patch("chat.views.chat_stream")
+    @patch("chat.views.chat_stream_with_failover")
     def test_text_send_writes_message_tree_not_chatmessage(self, mock_chat_stream):
         mock_chat_stream.return_value = iter(["Hello there"])
         response = self.client.post(reverse("ask_ai"), {"query": "hi", "model_id": "cyber-max"})
@@ -538,7 +546,7 @@ class MessageTreeWriteFlowTests(TestCase):
         self.assertEqual(session.active_leaf.parent.role, "user")
         self.assertEqual(session.active_leaf.parent.content, "hi")
 
-    @patch("chat.views.chat_stream")
+    @patch("chat.views.chat_stream_with_failover")
     def test_second_turn_chains_under_first(self, mock_chat_stream):
         mock_chat_stream.return_value = iter(["one"])
         r1 = self.client.post(reverse("ask_ai"), {"query": "first", "model_id": "cyber-max"})
@@ -596,7 +604,7 @@ class RegenerateEditEndpointTests(TestCase):
         response = self.client.get(reverse("session_active_leaf", args=[other_session.id]))
         self.assertEqual(response.status_code, 404)
 
-    @patch("chat.views.chat_stream")
+    @patch("chat.views.chat_stream_with_failover")
     def test_regenerate_creates_sibling_and_preserves_old(self, mock_chat_stream):
         mock_chat_stream.return_value = iter(["a better answer"])
         response = self.client.post(
@@ -633,7 +641,7 @@ class RegenerateEditEndpointTests(TestCase):
         )
         self.assertEqual(response.status_code, 404)
 
-    @patch("chat.views.chat_stream")
+    @patch("chat.views.chat_stream_with_failover")
     def test_edit_creates_sibling_user_turn_and_fresh_reply(self, mock_chat_stream):
         mock_chat_stream.return_value = iter(["hi yourself"])
         response = self.client.post(
@@ -696,7 +704,7 @@ class BranchSwitcherTests(TestCase):
         self.assertEqual(display[0].assistant_sibling_count, 1)
         self.assertEqual(display[0].user_sibling_count, 1)
 
-    @patch("chat.views.chat_stream")
+    @patch("chat.views.chat_stream_with_failover")
     def test_regenerate_produces_two_assistant_siblings_in_display(self, mock_chat_stream):
         mock_chat_stream.return_value = iter(["a better answer"])
         self._consume(self.client.post(
@@ -709,7 +717,7 @@ class BranchSwitcherTests(TestCase):
         self.assertEqual(display[0].assistant_sibling_index, 2)
         self.assertEqual(len(display[0].assistant_sibling_ids), 2)
 
-    @patch("chat.views.chat_stream")
+    @patch("chat.views.chat_stream_with_failover")
     def test_edit_produces_two_user_siblings_in_display(self, mock_chat_stream):
         mock_chat_stream.return_value = iter(["hi yourself"])
         self._consume(self.client.post(
@@ -722,7 +730,7 @@ class BranchSwitcherTests(TestCase):
         self.assertEqual(display[0].user_sibling_count, 2)
         self.assertEqual(display[0].user_sibling_index, 2)
 
-    @patch("chat.views.chat_stream")
+    @patch("chat.views.chat_stream_with_failover")
     def test_switch_branch_moves_active_leaf_to_old_assistant_sibling(self, mock_chat_stream):
         mock_chat_stream.return_value = iter(["a better answer"])
         self._consume(self.client.post(
@@ -737,7 +745,7 @@ class BranchSwitcherTests(TestCase):
         self.assertEqual(self.session.active_leaf_id, self.assistant_msg.id)
         self.assertEqual(response.json()["message_id"], self.assistant_msg.id)
 
-    @patch("chat.views.chat_stream")
+    @patch("chat.views.chat_stream_with_failover")
     def test_switch_branch_on_user_message_moves_to_its_assistant_child(self, mock_chat_stream):
         mock_chat_stream.return_value = iter(["hi yourself"])
         self._consume(self.client.post(
@@ -777,7 +785,7 @@ class BranchSwitcherTests(TestCase):
         self.assertEqual(data["sibling_ids"], [self.assistant_msg.id])
         self.assertEqual(data["role"], "assistant")
 
-    @patch("chat.views.chat_stream")
+    @patch("chat.views.chat_stream_with_failover")
     def test_siblings_endpoint_reflects_new_sibling_after_regenerate(self, mock_chat_stream):
         mock_chat_stream.return_value = iter(["a better answer"])
         self._consume(self.client.post(
@@ -885,7 +893,7 @@ class UsageWiringTests(TestCase):
     def _consume(self, response):
         return b"".join(response.streaming_content).decode()
 
-    @patch("chat.views.chat_stream")
+    @patch("chat.views.chat_stream_with_failover")
     def test_text_send_records_usage_event(self, mock_chat_stream):
         mock_chat_stream.return_value = iter(["hello there"])
         response = self.client.post(
@@ -898,7 +906,7 @@ class UsageWiringTests(TestCase):
         self.assertEqual(events.first().provider, "groq")
         self.assertTrue(events.first().tokens_are_estimated)
 
-    @patch("chat.views.chat_stream")
+    @patch("chat.views.chat_stream_with_failover")
     def test_text_send_captures_real_usage_when_provider_supplies_it(self, mock_chat_stream):
         def fake_stream(model_id, messages, on_usage=None, **kwargs):
             if on_usage:
@@ -942,7 +950,7 @@ class UsageWiringTests(TestCase):
         events = UsageEvent.objects.filter(user=self.user, event_type="vision")
         self.assertEqual(events.count(), 1)
 
-    @patch("chat.views.chat_stream")
+    @patch("chat.views.chat_stream_with_failover")
     def test_ask_ai_blocked_once_rate_limit_hit(self, mock_chat_stream):
         mock_chat_stream.return_value = iter(["ok"])
         for _ in range(RATE_LIMIT_MAX_REQUESTS):
@@ -954,7 +962,7 @@ class UsageWiringTests(TestCase):
         self.assertEqual(response.status_code, 429)
         mock_chat_stream.assert_not_called()
 
-    @patch("chat.views.chat_stream")
+    @patch("chat.views.chat_stream_with_failover")
     def test_regenerate_records_usage_event(self, mock_chat_stream):
         user_msg, assistant_msg = append_turn(self.session, "hi", "hello")
         mock_chat_stream.return_value = iter(["a better answer"])
@@ -964,7 +972,7 @@ class UsageWiringTests(TestCase):
         self._consume(response)
         self.assertEqual(UsageEvent.objects.filter(user=self.user, event_type="chat").count(), 1)
 
-    @patch("chat.views.chat_stream")
+    @patch("chat.views.chat_stream_with_failover")
     def test_edit_records_usage_event(self, mock_chat_stream):
         user_msg, assistant_msg = append_turn(self.session, "hi", "hello")
         mock_chat_stream.return_value = iter(["hi yourself"])
@@ -1194,3 +1202,972 @@ class EmailVerificationGatingTests(TestCase):
         self.assertEqual(response.status_code, 302)
         profile = UserProfile.objects.get(user=self.user)
         self.assertEqual(profile.display_name, "Saved Fine")
+
+
+class SessionOrganizationTests(TestCase):
+    """Pin/rename/delete had no test coverage at all before this - covering
+    those alongside the new archive/favorite/duplicate/bulk/folder/color
+    features rather than leaving old, working behavior untested while only
+    testing what's new."""
+
+    def setUp(self):
+        self.user = User.objects.create_user(username="dhruv", password="testpass123")
+        self.other_user = User.objects.create_user(username="other", password="testpass123")
+        self.client.force_login(self.user)
+        self.session = ChatSession.objects.create(user=self.user, title="Test Chat")
+
+    def test_pin_toggles(self):
+        self.client.post(reverse("pin_session", args=[self.session.id]))
+        self.session.refresh_from_db()
+        self.assertTrue(self.session.is_pinned)
+        self.client.post(reverse("pin_session", args=[self.session.id]))
+        self.session.refresh_from_db()
+        self.assertFalse(self.session.is_pinned)
+
+    def test_rename(self):
+        self.client.post(reverse("rename_session", args=[self.session.id]), {"title": "New Title"})
+        self.session.refresh_from_db()
+        self.assertEqual(self.session.title, "New Title")
+
+    def test_delete(self):
+        self.client.post(reverse("delete_session", args=[self.session.id]))
+        self.assertFalse(ChatSession.objects.filter(id=self.session.id).exists())
+
+    def test_cannot_pin_another_users_session(self):
+        foreign_session = ChatSession.objects.create(user=self.other_user, title="Not yours")
+        response = self.client.post(reverse("pin_session", args=[foreign_session.id]))
+        self.assertEqual(response.status_code, 404)
+
+    def test_archive_toggles_and_hides_from_default_list(self):
+        response = self.client.post(reverse("toggle_archive_session", args=[self.session.id]))
+        self.assertEqual(response.json()["is_archived"], True)
+        home_response = self.client.get(reverse("home"))
+        self.assertNotIn(self.session, home_response.context["sessions"])
+        archived_response = self.client.get(reverse("home") + "?view=archived")
+        self.assertIn(self.session, archived_response.context["sessions"])
+
+    def test_favorite_session_toggles(self):
+        response = self.client.post(reverse("toggle_favorite_session", args=[self.session.id]))
+        self.assertEqual(response.json()["is_favorite"], True)
+        self.session.refresh_from_db()
+        self.assertTrue(self.session.is_favorite)
+
+    def test_favorite_session_is_distinct_from_image_favorite(self):
+        # toggle_favorite_session (whole conversation) must never touch
+        # Message.extra_data["favorited"] (one generated image) and vice versa.
+        msg = Message.objects.create(session=self.session, role="assistant", content="", extra_data={"type": "image", "favorited": False})
+        self.client.post(reverse("toggle_favorite_session", args=[self.session.id]))
+        msg.refresh_from_db()
+        self.assertFalse(msg.extra_data["favorited"])
+
+    def test_duplicate_session_copies_message_tree(self):
+        parent, leaf = append_turn(self.session, "hello", "hi there")
+        append_turn(self.session, "follow up", "another reply")
+        response = self.client.post(reverse("duplicate_session", args=[self.session.id]))
+        data = response.json()
+        new_session = ChatSession.objects.get(id=data["session_id"])
+        self.assertEqual(new_session.thread.count(), self.session.thread.count())
+        self.assertNotEqual(new_session.id, self.session.id)
+        self.assertEqual(new_session.title, "Test Chat (copy)")
+        # The duplicate's active_leaf must point at ITS OWN copied message,
+        # not the original session's.
+        self.assertIsNotNone(new_session.active_leaf)
+        self.assertNotEqual(new_session.active_leaf_id, self.session.active_leaf_id)
+
+    def test_duplicate_preserves_branch_structure(self):
+        user_msg, asst_msg = append_turn(self.session, "hello", "hi")
+        # branch: edit the user message (sibling under the same parent)
+        sibling_user = Message.objects.create(session=self.session, role="user", content="hello edited", parent=user_msg.parent)
+        Message.objects.create(session=self.session, role="assistant", content="hi again", parent=sibling_user)
+        response = self.client.post(reverse("duplicate_session", args=[self.session.id]))
+        new_session = ChatSession.objects.get(id=response.json()["session_id"])
+        # 4 messages total (2 user + 2 assistant), tree structure preserved
+        self.assertEqual(new_session.thread.count(), 4)
+        roots = [m for m in new_session.thread.all() if m.parent_id is None]
+        self.assertEqual(len(roots), 2)  # both user siblings are roots (no parent)
+
+    def test_bulk_delete(self):
+        s2 = ChatSession.objects.create(user=self.user, title="Second")
+        response = self.client.post(reverse("bulk_session_action"), {
+            "action": "delete", "session_ids": [self.session.id, s2.id],
+        })
+        self.assertEqual(response.json()["count"], 2)
+        self.assertFalse(ChatSession.objects.filter(id__in=[self.session.id, s2.id]).exists())
+
+    def test_bulk_archive(self):
+        s2 = ChatSession.objects.create(user=self.user, title="Second")
+        self.client.post(reverse("bulk_session_action"), {
+            "action": "archive", "session_ids": [self.session.id, s2.id],
+        })
+        self.assertTrue(ChatSession.objects.filter(id=self.session.id, is_archived=True).exists())
+        self.assertTrue(ChatSession.objects.filter(id=s2.id, is_archived=True).exists())
+
+    def test_bulk_action_only_affects_own_sessions(self):
+        foreign_session = ChatSession.objects.create(user=self.other_user, title="Not yours")
+        self.client.post(reverse("bulk_session_action"), {
+            "action": "delete", "session_ids": [foreign_session.id],
+        })
+        self.assertTrue(ChatSession.objects.filter(id=foreign_session.id).exists())
+
+    def test_bulk_action_unknown_action_rejected(self):
+        response = self.client.post(reverse("bulk_session_action"), {
+            "action": "nuke_everything", "session_ids": [self.session.id],
+        })
+        self.assertEqual(response.status_code, 400)
+
+    def test_set_folder(self):
+        response = self.client.post(reverse("set_session_folder", args=[self.session.id]), {"folder": "Work Stuff"})
+        self.assertEqual(response.json()["folder"], "Work Stuff")
+        self.session.refresh_from_db()
+        self.assertEqual(self.session.folder, "Work Stuff")
+
+    def test_clearing_folder_removes_it(self):
+        self.session.folder = "Old Folder"
+        self.session.save(update_fields=["folder"])
+        self.client.post(reverse("set_session_folder", args=[self.session.id]), {"folder": ""})
+        self.session.refresh_from_db()
+        self.assertEqual(self.session.folder, "")
+
+    def test_set_valid_color(self):
+        response = self.client.post(reverse("set_session_color", args=[self.session.id]), {"color": "blue"})
+        self.assertEqual(response.json()["color_label"], "blue")
+
+    def test_set_invalid_color_rejected(self):
+        response = self.client.post(reverse("set_session_color", args=[self.session.id]), {"color": "invisible-pink"})
+        self.assertEqual(response.status_code, 400)
+
+    def test_chat_home_groups_sessions_by_recency(self):
+        old_session = ChatSession.objects.create(user=self.user, title="Old One")
+        ChatSession.objects.filter(id=old_session.id).update(created_at=timezone.now() - timedelta(days=60))
+        response = self.client.get(reverse("home"))
+        self.assertIn(self.session, response.context["grouped_sessions"]["today"])
+        self.assertIn(old_session, response.context["grouped_sessions"]["older"])
+
+    def test_chat_home_folder_filter(self):
+        self.session.folder = "Work"
+        self.session.save(update_fields=["folder"])
+        ChatSession.objects.create(user=self.user, title="Not in folder")
+        response = self.client.get(reverse("home") + "?folder=Work")
+        session_ids = [s.id for s in response.context["sessions"]]
+        self.assertEqual(session_ids, [self.session.id])
+
+    def test_chat_home_pinned_and_favorite_sections_are_mutually_exclusive(self):
+        self.session.is_pinned = True
+        self.session.is_favorite = True
+        self.session.save(update_fields=["is_pinned", "is_favorite"])
+        response = self.client.get(reverse("home"))
+        # A pinned+favorited session shows only in "pinned", never duplicated
+        # into the favorites section too.
+        self.assertIn(self.session, response.context["pinned_sessions"])
+        self.assertNotIn(self.session, response.context["favorite_sessions"])
+
+
+class MessageContentSearchTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(username="dhruv", password="testpass123")
+        self.other_user = User.objects.create_user(username="other", password="testpass123")
+        self.client.force_login(self.user)
+
+    def test_search_too_short_returns_nothing(self):
+        response = self.client.get(reverse("search_chats"), {"q": "a"})
+        self.assertEqual(response.json()["results"], [])
+
+    def test_search_matches_title(self):
+        ChatSession.objects.create(user=self.user, title="Unique Title Marker")
+        response = self.client.get(reverse("search_chats"), {"q": "Unique Title Marker"})
+        results = response.json()["results"]
+        self.assertTrue(any(r["match_type"] == "title" for r in results))
+
+    def test_search_matches_message_content(self):
+        session = ChatSession.objects.create(user=self.user, title="Some Chat")
+        Message.objects.create(session=session, role="user", content="a very distinctive searchable phrase")
+        response = self.client.get(reverse("search_chats"), {"q": "distinctive searchable phrase"})
+        results = response.json()["results"]
+        self.assertTrue(any(r["match_type"] == "message" and r["session_id"] == session.id for r in results))
+        self.assertIn("distinctive searchable phrase", results[0]["snippet"])
+
+    def test_search_never_returns_another_users_sessions(self):
+        foreign_session = ChatSession.objects.create(user=self.other_user, title="Foreign Unique Marker")
+        Message.objects.create(session=foreign_session, role="user", content="foreign unique marker content")
+        response = self.client.get(reverse("search_chats"), {"q": "Foreign Unique Marker"})
+        self.assertEqual(response.json()["results"], [])
+
+    def test_search_excludes_system_role_messages(self):
+        session = ChatSession.objects.create(user=self.user, title="Chat")
+        Message.objects.create(session=session, role="system", content="a distinctive system prompt marker")
+        response = self.client.get(reverse("search_chats"), {"q": "distinctive system prompt marker"})
+        self.assertEqual(response.json()["results"], [])
+
+
+class DeleteMessageTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(username="dhruv", password="testpass123")
+        self.other_user = User.objects.create_user(username="other", password="testpass123")
+        self.client.force_login(self.user)
+        self.session = ChatSession.objects.create(user=self.user, title="Chat")
+
+    def test_delete_a_leaf_message(self):
+        user_msg, asst_msg = append_turn(self.session, "hello", "hi")
+        response = self.client.post(reverse("delete_message", args=[asst_msg.id]))
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(Message.objects.filter(id=asst_msg.id).exists())
+
+    def test_deleting_a_message_cascades_to_descendants(self):
+        user_msg, asst_msg = append_turn(self.session, "hello", "hi")
+        user_msg2, asst_msg2 = append_turn(self.session, "follow up", "another reply")
+        self.client.post(reverse("delete_message", args=[user_msg.id]))
+        self.assertFalse(Message.objects.filter(id__in=[user_msg.id, asst_msg.id, user_msg2.id, asst_msg2.id]).exists())
+
+    def test_deleting_active_leaf_falls_back_to_latest_remaining_message(self):
+        user_msg, asst_msg = append_turn(self.session, "hello", "hi")
+        user_msg2, asst_msg2 = append_turn(self.session, "follow up", "another reply")
+        self.session.refresh_from_db()
+        self.assertEqual(self.session.active_leaf_id, asst_msg2.id)
+        self.client.post(reverse("delete_message", args=[asst_msg2.id]))
+        self.session.refresh_from_db()
+        self.assertEqual(self.session.active_leaf_id, user_msg2.id)
+
+    def test_deleting_entire_tree_leaves_active_leaf_none(self):
+        user_msg, asst_msg = append_turn(self.session, "hello", "hi")
+        self.client.post(reverse("delete_message", args=[user_msg.id]))
+        self.session.refresh_from_db()
+        self.assertIsNone(self.session.active_leaf)
+
+    def test_cannot_delete_another_users_message(self):
+        foreign_session = ChatSession.objects.create(user=self.other_user, title="Not yours")
+        _um, am = append_turn(foreign_session, "hi", "hello")
+        response = self.client.post(reverse("delete_message", args=[am.id]))
+        self.assertEqual(response.status_code, 404)
+
+
+class BookmarkMessageTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(username="dhruv", password="testpass123")
+        self.client.force_login(self.user)
+        self.session = ChatSession.objects.create(user=self.user, title="Chat")
+
+    def test_bookmark_toggles(self):
+        _um, am = append_turn(self.session, "hi", "hello")
+        response = self.client.post(reverse("bookmark_message", args=[am.id]))
+        self.assertTrue(response.json()["bookmarked"])
+        response2 = self.client.post(reverse("bookmark_message", args=[am.id]))
+        self.assertFalse(response2.json()["bookmarked"])
+
+    def test_bookmark_preserves_other_extra_data(self):
+        msg = Message.objects.create(session=self.session, role="assistant", content="", extra_data={"type": "image", "favorited": True})
+        self.client.post(reverse("bookmark_message", args=[msg.id]))
+        msg.refresh_from_db()
+        self.assertTrue(msg.extra_data["favorited"])
+        self.assertTrue(msg.extra_data["bookmarked"])
+
+
+class ContinueMessageTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(username="dhruv", password="testpass123")
+        self.other_user = User.objects.create_user(username="other", password="testpass123")
+        self.client.force_login(self.user)
+        self.session = ChatSession.objects.create(user=self.user, title="Chat")
+
+    @patch("chat.views.chat_stream_with_failover")
+    def test_continue_appends_to_existing_content(self, mock_chat_stream):
+        _um, am = append_turn(self.session, "tell me a story", "Once upon a time")
+        mock_chat_stream.return_value = iter([", there was a dragon."])
+        response = self.client.post(reverse("continue_message", args=[am.id]), {"model_id": "cyber-max"})
+        self.assertEqual(response.status_code, 200)
+        b"".join(response.streaming_content)  # drain the streaming response
+        am.refresh_from_db()
+        self.assertEqual(am.content, "Once upon a time, there was a dragon.")
+
+    @patch("chat.views.chat_stream_with_failover")
+    def test_continue_does_not_create_a_new_message(self, mock_chat_stream):
+        _um, am = append_turn(self.session, "tell me a story", "Once upon a time")
+        mock_chat_stream.return_value = iter(["more."])
+        count_before = Message.objects.count()
+        response = self.client.post(reverse("continue_message", args=[am.id]), {"model_id": "cyber-max"})
+        b"".join(response.streaming_content)
+        self.assertEqual(Message.objects.count(), count_before)
+
+    def test_cannot_continue_another_users_message(self):
+        foreign_session = ChatSession.objects.create(user=self.other_user, title="Not yours")
+        _um, am = append_turn(foreign_session, "hi", "hello")
+        response = self.client.post(reverse("continue_message", args=[am.id]), {"model_id": "cyber-max"})
+        self.assertEqual(response.status_code, 404)
+
+
+class ProviderFailoverTests(TestCase):
+    """Unit-level coverage for chat_stream_with_failover itself (not routed
+    through a view) - the view-level tests above only ever mock this
+    function wholesale, so they can't exercise its own retry/switch/raise
+    logic. Patches chat.services.ai_router.get_provider (the name actually
+    bound inside ai_router's own module namespace at import time) rather
+    than chat.services.provider_manager.get_provider - patching the latter
+    has no effect here, since ai_router already holds its own reference from
+    `from chat.services.provider_manager import get_provider`."""
+
+    def test_no_failure_never_switches(self):
+        from chat.services.ai_router import chat_stream_with_failover
+        with patch("chat.services.ai_router.get_provider") as mock_get_provider:
+            mock_get_provider.return_value.chat_stream.return_value = iter(["hello", " world"])
+            switches = []
+            out = list(chat_stream_with_failover(
+                "cyber-max", [{"role": "user", "content": "hi"}], on_switch=switches.append,
+            ))
+        self.assertEqual(out, ["hello", " world"])
+        self.assertEqual(switches, [])
+
+    def test_primary_fails_falls_over_to_next_candidate(self):
+        from chat.services.ai_router import chat_stream_with_failover
+        from chat.services.model_registry import get_model_config
+
+        def flaky(messages, model, **kwargs):
+            if model == get_model_config("cyber-max").actual_model:
+                raise RuntimeError("simulated provider outage")
+            return iter(["fallback", " response"])
+
+        with patch("chat.services.ai_router.get_provider") as mock_get_provider:
+            mock_get_provider.return_value.chat_stream.side_effect = flaky
+            switches = []
+            out = list(chat_stream_with_failover(
+                "cyber-max", [{"role": "user", "content": "hi"}], on_switch=switches.append,
+            ))
+        self.assertEqual(out, ["fallback", " response"])
+        self.assertEqual(switches, ["nova-mind"])
+
+    def test_all_candidates_failing_raises_last_error(self):
+        from chat.services.ai_router import chat_stream_with_failover
+        with patch("chat.services.ai_router.get_provider") as mock_get_provider:
+            mock_get_provider.return_value.chat_stream.side_effect = RuntimeError("total outage")
+            with self.assertRaises(RuntimeError):
+                list(chat_stream_with_failover(
+                    "cyber-max", [{"role": "user", "content": "hi"}], retries_per_model=1,
+                ))
+
+    def test_empty_response_is_not_treated_as_a_failure(self):
+        from chat.services.ai_router import chat_stream_with_failover
+        with patch("chat.services.ai_router.get_provider") as mock_get_provider:
+            mock_get_provider.return_value.chat_stream.return_value = iter([])
+            switches = []
+            out = list(chat_stream_with_failover(
+                "cyber-max", [{"role": "user", "content": "hi"}], on_switch=switches.append,
+            ))
+        self.assertEqual(out, [])
+        self.assertEqual(switches, [])
+
+    def test_view_shows_transient_switch_notice_without_persisting_it(self):
+        """End-to-end through ask_ai: a switch notice appears in the live
+        stream but the saved Message.content stays exactly the model's real
+        output - a stray literal "_(Switched to...)_ " permanently glued
+        onto every future reload of this reply would be a real regression."""
+        user = get_user_model().objects.create_user(username="failover_user", password="x")
+        self.client.force_login(user)
+
+        def flaky(messages, model, **kwargs):
+            from chat.services.model_registry import get_model_config
+            if model == get_model_config("cyber-max").actual_model:
+                raise RuntimeError("simulated outage")
+            return iter(["real", " answer"])
+
+        with patch("chat.services.ai_router.get_provider") as mock_get_provider, \
+             patch("chat.services.conversation_intelligence.ai_chat") as mock_title_chat:
+            mock_get_provider.return_value.chat_stream.side_effect = flaky
+            mock_title_chat.return_value = "Some Title"
+            response = self.client.post(
+                reverse("ask_ai"), {"query": "hi", "model_id": "cyber-max"},
+            )
+            body = b"".join(response.streaming_content).decode()
+
+        self.assertIn("Switched to", body)
+        saved = Message.objects.filter(session__user=user, role="assistant").first()
+        self.assertEqual(saved.content, "real answer")
+        self.assertNotIn("Switched to", saved.content)
+
+
+class SmartModelRoutingTests(TestCase):
+    """Part 3 - resolve_model_id/choose_model unit coverage, plus one
+    end-to-end check through ask_ai confirming "auto" never reaches
+    get_model_config (which would 400 with "Invalid model selection")."""
+
+    def setUp(self):
+        self.user = get_user_model().objects.create_user(username="router_user", password="x")
+        self.client.force_login(self.user)
+
+    def test_manual_model_id_passes_through_unchanged(self):
+        from chat.services.smart_router import resolve_model_id
+        self.assertEqual(resolve_model_id("sky-net-mini", "anything", False, "cyber-max"), "sky-net-mini")
+
+    def test_short_query_routes_to_fast_model(self):
+        from chat.services.smart_router import resolve_model_id, FAST_MODEL
+        self.assertEqual(resolve_model_id("auto", "hi", False, "cyber-max"), FAST_MODEL)
+
+    def test_complex_query_routes_to_capable_model(self):
+        from chat.services.smart_router import resolve_model_id, CAPABLE_MODEL
+        long_query = "Please explain in detail, step by step, the tradeoffs of eventual consistency. " * 3
+        self.assertEqual(resolve_model_id("auto", long_query, False, "nova-mind"), CAPABLE_MODEL)
+
+    def test_image_attachment_routes_to_vision_model(self):
+        from chat.services.smart_router import resolve_model_id, VISION_MODEL
+        self.assertEqual(resolve_model_id("auto", "what is this?", True, "cyber-max"), VISION_MODEL)
+
+    def test_ordinary_query_falls_back_to_users_default_model(self):
+        from chat.services.smart_router import resolve_model_id
+        self.assertEqual(
+            resolve_model_id("auto", "What's a good approach for organizing my notes app?", False, "sky-net-mini"),
+            "sky-net-mini",
+        )
+
+    def test_ask_ai_with_auto_model_id_does_not_error(self):
+        with patch("chat.services.ai_router.get_provider") as mock_get_provider, \
+             patch("chat.services.conversation_intelligence.ai_chat") as mock_title_chat:
+            mock_get_provider.return_value.chat_stream.return_value = iter(["ok"])
+            mock_title_chat.return_value = "Some Title"
+            response = self.client.post(reverse("ask_ai"), {"query": "hi", "model_id": "auto"})
+            self.assertEqual(response.status_code, 200)
+            body = b"".join(response.streaming_content).decode()
+        self.assertNotIn("Invalid model selection", body)
+        self.assertEqual(Message.objects.filter(session__user=self.user, role="assistant").first().content, "ok")
+
+
+class ConversationMemoryTests(TestCase):
+    """Part 2 - AI memory: context-window sizing, summarization triggering/
+    merging, and the memory_enabled-gated fact extraction/recall loop."""
+
+    def setUp(self):
+        self.user = get_user_model().objects.create_user(username="memory_user", password="x")
+        self.session = ChatSession.objects.create(user=self.user, title="Memory chat")
+
+    def test_build_context_messages_shape(self):
+        from chat.services.conversation_memory import build_context_messages
+        append_turn(self.session, "hi", "hello")
+        messages = build_context_messages(self.session, "how are you", "SYS")
+        self.assertEqual(messages[0], {"role": "system", "content": "SYS"})
+        self.assertEqual(messages[-1], {"role": "user", "content": "how are you"})
+
+    def test_no_summarization_below_threshold(self):
+        from chat.services.conversation_memory import maybe_summarize_session
+        append_turn(self.session, "hi", "hello")
+        with patch("chat.services.conversation_memory.ai_chat") as mock_ai_chat:
+            maybe_summarize_session(self.session)
+        mock_ai_chat.assert_not_called()
+        self.session.refresh_from_db()
+        self.assertEqual(self.session.summary, "")
+
+    def test_summarization_triggers_past_threshold_and_injects_into_context(self):
+        from chat.services.conversation_memory import maybe_summarize_session, build_context_messages
+        for i in range(15):
+            append_turn(self.session, f"q{i}", f"a{i}")
+        with patch("chat.services.conversation_memory.ai_chat") as mock_ai_chat:
+            mock_ai_chat.return_value = "Compact summary of the early turns."
+            maybe_summarize_session(self.session)
+            self.assertTrue(mock_ai_chat.called)
+            self.assertEqual(mock_ai_chat.call_args[0][0], "nova-mind")
+
+        self.session.refresh_from_db()
+        self.assertEqual(self.session.summary, "Compact summary of the early turns.")
+        self.assertEqual(self.session.summary_message_count, 30)
+
+        messages = build_context_messages(self.session, "new question", "SYS")
+        system_contents = [m["content"] for m in messages if m["role"] == "system"]
+        self.assertTrue(any("Compact summary" in c for c in system_contents))
+
+    def test_fact_extraction_is_gated_by_caller_not_automatic(self):
+        """extract_and_store_facts has no memory_enabled check of its own -
+        it's the caller's job (ask_ai only calls it when profile.memory_enabled
+        is True). Verifies the function itself still runs and stores facts
+        when invoked directly, and that the one-shot flag then blocks re-runs."""
+        from chat.services.conversation_memory import extract_and_store_facts
+        for i in range(3):
+            append_turn(self.session, f"q{i}", f"a{i}")
+
+        with patch("chat.services.conversation_memory.ai_chat") as mock_ai_chat:
+            mock_ai_chat.return_value = "Works as a backend engineer\nPrefers concise answers"
+            extract_and_store_facts(self.user, self.session)
+
+        facts = set(UserFact.objects.filter(user=self.user).values_list("fact", flat=True))
+        self.assertEqual(facts, {"Works as a backend engineer", "Prefers concise answers"})
+
+        self.session.refresh_from_db()
+        self.assertTrue(self.session.facts_extracted)
+
+        with patch("chat.services.conversation_memory.ai_chat") as mock_ai_chat_again:
+            extract_and_store_facts(self.user, self.session)
+        mock_ai_chat_again.assert_not_called()
+
+    def test_fact_extraction_none_response_stores_nothing(self):
+        from chat.services.conversation_memory import extract_and_store_facts
+        for i in range(3):
+            append_turn(self.session, f"q{i}", f"a{i}")
+        with patch("chat.services.conversation_memory.ai_chat") as mock_ai_chat:
+            mock_ai_chat.return_value = "NONE"
+            extract_and_store_facts(self.user, self.session)
+        self.assertEqual(UserFact.objects.filter(user=self.user).count(), 0)
+
+    def test_get_user_memory_context_empty_when_no_facts(self):
+        from chat.services.conversation_memory import get_user_memory_context
+        self.assertEqual(get_user_memory_context(self.user), "")
+
+    def test_get_user_memory_context_formats_stored_facts(self):
+        from chat.services.conversation_memory import get_user_memory_context
+        UserFact.objects.create(user=self.user, fact="Name is Alex")
+        context = get_user_memory_context(self.user)
+        self.assertIn("Name is Alex", context)
+
+    def test_clear_memory_deletes_only_this_users_facts(self):
+        other = get_user_model().objects.create_user(username="other_memory_user", password="x")
+        UserFact.objects.create(user=self.user, fact="mine")
+        UserFact.objects.create(user=other, fact="not mine")
+        self.client.force_login(self.user)
+        response = self.client.post(reverse("clear_memory"))
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(UserFact.objects.filter(user=self.user).count(), 0)
+        self.assertEqual(UserFact.objects.filter(user=other).count(), 1)
+
+
+class ConversationIntelligenceTests(TestCase):
+    """Part 6 - AI-generated titles (once, first-turn-only, never overwriting
+    a user's own rename), on-demand follow-up suggestions, and the
+    word-overlap "related conversations" heuristic."""
+
+    def setUp(self):
+        self.user = get_user_model().objects.create_user(username="intel_user", password="x")
+        self.client.force_login(self.user)
+
+    def test_generic_title_gets_upgraded_on_first_turn(self):
+        from chat.services.conversation_intelligence import maybe_generate_smart_title
+        session = ChatSession.objects.create(user=self.user, title="New Chat")
+        with patch("chat.services.conversation_intelligence.ai_chat") as mock_ai_chat:
+            mock_ai_chat.return_value = "Trip Planning Ideas"
+            maybe_generate_smart_title(session, "help me plan a trip", "Sure, where to?")
+        session.refresh_from_db()
+        self.assertEqual(session.title, "Trip Planning Ideas")
+
+    def test_user_renamed_title_is_never_overwritten(self):
+        from chat.services.conversation_intelligence import maybe_generate_smart_title
+        session = ChatSession.objects.create(user=self.user, title="My Custom Name")
+        with patch("chat.services.conversation_intelligence.ai_chat") as mock_ai_chat:
+            maybe_generate_smart_title(session, "hello", "hi there")
+        mock_ai_chat.assert_not_called()
+        session.refresh_from_db()
+        self.assertEqual(session.title, "My Custom Name")
+
+    def test_title_only_generated_once_per_session_via_ask_ai(self):
+        with patch("chat.services.ai_router.get_provider") as mock_get_provider, \
+             patch("chat.services.conversation_intelligence.ai_chat") as mock_title_chat:
+            mock_get_provider.return_value.chat_stream.return_value = iter(["answer one"])
+            mock_title_chat.return_value = "Generated Title"
+            r1 = self.client.post(reverse("ask_ai"), {"query": "first question", "model_id": "cyber-max"})
+            b"".join(r1.streaming_content)
+
+        session = ChatSession.objects.get(user=self.user)
+        self.assertEqual(session.title, "Generated Title")
+
+        with patch("chat.services.ai_router.get_provider") as mock_get_provider, \
+             patch("chat.services.conversation_intelligence.ai_chat") as mock_title_chat:
+            mock_get_provider.return_value.chat_stream.return_value = iter(["answer two"])
+            r2 = self.client.post(
+                reverse("ask_ai"), {"query": "second question", "model_id": "cyber-max", "session_id": session.id},
+            )
+            b"".join(r2.streaming_content)
+            mock_title_chat.assert_not_called()
+
+    def test_suggest_followups_endpoint(self):
+        session = ChatSession.objects.create(user=self.user, title="Chat")
+        append_turn(session, "hi", "hello there")
+        with patch("chat.services.conversation_intelligence.ai_chat") as mock_ai_chat:
+            mock_ai_chat.return_value = "Follow-up one\nFollow-up two\nFollow-up three"
+            response = self.client.get(reverse("session_suggest_followups", args=[session.id]))
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.json()["suggestions"]), 3)
+
+    def test_suggest_followups_empty_for_session_with_no_reply_yet(self):
+        session = ChatSession.objects.create(user=self.user, title="Empty chat")
+        response = self.client.get(reverse("session_suggest_followups", args=[session.id]))
+        self.assertEqual(response.json()["suggestions"], [])
+
+    def test_cannot_suggest_followups_for_another_users_session(self):
+        other = get_user_model().objects.create_user(username="other_intel_user", password="x")
+        foreign_session = ChatSession.objects.create(user=other, title="Not yours")
+        response = self.client.get(reverse("session_suggest_followups", args=[foreign_session.id]))
+        self.assertEqual(response.status_code, 404)
+
+    def test_related_conversations_matches_on_title_word_overlap(self):
+        session = ChatSession.objects.create(user=self.user, title="Django REST API design")
+        related = ChatSession.objects.create(user=self.user, title="REST API authentication in Django")
+        unrelated = ChatSession.objects.create(user=self.user, title="Baking sourdough bread")
+        response = self.client.get(reverse("session_related_conversations", args=[session.id]))
+        result_ids = {r["id"] for r in response.json()["results"]}
+        self.assertIn(related.id, result_ids)
+        self.assertNotIn(unrelated.id, result_ids)
+
+    def test_related_conversations_excludes_archived_sessions(self):
+        session = ChatSession.objects.create(user=self.user, title="Django REST API design")
+        ChatSession.objects.create(user=self.user, title="Django REST API testing", is_archived=True)
+        response = self.client.get(reverse("session_related_conversations", args=[session.id]))
+        self.assertEqual(response.json()["results"], [])
+
+
+class PromptLibraryTests(TestCase):
+    """Part 5 - SavedPrompt CRUD, search/category/favorite filtering, use_count
+    tracking, and the recent-prompts view that reads real message history
+    instead of a separate log."""
+
+    def setUp(self):
+        self.user = get_user_model().objects.create_user(username="prompt_user", password="x")
+        self.other_user = get_user_model().objects.create_user(username="other_prompt_user", password="x")
+        self.client.force_login(self.user)
+
+    def test_create_prompt(self):
+        response = self.client.post(reverse("create_saved_prompt"), {
+            "title": "Code Review", "content": "Review this: ", "category": "Coding",
+        })
+        self.assertEqual(response.status_code, 200)
+        prompt = SavedPrompt.objects.get(user=self.user)
+        self.assertEqual(prompt.title, "Code Review")
+        self.assertEqual(prompt.category, "Coding")
+
+    def test_create_rejects_empty_content(self):
+        response = self.client.post(reverse("create_saved_prompt"), {"title": "Empty", "content": ""})
+        self.assertEqual(response.status_code, 400)
+        self.assertFalse(SavedPrompt.objects.filter(user=self.user).exists())
+
+    def test_create_falls_back_to_content_prefix_when_title_blank(self):
+        response = self.client.post(reverse("create_saved_prompt"), {"content": "A prompt with no explicit title"})
+        prompt_id = response.json()["prompt"]["id"]
+        prompt = SavedPrompt.objects.get(id=prompt_id)
+        self.assertTrue(prompt.title)
+
+    def test_search_matches_title_and_content(self):
+        SavedPrompt.objects.create(user=self.user, title="Alpha", content="something about bugs")
+        SavedPrompt.objects.create(user=self.user, title="Beta", content="unrelated text")
+        response = self.client.get(reverse("saved_prompts_list"), {"q": "bugs"})
+        titles = [p["title"] for p in response.json()["results"]]
+        self.assertEqual(titles, ["Alpha"])
+
+    def test_category_filter(self):
+        SavedPrompt.objects.create(user=self.user, title="A", content="x", category="Coding")
+        SavedPrompt.objects.create(user=self.user, title="B", content="y", category="Writing")
+        response = self.client.get(reverse("saved_prompts_list"), {"category": "Writing"})
+        titles = [p["title"] for p in response.json()["results"]]
+        self.assertEqual(titles, ["B"])
+
+    def test_favorites_filter(self):
+        SavedPrompt.objects.create(user=self.user, title="Fav", content="x", is_favorite=True)
+        SavedPrompt.objects.create(user=self.user, title="NotFav", content="y")
+        response = self.client.get(reverse("saved_prompts_list"), {"favorites": "1"})
+        titles = [p["title"] for p in response.json()["results"]]
+        self.assertEqual(titles, ["Fav"])
+
+    def test_use_prompt_increments_count_and_returns_content(self):
+        prompt = SavedPrompt.objects.create(user=self.user, title="A", content="the content")
+        response = self.client.post(reverse("use_saved_prompt", args=[prompt.id]))
+        self.assertEqual(response.json()["content"], "the content")
+        prompt.refresh_from_db()
+        self.assertEqual(prompt.use_count, 1)
+        self.client.post(reverse("use_saved_prompt", args=[prompt.id]))
+        prompt.refresh_from_db()
+        self.assertEqual(prompt.use_count, 2)
+
+    def test_update_prompt_fields(self):
+        prompt = SavedPrompt.objects.create(user=self.user, title="Old", content="x", category="A")
+        response = self.client.post(reverse("update_saved_prompt", args=[prompt.id]), {
+            "title": "New", "category": "B", "is_favorite": "1",
+        })
+        self.assertEqual(response.status_code, 200)
+        prompt.refresh_from_db()
+        self.assertEqual(prompt.title, "New")
+        self.assertEqual(prompt.category, "B")
+        self.assertTrue(prompt.is_favorite)
+
+    def test_delete_prompt(self):
+        prompt = SavedPrompt.objects.create(user=self.user, title="A", content="x")
+        response = self.client.post(reverse("delete_saved_prompt", args=[prompt.id]))
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(SavedPrompt.objects.filter(id=prompt.id).exists())
+
+    def test_cannot_access_another_users_prompts(self):
+        foreign_prompt = SavedPrompt.objects.create(user=self.other_user, title="Not yours", content="x")
+        self.assertEqual(self.client.post(reverse("delete_saved_prompt", args=[foreign_prompt.id])).status_code, 404)
+        self.assertEqual(self.client.post(reverse("update_saved_prompt", args=[foreign_prompt.id]), {"title": "hi"}).status_code, 404)
+        self.assertEqual(self.client.post(reverse("use_saved_prompt", args=[foreign_prompt.id])).status_code, 404)
+
+    def test_list_only_returns_own_prompts(self):
+        SavedPrompt.objects.create(user=self.user, title="Mine", content="x")
+        SavedPrompt.objects.create(user=self.other_user, title="Not mine", content="y")
+        response = self.client.get(reverse("saved_prompts_list"))
+        titles = [p["title"] for p in response.json()["results"]]
+        self.assertEqual(titles, ["Mine"])
+
+    def test_recent_prompts_reads_from_message_history_and_dedupes(self):
+        session = ChatSession.objects.create(user=self.user, title="Chat")
+        append_turn(session, "What is Django?", "A web framework")
+        append_turn(session, "What is Python?", "A programming language")
+        append_turn(session, "What is Django?", "A web framework")
+        response = self.client.get(reverse("recent_prompts"))
+        contents = [r["content"] for r in response.json()["results"]]
+        self.assertEqual(len(contents), 2)
+        self.assertIn("What is Django?", contents)
+        self.assertIn("What is Python?", contents)
+
+    def test_recent_prompts_only_own_history(self):
+        other_session = ChatSession.objects.create(user=self.other_user, title="Other chat")
+        append_turn(other_session, "Someone else's question", "answer")
+        response = self.client.get(reverse("recent_prompts"))
+        self.assertEqual(response.json()["results"], [])
+
+
+class SuccessErrorRateTests(TestCase):
+    """Part 7 - failed AI calls now record a UsageEvent(success=False)
+    alongside the pre-existing successful ones, so success/error rate is a
+    real aggregate. Also guards the quota-isolation requirement: a failed
+    call must never itself count against check_rate_limit/check_daily_limit."""
+
+    def setUp(self):
+        self.user = get_user_model().objects.create_user(username="rate_user", password="x")
+        self.client.force_login(self.user)
+
+    def test_failed_chat_request_records_unsuccessful_usage_event(self):
+        with patch("chat.services.ai_router.get_provider") as mock_get_provider:
+            mock_get_provider.return_value.chat_stream.side_effect = RuntimeError("outage")
+            response = self.client.post(reverse("ask_ai"), {"query": "hi", "model_id": "cyber-max"})
+            b"".join(response.streaming_content)
+
+        event = UsageEvent.objects.get(user=self.user)
+        self.assertFalse(event.success)
+        self.assertEqual(event.prompt_tokens, 0)
+        self.assertEqual(event.estimated_cost_usd, 0)
+
+    def test_successful_request_still_records_success_true(self):
+        with patch("chat.services.ai_router.get_provider") as mock_get_provider, \
+             patch("chat.services.conversation_intelligence.ai_chat") as mock_title:
+            mock_get_provider.return_value.chat_stream.return_value = iter(["a real reply"])
+            mock_title.return_value = "Title"
+            response = self.client.post(reverse("ask_ai"), {"query": "hi", "model_id": "cyber-max"})
+            b"".join(response.streaming_content)
+
+        event = UsageEvent.objects.get(user=self.user)
+        self.assertTrue(event.success)
+
+    def test_failed_request_does_not_consume_rate_limit_quota(self):
+        from chat.services.usage import check_rate_limit
+        with patch("chat.services.ai_router.get_provider") as mock_get_provider:
+            mock_get_provider.return_value.chat_stream.side_effect = RuntimeError("outage")
+            for _ in range(5):
+                response = self.client.post(reverse("ask_ai"), {"query": "hi", "model_id": "cyber-max"})
+                b"".join(response.streaming_content)
+        self.assertTrue(check_rate_limit(self.user))
+
+    def test_failed_request_does_not_consume_daily_quota(self):
+        from chat.services.usage import check_daily_limit
+        with patch("chat.services.ai_router.get_provider") as mock_get_provider:
+            mock_get_provider.return_value.chat_stream.side_effect = RuntimeError("outage")
+            response = self.client.post(reverse("ask_ai"), {"query": "hi", "model_id": "cyber-max"})
+            b"".join(response.streaming_content)
+        allowed, reason = check_daily_limit(self.user, "chat")
+        self.assertTrue(allowed)
+        self.assertIsNone(reason)
+
+    def test_analytics_success_rate_reflects_mixed_outcomes(self):
+        UsageEvent.objects.create(user=self.user, provider="groq", model_id="cyber-max", event_type="chat", success=True)
+        UsageEvent.objects.create(user=self.user, provider="groq", model_id="cyber-max", event_type="chat", success=True)
+        UsageEvent.objects.create(user=self.user, provider="groq", model_id="cyber-max", event_type="chat", success=False)
+        response = self.client.get(reverse("analytics_dashboard"))
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["success_rate"], 66.7)
+        self.assertEqual(response.context["failed_attempts"], 1)
+        self.assertEqual(response.context["total_attempts"], 3)
+        # total_requests (the pre-existing metric) stays scoped to
+        # successes only - it must not be inflated by the failed attempt.
+        self.assertEqual(response.context["total_requests"], 2)
+
+    def test_analytics_success_rate_defaults_to_100_with_no_events(self):
+        response = self.client.get(reverse("analytics_dashboard"))
+        self.assertEqual(response.context["success_rate"], 100.0)
+
+
+class BackgroundProcessingCommandTests(TestCase):
+    """Part 8 - the two management commands meant to run on a schedule
+    (Render Cron Job) rather than inline in a request."""
+
+    def setUp(self):
+        self.user = get_user_model().objects.create_user(username="cmd_user", password="x")
+
+    def test_summarize_stale_sessions_only_touches_sessions_past_threshold(self):
+        from django.core.management import call_command
+        from chat.services.conversation_memory import SUMMARIZE_EVERY_N_MESSAGES
+
+        stale_session = ChatSession.objects.create(user=self.user, title="Stale")
+        for i in range(SUMMARIZE_EVERY_N_MESSAGES // 2 + 1):
+            append_turn(stale_session, f"q{i}", f"a{i}")
+
+        fresh_session = ChatSession.objects.create(user=self.user, title="Fresh")
+        append_turn(fresh_session, "hi", "hello")
+
+        with patch("chat.services.conversation_memory.ai_chat") as mock_ai_chat:
+            mock_ai_chat.return_value = "Batch summary."
+            call_command("summarize_stale_sessions")
+
+        stale_session.refresh_from_db()
+        fresh_session.refresh_from_db()
+        self.assertTrue(stale_session.summary)
+        self.assertFalse(fresh_session.summary)
+
+    def test_summarize_stale_sessions_respects_limit(self):
+        from django.core.management import call_command
+        from chat.services.conversation_memory import SUMMARIZE_EVERY_N_MESSAGES
+
+        for n in range(3):
+            s = ChatSession.objects.create(user=self.user, title=f"Stale {n}")
+            for i in range(SUMMARIZE_EVERY_N_MESSAGES // 2 + 1):
+                append_turn(s, f"q{i}", f"a{i}")
+
+        with patch("chat.services.conversation_memory.ai_chat") as mock_ai_chat:
+            mock_ai_chat.return_value = "Batch summary."
+            call_command("summarize_stale_sessions", limit=1)
+
+        summarized_count = ChatSession.objects.filter(user=self.user).exclude(summary="").count()
+        self.assertEqual(summarized_count, 1)
+
+    def test_cleanup_removes_expired_sessions_and_orphaned_user_sessions(self):
+        from django.core.management import call_command
+        from django.contrib.sessions.models import Session
+
+        Session.objects.create(
+            session_key="expiredkey123", session_data="x",
+            expire_date=timezone.now() - timedelta(days=1),
+        )
+        UserSession.objects.create(user=self.user, session_key="expiredkey123", ip_address="1.2.3.4")
+        UserSession.objects.create(user=self.user, session_key="never-existed", ip_address="1.2.3.4")
+
+        call_command("cleanup_stale_data")
+
+        self.assertFalse(Session.objects.filter(session_key="expiredkey123").exists())
+        self.assertEqual(UserSession.objects.filter(user=self.user).count(), 0)
+
+    def test_cleanup_deletes_old_resolved_errors_but_keeps_unresolved_and_recent(self):
+        from django.core.management import call_command
+
+        old_resolved = ErrorLog.objects.create(category="chat_provider", message="old", resolved=True)
+        ErrorLog.objects.filter(id=old_resolved.id).update(resolved_at=timezone.now() - timedelta(days=100))
+
+        recent_resolved = ErrorLog.objects.create(category="chat_provider", message="recent", resolved=True)
+        ErrorLog.objects.filter(id=recent_resolved.id).update(resolved_at=timezone.now() - timedelta(days=5))
+
+        old_unresolved = ErrorLog.objects.create(category="chat_provider", message="unresolved", resolved=False)
+        ErrorLog.objects.filter(id=old_unresolved.id).update(last_seen=timezone.now() - timedelta(days=300))
+
+        call_command("cleanup_stale_data")
+
+        self.assertFalse(ErrorLog.objects.filter(id=old_resolved.id).exists())
+        self.assertTrue(ErrorLog.objects.filter(id=recent_resolved.id).exists())
+        self.assertTrue(ErrorLog.objects.filter(id=old_unresolved.id).exists())
+
+
+class FolderManagementTests(TestCase):
+    """UI-polish task, Part 3 - full folder workflow: create, rename
+    (including merge-on-collision), delete (unfiles, never deletes chats),
+    recolor, and cross-user isolation. Membership stays on
+    ChatSession.folder (a string) - Folder is metadata only, so these tests
+    also guard that the two never drift out of sync."""
+
+    def setUp(self):
+        self.user = get_user_model().objects.create_user(username="folder_user", password="x")
+        self.other_user = get_user_model().objects.create_user(username="other_folder_user", password="x")
+        self.client.force_login(self.user)
+
+    def test_create_folder(self):
+        response = self.client.post(reverse("create_folder"), {"name": "Work"})
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(Folder.objects.filter(user=self.user, name="Work").exists())
+
+    def test_create_duplicate_folder_rejected(self):
+        Folder.objects.create(user=self.user, name="Work")
+        response = self.client.post(reverse("create_folder"), {"name": "Work"})
+        self.assertEqual(response.status_code, 400)
+
+    def test_create_folder_rejects_blank_name(self):
+        response = self.client.post(reverse("create_folder"), {"name": "  "})
+        self.assertEqual(response.status_code, 400)
+
+    def test_moving_chat_into_folder_lazily_creates_metadata_row(self):
+        session = ChatSession.objects.create(user=self.user, title="Chat")
+        response = self.client.post(reverse("set_session_folder", args=[session.id]), {"folder": "Ideas"})
+        self.assertEqual(response.status_code, 200)
+        session.refresh_from_db()
+        self.assertEqual(session.folder, "Ideas")
+        self.assertTrue(Folder.objects.filter(user=self.user, name="Ideas").exists())
+
+    def test_rename_folder_updates_chats_and_metadata(self):
+        Folder.objects.create(user=self.user, name="Work", color="blue")
+        session = ChatSession.objects.create(user=self.user, title="Chat", folder="Work")
+        response = self.client.post(reverse("rename_folder"), {"old_name": "Work", "new_name": "Projects"})
+        self.assertEqual(response.status_code, 200)
+        session.refresh_from_db()
+        self.assertEqual(session.folder, "Projects")
+        self.assertFalse(Folder.objects.filter(user=self.user, name="Work").exists())
+        renamed = Folder.objects.get(user=self.user, name="Projects")
+        self.assertEqual(renamed.color, "blue")
+
+    def test_rename_folder_onto_existing_name_merges(self):
+        Folder.objects.create(user=self.user, name="Work")
+        Folder.objects.create(user=self.user, name="Projects")
+        s1 = ChatSession.objects.create(user=self.user, title="A", folder="Work")
+        s2 = ChatSession.objects.create(user=self.user, title="B", folder="Projects")
+        response = self.client.post(reverse("rename_folder"), {"old_name": "Work", "new_name": "Projects"})
+        self.assertEqual(response.status_code, 200)
+        s1.refresh_from_db()
+        s2.refresh_from_db()
+        self.assertEqual(s1.folder, "Projects")
+        self.assertEqual(s2.folder, "Projects")
+        self.assertEqual(Folder.objects.filter(user=self.user, name__in=["Work", "Projects"]).count(), 1)
+
+    def test_delete_folder_unfiles_chats_without_deleting_them(self):
+        Folder.objects.create(user=self.user, name="Work")
+        s1 = ChatSession.objects.create(user=self.user, title="A", folder="Work")
+        s2 = ChatSession.objects.create(user=self.user, title="B", folder="Work")
+        response = self.client.post(reverse("delete_folder"), {"name": "Work"})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["unfiled"], 2)
+        s1.refresh_from_db()
+        s2.refresh_from_db()
+        self.assertEqual(s1.folder, "")
+        self.assertEqual(s2.folder, "")
+        self.assertTrue(ChatSession.objects.filter(id__in=[s1.id, s2.id]).count() == 2)
+        self.assertFalse(Folder.objects.filter(user=self.user, name="Work").exists())
+
+    def test_set_folder_color(self):
+        Folder.objects.create(user=self.user, name="Work")
+        response = self.client.post(reverse("set_folder_color"), {"name": "Work", "color": "green"})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(Folder.objects.get(user=self.user, name="Work").color, "green")
+
+    def test_set_folder_color_rejects_invalid_color(self):
+        Folder.objects.create(user=self.user, name="Work")
+        response = self.client.post(reverse("set_folder_color"), {"name": "Work", "color": "invalid"})
+        self.assertEqual(response.status_code, 400)
+
+    def test_folder_actions_are_scoped_to_own_user(self):
+        Folder.objects.create(user=self.other_user, name="Secret")
+        ChatSession.objects.create(user=self.other_user, title="Not yours", folder="Secret")
+
+        self.client.post(reverse("delete_folder"), {"name": "Secret"})
+        self.assertTrue(Folder.objects.filter(user=self.other_user, name="Secret").exists())
+
+        self.client.post(reverse("rename_folder"), {"old_name": "Secret", "new_name": "Hacked"})
+        self.assertTrue(Folder.objects.filter(user=self.other_user, name="Secret").exists())
+        self.assertFalse(Folder.objects.filter(user=self.other_user, name="Hacked").exists())
+
+    def test_home_lists_folders_with_color_and_count(self):
+        Folder.objects.create(user=self.user, name="Work", color="blue")
+        ChatSession.objects.create(user=self.user, title="A", folder="Work")
+        ChatSession.objects.create(user=self.user, title="B", folder="Work")
+        response = self.client.get(reverse("home"))
+        folders = response.context["folders"]
+        work = next(f for f in folders if f["name"] == "Work")
+        self.assertEqual(work["color"], "blue")
+        self.assertEqual(work["count"], 2)
+
+    def test_home_lists_empty_folder_with_zero_count(self):
+        Folder.objects.create(user=self.user, name="Empty")
+        response = self.client.get(reverse("home"))
+        folders = response.context["folders"]
+        empty = next(f for f in folders if f["name"] == "Empty")
+        self.assertEqual(empty["count"], 0)

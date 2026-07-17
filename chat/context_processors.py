@@ -26,3 +26,17 @@ def rbac(request):
     return {
         'can_access_admin_console': can_access_admin_console(request.user),
     }
+
+
+def user_timezone(request):
+    """Exposes the same IANA timezone name TimezoneMiddleware activated for
+    this request, so any template's inline JS (Intl.DateTimeFormat /
+    toLocaleString calls that can't go through Django's `date` filter) can
+    format in the identical timezone instead of silently falling back to the
+    browser's own local time."""
+    user = getattr(request, 'user', None)
+    tzname = 'UTC'
+    if user and user.is_authenticated:
+        profile = getattr(user, 'profile', None)
+        tzname = getattr(profile, 'timezone', None) or 'UTC'
+    return {'user_timezone': tzname}

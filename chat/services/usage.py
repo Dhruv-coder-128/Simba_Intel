@@ -74,10 +74,31 @@ def record_usage(
     )
 
 
+def record_failure(user, session, provider: str, model_id: str, event_type: str, latency: Optional[float] = None) -> UsageEvent:
+    """Part 7 (AI Analytics) - the failure-side counterpart to record_usage,
+    used so success/error rate reflects real outcomes instead of being
+    unavailable. Zero tokens/cost (nothing was actually generated) and
+    success=False, which check_rate_limit/check_daily_limit both explicitly
+    exclude - a failed call must never consume the user's quota."""
+    return UsageEvent.objects.create(
+        user=user,
+        session=session,
+        provider=provider,
+        model_id=model_id,
+        event_type=event_type,
+        prompt_tokens=0,
+        completion_tokens=0,
+        estimated_cost_usd=0,
+        tokens_are_estimated=False,
+        latency=latency,
+        success=False,
+    )
+
+
 def check_rate_limit(user) -> bool:
     """True if `user` is still under the sliding-window request cap."""
     cutoff = timezone.now() - timedelta(minutes=RATE_LIMIT_WINDOW_MINUTES)
-    count = UsageEvent.objects.filter(user=user, created_at__gte=cutoff).count()
+    count = UsageEvent.objects.filter(user=user, created_at__gte=cutoff, success=True).count()
     return count < RATE_LIMIT_MAX_REQUESTS
 
 
@@ -93,7 +114,7 @@ def check_daily_limit(user, event_type: str) -> Tuple[bool, Optional[str]]:
         return True, None
 
     today = timezone.localdate()
-    todays_events = UsageEvent.objects.filter(user=user, created_at__date=today)
+    todays_events = UsageEvent.objects.filter(user=user, created_at__date=today, success=True)
 
     limit_field, label = DAILY_LIMIT_FIELDS.get(event_type, (None, None))
     if limit_field:

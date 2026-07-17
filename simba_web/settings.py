@@ -69,6 +69,9 @@ MIDDLEWARE = [
     # Needs request.user (set by AuthenticationMiddleware above) to let
     # superusers through during an active kill switch.
     'chat.middleware.MaintenanceModeMiddleware',
+    # Also needs request.user - activates the signed-in user's timezone for
+    # every timestamp rendered during this request (see middleware docstring).
+    'chat.middleware.TimezoneMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'allauth.account.middleware.AccountMiddleware',
@@ -88,6 +91,7 @@ TEMPLATES = [
                 'django.contrib.messages.context_processors.messages',
                 'chat.context_processors.feature_flags',
                 'chat.context_processors.rbac',
+                'chat.context_processors.user_timezone',
             ],
         },
     },

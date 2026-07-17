@@ -206,18 +206,59 @@
             box-shadow: var(--shadow-md);
             padding: 22px;
             margin-bottom: 16px;
+            opacity: 0;
+            animation: cardIn 0.35s ease forwards;
+            transition: border-color 0.2s ease, transform 0.2s ease;
+        }
+
+        .settings-card:hover {
+            border-color: rgba(var(--accent-rgb), 0.25);
+        }
+
+        .tab-panel .settings-card:nth-child(1) { animation-delay: 0.02s; }
+        .tab-panel .settings-card:nth-child(2) { animation-delay: 0.07s; }
+        .tab-panel .settings-card:nth-child(3) { animation-delay: 0.12s; }
+
+        @keyframes cardIn {
+            from { opacity: 0; transform: translateY(8px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Cards containing an irreversible/consequential action (regenerate
+           recovery code, clear memory, log out all devices) get a quiet
+           warm accent instead of blending in identically to every other
+           card - a "danger zone" cue without shouting. */
+        .settings-card.danger-zone {
+            border-color: rgba(255, 138, 76, 0.2);
+            border-left: 3px solid rgba(255, 138, 76, 0.45);
         }
 
         .card-title {
             display: flex;
             align-items: center;
-            gap: 10px;
+            gap: 12px;
             font-size: 15px;
             font-weight: 600;
             margin: 0 0 4px;
         }
 
-        .card-title i { color: var(--accent); }
+        .card-title-icon {
+            width: 32px;
+            height: 32px;
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: var(--radius-sm);
+            background: var(--accent-dim);
+            color: var(--accent);
+            font-size: 14px;
+        }
+
+        .danger-zone .card-title-icon {
+            background: rgba(255, 138, 76, 0.12);
+            color: #ff8a4c;
+        }
 
         .card-desc {
             font-size: 12.5px;
@@ -251,11 +292,24 @@
             font-family: 'Outfit', sans-serif;
             font-size: 14px;
             outline: none;
-            transition: border-color 0.15s ease;
+            transition: border-color 0.15s ease, box-shadow 0.15s ease;
+        }
+
+        .field select {
+            appearance: none;
+            -webkit-appearance: none;
+            padding-right: 34px;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6' fill='none'%3E%3Cpath d='M1 1L5 5L9 1' stroke='%238b93a3' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 12px center;
+            cursor: pointer;
         }
 
         .field input[type="text"]:focus,
-        .field select:focus { border-color: var(--accent-soft); }
+        .field select:focus {
+            border-color: var(--accent-soft);
+            box-shadow: 0 0 0 3px var(--accent-dim);
+        }
 
         .toggle-row {
             display: flex;
@@ -269,11 +323,67 @@
         .toggle-row .toggle-label { font-size: 14px; }
         .toggle-row .toggle-hint { font-size: 12px; color: var(--text-dim); margin-top: 2px; }
 
-        .toggle-row input[type="checkbox"] {
+        /* Pill toggle switch - replaces the native checkbox so state reads
+           at a glance (on/off position + colour) the way a control-center
+           settings page should, rather than a plain OS checkbox. */
+        .toggle-switch {
+            position: relative;
+            display: inline-block;
+            width: 42px;
+            height: 24px;
+            flex-shrink: 0;
+            cursor: pointer;
+        }
+
+        .toggle-switch input {
+            position: absolute;
+            opacity: 0;
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            cursor: pointer;
+        }
+
+        .toggle-switch-track {
+            position: absolute;
+            inset: 0;
+            background: var(--border-soft);
+            border: 1px solid var(--border-soft);
+            border-radius: 999px;
+            transition: background 0.2s ease, border-color 0.2s ease;
+        }
+
+        .toggle-switch-track::before {
+            content: "";
+            position: absolute;
+            top: 2px;
+            left: 2px;
             width: 18px;
             height: 18px;
-            accent-color: var(--accent);
-            cursor: pointer;
+            border-radius: 50%;
+            background: var(--text-dim);
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+            transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), background 0.2s ease;
+        }
+
+        .toggle-switch input:checked + .toggle-switch-track {
+            background: var(--accent-dim);
+            border-color: var(--accent);
+        }
+
+        .toggle-switch input:checked + .toggle-switch-track::before {
+            transform: translateX(18px);
+            background: var(--accent);
+        }
+
+        .toggle-switch input:focus-visible + .toggle-switch-track {
+            outline: 2px solid var(--accent-soft);
+            outline-offset: 2px;
+        }
+
+        .toggle-switch input:disabled + .toggle-switch-track {
+            opacity: 0.5;
+            cursor: not-allowed;
         }
 
         .theme-grid {
@@ -510,6 +620,29 @@
             color: var(--text-dim);
             padding: 8px 0;
         }
+
+        /* Micro-interactions (Part 10): consistent press feedback + focus
+           rings across every clickable control on this page. */
+        .save-btn:active,
+        .logout-btn:active,
+        .tab-nav-btn:active,
+        .session-logout-btn:active,
+        .folder-add-btn:active {
+            transform: scale(0.97);
+        }
+
+        .save-btn:focus-visible,
+        .logout-btn:focus-visible,
+        .tab-nav-btn:focus-visible,
+        a.back-link:focus-visible {
+            outline: 2px solid var(--accent-soft);
+            outline-offset: 2px;
+        }
+
+        .theme-option:focus-within .theme-swatch {
+            outline: 2px solid var(--accent-soft);
+            outline-offset: 2px;
+        }
     </style>
 </head>
 
@@ -573,12 +706,28 @@
                             </select>
                         </div>
 
+                        <div class="field">
+                            <label for="timezone">Timezone</label>
+                            <select id="timezone" name="timezone" onchange="document.getElementById('timezoneAutoNote').innerHTML = '<i class=\'fa-solid fa-circle-info\'></i> Will be saved as a manual choice and no longer auto-updated from your browser.';">
+                                {% for tz in timezone_choices %}
+                                <option value="{{ tz }}" {% if profile.timezone == tz %}selected{% endif %}>{{ tz }}</option>
+                                {% endfor %}
+                            </select>
+                            <div class="theme-preview-note" id="timezoneAutoNote" style="margin-top:8px;">
+                                <i class="fa-solid fa-circle-info"></i>
+                                {% if profile.timezone_auto %}Auto-detected from your browser. Picking a value here and saving will make it permanent.{% else %}Set manually - no longer auto-updated from your browser.{% endif %}
+                            </div>
+                        </div>
+
                         <div class="toggle-row">
                             <div>
                                 <div class="toggle-label">Memory</div>
-                                <div class="toggle-hint">Cross-chat recall (activates in a later update)</div>
+                                <div class="toggle-hint">Let Simba remember durable facts (name, role, ongoing projects) across separate conversations</div>
                             </div>
-                            <input type="checkbox" name="memory_enabled" {% if profile.memory_enabled %}checked{% endif %}>
+                            <label class="toggle-switch">
+                                <input type="checkbox" name="memory_enabled" {% if profile.memory_enabled %}checked{% endif %}>
+                                <span class="toggle-switch-track"></span>
+                            </label>
                         </div>
                     </div>
                 </div>
@@ -666,7 +815,10 @@
                                 <div class="toggle-label">Sound on response complete</div>
                                 <div class="toggle-hint">Plays a short chime when Simba finishes replying</div>
                             </div>
-                            <input type="checkbox" name="notifications_enabled" {% if profile.notifications_enabled %}checked{% endif %}>
+                            <label class="toggle-switch">
+                                <input type="checkbox" name="notifications_enabled" {% if profile.notifications_enabled %}checked{% endif %}>
+                                <span class="toggle-switch-track"></span>
+                            </label>
                         </div>
                     </div>
                 </div>
@@ -677,8 +829,16 @@
                         <p class="card-desc">What Simba Intel stores about your account.</p>
                         <div class="kv-row"><span>Conversation history</span><span>Stored until you delete it</span></div>
                         <div class="kv-row"><span>Cross-chat memory</span><span>{% if profile.memory_enabled %}Enabled{% else %}Disabled{% endif %}</span></div>
+                        <div class="kv-row"><span>Remembered facts</span><span id="memoryFactCount">{{ memory_fact_count }}</span></div>
                         <div class="kv-row"><span>Usage analytics</span><span>Visible only to you, at /analytics/</span></div>
                         <div class="danger-note"><i class="fa-solid fa-triangle-exclamation"></i> Individual conversations can be deleted from the sidebar's conversation menu - there's no bulk-delete yet.</div>
+                        {% if memory_fact_count %}
+                        <div style="margin-top:16px;">
+                            <button type="button" class="logout-btn" id="clearMemoryBtn" onclick="clearMemory()">
+                                <i class="fa-solid fa-brain"></i> CLEAR REMEMBERED FACTS
+                            </button>
+                        </div>
+                        {% endif %}
                     </div>
                 </div>
 
@@ -882,6 +1042,32 @@
                 .catch(() => alert('Network error - please try again.'));
         }
 
+        function clearMemory() {
+            const btn = document.getElementById('clearMemoryBtn');
+            if (btn.disabled) return;
+            if (!confirm('Delete everything Simba has remembered about you from past conversations? This cannot be undone.')) return;
+            btn.disabled = true;
+            fetch('{% url "clear_memory" %}', {
+                method: 'POST',
+                headers: { 'X-CSRFToken': csrfToken },
+                signal: AbortSignal.timeout(10000),
+            })
+                .then(res => res.json().then(data => ({ ok: res.ok, data })))
+                .then(({ ok }) => {
+                    if (ok) {
+                        document.getElementById('memoryFactCount').textContent = '0';
+                        btn.style.display = 'none';
+                    } else {
+                        btn.disabled = false;
+                        alert('Could not clear memory - please try again.');
+                    }
+                })
+                .catch(() => {
+                    btn.disabled = false;
+                    alert('Network error - please try again.');
+                });
+        }
+
         function regenerateRecoveryCode() {
             const btn = document.getElementById('regenRecoveryBtn');
             if (btn.disabled) return;
@@ -968,9 +1154,36 @@
             }
         })();
 
+        // Wrap each card-title's leading icon in a coloured tile - done once,
+        // here, rather than editing every "<h2 class=card-title><i ...>"
+        // occurrence in the template individually (same visual result, one
+        // change point instead of a dozen near-identical template edits).
+        document.querySelectorAll('.card-title').forEach(title => {
+            const icon = title.querySelector('i');
+            if (!icon || icon.closest('.card-title-icon')) return;
+            const tile = document.createElement('span');
+            tile.className = 'card-title-icon';
+            icon.replaceWith(tile);
+            tile.appendChild(icon);
+        });
+        ['regenRecoveryBtn', 'clearMemoryBtn'].forEach(id => {
+            const btn = document.getElementById(id);
+            if (btn) btn.closest('.settings-card')?.classList.add('danger-zone');
+        });
+
         document.getElementById('devActiveTheme').textContent = document.documentElement.getAttribute('data-theme') || 'cyberpunk';
         document.getElementById('devViewport').textContent = window.innerWidth + ' x ' + window.innerHeight;
         document.getElementById('devUserAgent').textContent = navigator.userAgent;
+
+        // Real form POST + redirect (not AJAX) - the page navigates away
+        // moments after this fires, so this is purely so a slower connection
+        // never leaves Save looking unresponsive in the meantime.
+        document.getElementById('settingsForm').addEventListener('submit', function () {
+            const btn = this.querySelector('.save-btn');
+            if (!btn || btn.disabled) return;
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> SAVING...';
+        });
     </script>
 </body>
 

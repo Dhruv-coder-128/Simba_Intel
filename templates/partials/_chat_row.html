@@ -1,0 +1,52 @@
+{% load l10n %}
+<div class="chat-item-container {% if s.id|stringformat:'s' == current_session.id|stringformat:'s' %}active-chat{% endif %}"
+     data-session-id="{{ s.id }}">
+    
+    <input type="checkbox" class="chat-bulk-checkbox" data-session-id="{{ s.id }}" onclick="event.stopPropagation(); onBulkCheckboxChange();" aria-label="Select conversation">
+
+    <a href="/?session={{ s.id }}{% if s.is_archived %}&view=archived{% endif %}" class="chat-link">
+        
+        <span class="chat-row-icons">
+            {% if s.color_label %}<span class="chat-color-dot chat-color-{{ s.color_label }}"></span>{% endif %}
+            {% if s.is_pinned %}<i class="fa-solid fa-thumbtack chat-pin-icon" title="Pinned"></i>{% endif %}
+            {% if s.is_favorite %}<i class="fa-solid fa-star chat-favorite-icon" title="Favorite"></i>{% endif %}
+            {% if s.folder %}<i class="fa-solid fa-folder chat-folder-icon" title="{{ s.folder }}"></i>{% endif %}
+        </span>
+        <span class="chat-link-marker">&gt;</span>
+        <span class="chat-link-title">{{ s.title }}</span>
+    </a>
+
+    <div class="side-menu">
+        <button class="side-menu-btn" onclick="toggleMenu(event, 'drop-{{ s.id }}')" aria-label="Conversation options">
+            <i class="fa-solid fa-ellipsis-vertical"></i>
+        </button>
+        <div id="drop-{{ s.id }}" class="side-dropdown">
+            <a href="javascript:void(0)" onclick="togglePin('{{ s.id }}')">
+                <i class="fa-solid fa-thumbtack"></i> {% if s.is_pinned %}Unpin{% else %}Pin{% endif %}
+            </a>
+            <a href="javascript:void(0)" onclick="toggleFavoriteSession('{{ s.id }}')">
+                <i class="fa-solid fa-star"></i> {% if s.is_favorite %}Unfavorite{% else %}Favorite{% endif %}
+            </a>
+            <a href="javascript:void(0)" onclick="renameChat('{{ s.id }}', '{{ s.title|escapejs }}')">
+                <i class="fa-solid fa-pen"></i> Rename
+            </a>
+            <a href="javascript:void(0)" onclick="duplicateChat('{{ s.id }}')">
+                <i class="fa-solid fa-copy"></i> Duplicate
+            </a>
+            <a href="javascript:void(0)" onclick="promptSetFolder('{{ s.id }}', '{{ s.folder|escapejs }}')">
+                <i class="fa-solid fa-folder"></i> Set Folder
+            </a>
+            <div class="side-dropdown-colors">
+                {% for value, label in s.COLOR_CHOICES %}
+                <button type="button" class="color-swatch {% if value %}color-swatch-{{ value }}{% else %}color-swatch-none{% endif %}" title="{{ label }}" onclick="setSessionColor('{{ s.id }}', '{{ value }}')"></button>
+                {% endfor %}
+            </div>
+            <a href="javascript:void(0)" onclick="toggleArchiveSession('{{ s.id }}')">
+                <i class="fa-solid fa-box-archive"></i> {% if s.is_archived %}Unarchive{% else %}Archive{% endif %}
+            </a>
+            <a href="javascript:void(0)" onclick="deleteChat('{{ s.id }}')" class="side-dropdown-danger">
+                <i class="fa-solid fa-trash"></i> Delete
+            </a>
+        </div>
+    </div>
+</div>

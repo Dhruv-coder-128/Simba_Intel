@@ -73,6 +73,28 @@ PROVIDER_DISPLAY_NAMES: Dict[str, str] = {
 }
 
 
+# Provider failover (Part 4) - ordered list of standby models tried, in
+# order, if the requested model's own provider call fails. Chosen to cross
+# providers wherever a same-capability standby exists on the other one (text
+# models fail over groq<->mistral), so a whole-provider outage doesn't take
+# the feature down with it - vision only has one integrated provider
+# (Mistral) today, so its chain can only fail over to another Mistral model,
+# which still isolates a single-model/endpoint problem even though it can't
+# survive a Mistral-wide outage. image-studio has no chain: Pollinations is
+# the only image provider integrated, so there's nothing to fail over to.
+FALLBACK_CHAINS: Dict[str, list] = {
+    "cyber-max": ["nova-mind", "sky-net-mini"],
+    "nova-mind": ["cyber-max", "sky-net-mini"],
+    "sky-net": ["sky-net-mini"],
+    "sky-net-pro": ["sky-net-mini"],
+    "sky-net-mini": ["sky-net"],
+}
+
+
+def get_fallback_chain(model_id: str) -> list:
+    return FALLBACK_CHAINS.get(model_id.lower(), [])
+
+
 def provider_display_name(provider: str) -> str:
     return PROVIDER_DISPLAY_NAMES.get(provider, "Simba Cloud")
 

@@ -3,6 +3,7 @@ import base64
 import os
 import time
 import uuid
+import zoneinfo
 from datetime import timedelta
 
 from django.contrib import messages
@@ -13,6 +14,7 @@ from django.core.exceptions import ValidationError
 from django.http import StreamingHttpResponse, JsonResponse
 from django.shortcuts import render, redirect, get_object_or_404
 from django.conf import settings
+from django.db import models
 from django.urls import reverse
 from django.utils import timezone
 import psutil
@@ -24,19 +26,32 @@ except ImportError:
     GPUtil_AVAILABLE = False
 
 from chat.models import ChatSession, Message, UserProfile, UsageEvent, RecoveryCode, Broadcast, UserSession, SecurityEvent, FeatureFlag
-from chat.services.ai_router import chat_stream, vision as ai_vision
+from chat.services.ai_router import chat_stream, chat_stream_with_failover, vision as ai_vision
 from chat.services.image_router import generate_image
 from chat.services.memory import get_conversation_history, build_messages, messages_to_history_dicts, SYSTEM_PROMPT
+from chat.services.conversation_memory import (
+    build_context_messages, maybe_summarize_session, extract_and_store_facts, get_user_memory_context,
+)
+from chat.services.conversation_intelligence import (
+    maybe_generate_smart_title, suggest_followups, find_related_conversations,
+)
 from chat.services.message_tree import (
     append_turn, build_display_messages, regenerate_assistant_reply, set_active_leaf, walk_chain_from,
 )
 from chat.services.model_registry import list_available_models, get_model_config, is_model_allowed_for_user
-from chat.services.usage import record_usage, check_rate_limit, check_daily_limit
+from chat.services.smart_router import resolve_model_id
+from chat.services.usage import record_usage, record_failure, check_rate_limit, check_daily_limit
 from chat.services.verification import is_email_verified, verification_required
 from chat.utils.logger import SimbaLogger
 from chat.utils.request_info import client_ip, raw_user_agent
 
 from chat.file_analyzer import analyze_file
+
+# Loaded once at import time (not per-request) - the same sorted list backs
+# both the Settings > General timezone <select> and server-side validation
+# in profile_settings/set_timezone, so a submitted value can never diverge
+# from what the dropdown actually offered.
+AVAILABLE_TIMEZONES = sorted(zoneinfo.available_timezones())
 
 
 logger = SimbaLogger()
@@ -112,10 +127,100 @@ def _is_search_query(query: str) -> bool:
     return any(keyword in query_lower for keyword in search_keywords)
 
 
+def _stream_with_failover(model_id, messages, on_usage):
+    """Shared by every stream_generator (ask_ai, regenerate_message,
+    edit_message, continue_message) - wraps chat_stream_with_failover and
+    tracks which model actually ends up serving the request. Returns
+    (token_generator, serving) - serving['model_id'] is only reliable once
+    the generator has been fully consumed (it flips the moment a switch
+    happens, which - by chat_stream_with_failover's own contract - is always
+    before the first token is yielded).
+
+    token_generator yields (text, is_notice) pairs rather than plain
+    strings: the switch notice must reach the live stream (so the user sees
+    it) but must NEVER be folded into the caller's full_response
+    accumulator, or it would get permanently saved into Message.content and
+    reappear every time that reply is reloaded. Every call site's loop is
+    `if not is_notice: full_response += text` before `yield text`.
+
+    Pulled into one place rather than repeated inline at all four call
+    sites: they're identical, and a copy-pasted mismatch between the
+    `on_switch` closure and the variable it updates is exactly the kind of
+    bug that's easy to introduce once and much harder to notice later."""
+    serving = {"model_id": model_id}
+
+    def on_switch(new_model_id):
+        serving["model_id"] = new_model_id
+
+    def token_generator():
+        for i, token in enumerate(chat_stream_with_failover(
+            model_id, messages, on_switch=on_switch, on_usage=on_usage,
+        )):
+            if i == 0 and serving["model_id"] != model_id:
+                switched_cfg = get_model_config(serving["model_id"])
+                yield (f"_(Switched to {switched_cfg.display_name} after a temporary provider issue)_\n\n", True)
+            yield (token, False)
+
+    return token_generator(), serving
+
+
 @login_required
 def chat_home(request):
     profile = UserProfile.get_or_create_for(request.user)
-    sessions = ChatSession.objects.filter(user=request.user).order_by('-is_pinned', '-id')
+
+    view_mode = request.GET.get('view', 'active')
+    folder_filter = request.GET.get('folder', '').strip()
+
+    base_qs = ChatSession.objects.filter(user=request.user, is_archived=(view_mode == 'archived'))
+    if folder_filter:
+        base_qs = base_qs.filter(folder=folder_filter)
+    sessions = list(base_qs.order_by('-is_pinned', '-id'))
+
+    # Pinned/Favorites are their own sections regardless of age; everything
+    # else is grouped into relative-date buckets (Today/Yesterday/Last 7
+    # Days/Last 30 Days/Older) computed here rather than in the template -
+    # Django templates have no built-in "group by relative date" filter, and
+    # a custom templatetag for a one-off grouping isn't worth the indirection.
+    pinned_sessions = [s for s in sessions if s.is_pinned]
+    favorite_sessions = [s for s in sessions if s.is_favorite and not s.is_pinned]
+    other_sessions = [s for s in sessions if not s.is_pinned and not s.is_favorite]
+
+    today = timezone.localdate()
+    grouped_sessions = {'today': [], 'yesterday': [], 'week': [], 'month': [], 'older': []}
+    for s in other_sessions:
+        session_date = timezone.localtime(s.created_at).date()
+        if session_date == today:
+            grouped_sessions['today'].append(s)
+        elif session_date == today - timedelta(days=1):
+            grouped_sessions['yesterday'].append(s)
+        elif session_date >= today - timedelta(days=7):
+            grouped_sessions['week'].append(s)
+        elif session_date >= today - timedelta(days=30):
+            grouped_sessions['month'].append(s)
+        else:
+            grouped_sessions['older'].append(s)
+
+    # Folders shown in the sidebar = the union of (a) folder names actually
+    # in use by a non-archived chat and (b) empty folders that only exist as
+    # a metadata row (created but nothing filed yet). Each carries its colour
+    # (from the Folder metadata row, default '' when none) and a live chat
+    # count, so the manager can show both without a query per folder.
+    from chat.models import Folder as FolderModel
+    from django.db.models import Count as _Count
+
+    used_counts = dict(
+        ChatSession.objects.filter(user=request.user, is_archived=False)
+        .exclude(folder='').values_list('folder').annotate(n=_Count('id'))
+    )
+    folder_colors = dict(
+        FolderModel.objects.filter(user=request.user).values_list('name', 'color')
+    )
+    folder_names = sorted(set(used_counts) | set(folder_colors), key=str.lower)
+    folders = [
+        {'name': name, 'color': folder_colors.get(name, ''), 'count': used_counts.get(name, 0)}
+        for name in folder_names
+    ]
+
     session_id = request.GET.get('session')
     messages = []
     current_session = None
@@ -137,6 +242,12 @@ def chat_home(request):
     )
     return render(request, 'chat.html', {
         'sessions': sessions,
+        'pinned_sessions': pinned_sessions,
+        'favorite_sessions': favorite_sessions,
+        'grouped_sessions': grouped_sessions,
+        'folders': folders,
+        'view_mode': view_mode,
+        'folder_filter': folder_filter,
         'messages': messages,
         'current_session': current_session,
         'selected_model': selected_model,
@@ -161,17 +272,24 @@ def profile_settings(request):
                 'profile': profile,
                 'models': list_available_models(),
                 'theme_choices': UserProfile.THEME_CHOICES,
+                'timezone_choices': AVAILABLE_TIMEZONES,
                 'email_verified': False,
             }, status=403)
         display_name = request.POST.get('display_name', '').strip()[:100]
         default_model = request.POST.get('default_model', '').strip()
         theme = request.POST.get('theme', '').strip()
+        timezone_name = request.POST.get('timezone', '').strip()
 
         profile.display_name = display_name
         if default_model in valid_model_ids:
             profile.default_model = default_model
         if theme in valid_themes:
             profile.theme = theme
+        if timezone_name in AVAILABLE_TIMEZONES and timezone_name != profile.timezone:
+            profile.timezone = timezone_name
+            # An explicit pick from this form always wins from now on - stop
+            # letting the JS auto-detect on chat.html silently override it.
+            profile.timezone_auto = False
         profile.memory_enabled = request.POST.get('memory_enabled') == 'on'
         profile.notifications_enabled = request.POST.get('notifications_enabled') == 'on'
         profile.save()
@@ -183,21 +301,44 @@ def profile_settings(request):
         # session selected rather than ever leaking another user's chat.
         next_session_id = request.POST.get('next_session_id', '').strip()
         if next_session_id:
-            return redirect(f'/?session={next_session_id}')
-        return redirect('home')
+            return redirect(f'/?session={next_session_id}&saved=1')
+        return redirect('/?saved=1')
 
     from allauth.socialaccount.models import SocialAccount
+    from chat.models import UserFact
 
     return render(request, 'profile.html', {
         'profile': profile,
         'models': list_available_models(),
         'theme_choices': UserProfile.THEME_CHOICES,
+        'timezone_choices': AVAILABLE_TIMEZONES,
         'email_verified': verified,
         'user_sessions': UserSession.objects.filter(user=request.user).order_by('-created_at'),
         'current_session_key': request.session.session_key,
         'recent_logins': SecurityEvent.objects.filter(user=request.user, event_type='login').order_by('-created_at')[:10],
         'google_account': SocialAccount.objects.filter(user=request.user, provider='google').first(),
+        'memory_fact_count': UserFact.objects.filter(user=request.user).count(),
     })
+
+
+@login_required
+def set_timezone(request):
+    """Called once per page load by chat.html's auto-detect script with the
+    browser's IANA zone (Intl.DateTimeFormat().resolvedOptions().timeZone).
+    Only takes effect while profile.timezone_auto is still True - an explicit
+    choice saved from Settings > General always wins from then on. Silently
+    ignores an unrecognized name rather than erroring, since a browser can in
+    principle report anything."""
+    if request.method != "POST":
+        return JsonResponse({"error": "Invalid request"}, status=400)
+    tzname = request.POST.get('timezone', '').strip()
+    if tzname not in AVAILABLE_TIMEZONES:
+        return JsonResponse({"status": "ignored"})
+    profile = UserProfile.get_or_create_for(request.user)
+    if profile.timezone_auto and profile.timezone != tzname:
+        profile.timezone = tzname
+        profile.save(update_fields=['timezone'])
+    return JsonResponse({"status": "ok", "timezone": profile.timezone})
 
 
 @login_required
@@ -233,16 +374,39 @@ def logout_all_sessions(request):
 
 
 @login_required
+def clear_memory(request):
+    """Memory controls (Part 2) - deletes every UserFact this account has
+    accumulated. Does NOT touch per-session summaries (ChatSession.summary):
+    those are a within-conversation compression detail of one specific
+    chat, not "memory" in the cross-chat-recall sense this control is
+    about, and deleting them would just make that one conversation's own
+    context worse for no privacy benefit."""
+    if request.method != "POST":
+        return JsonResponse({"error": "Invalid request"}, status=400)
+    from chat.models import UserFact
+    count, _ = UserFact.objects.filter(user=request.user).delete()
+    return JsonResponse({"status": "success", "deleted": count})
+
+
+@login_required
 def analytics_dashboard(request):
     """Phase 5 (expanded): pure read-side view over UsageEvent - no writes
     happen here, so it's safe to hit as often as the user likes.
 
-    Deliberately does NOT report success/error rate, a top-prompts list, or
-    a "files processed" count - none of those are tracked anywhere in the
-    data model today (UsageEvent rows are only ever created on a successful
-    call, and no prompt text or file-processing event is stored), so faking
-    them would mean showing invented numbers. Every figure below is a real
-    aggregate over what's actually recorded.
+    Deliberately does NOT report a top-prompts list or a "files processed"
+    count - neither is tracked anywhere in the data model today (no prompt
+    text or file-processing event is stored), so faking them would mean
+    showing invented numbers. Success/error rate (Part 7) IS real: every AI
+    call site now records a failed UsageEvent (success=False, see
+    usage.record_failure) alongside the pre-existing successful ones, so it
+    reflects actual outcomes rather than being unavailable.
+
+    `events` below is scoped to success=True and drives every pre-existing
+    metric (totals, by-model/provider breakdowns, trends) completely
+    unchanged from before this field existed - `all_events` (unfiltered) is
+    only used for the new success/error rate figures, so a failed call
+    can't quietly skew a cost/latency/volume number that's supposed to
+    reflect real, completed usage.
     """
     if not FeatureFlag.is_enabled('analytics', default=True):
         messages.info(request, "Analytics is temporarily disabled by the administrator.")
@@ -260,7 +424,13 @@ def analytics_dashboard(request):
 
     profile = UserProfile.get_or_create_for(request.user)
 
-    events = UsageEvent.objects.filter(user=request.user)
+    all_events = UsageEvent.objects.filter(user=request.user)
+    events = all_events.filter(success=True)
+    total_attempts = all_events.count()
+    successful_attempts = events.count()
+    failed_attempts = total_attempts - successful_attempts
+    success_rate = round(100 * successful_attempts / total_attempts, 1) if total_attempts else 100.0
+    error_rate = round(100 - success_rate, 1) if total_attempts else 0.0
 
     totals = events.aggregate(
         total_requests=Count('id'),
@@ -434,6 +604,43 @@ def analytics_dashboard(request):
 
     recent_events = events.select_related('session').order_by('-created_at')[:20]
 
+    # Trend indicators (Part 6) - period-over-period % change, computed from
+    # the same `events` queryset rather than a second round-trip through
+    # daily_series (which only covers 14 days and wouldn't cover the "this
+    # month vs last month" comparison). None means "no prior-period activity
+    # to compare against" (rendered as "New" rather than a misleading 0% or
+    # divide-by-zero figure).
+    def pct_change(current, previous):
+        if not previous:
+            return None if not current else 100
+        return round(((current - previous) / previous) * 100)
+
+    requests_today = events.filter(created_at__date=today).count()
+    requests_yesterday = events.filter(created_at__date=today - timedelta(days=1)).count()
+    requests_this_week = events.filter(created_at__date__gte=today - timedelta(days=6)).count()
+    requests_last_week = events.filter(
+        created_at__date__gte=today - timedelta(days=13), created_at__date__lt=today - timedelta(days=6),
+    ).count()
+    requests_this_month = events.filter(created_at__year=today.year, created_at__month=today.month).count()
+    last_month_end = today.replace(day=1) - timedelta(days=1)
+    requests_last_month = events.filter(
+        created_at__year=last_month_end.year, created_at__month=last_month_end.month,
+    ).count()
+
+    # Top conversations by volume - genuinely derivable (UsageEvent already
+    # links to session), unlike success/error rate or a prompts list above.
+    top_conversations = [
+        {
+            'session_id': row['session'],
+            'title': row['session__title'],
+            'requests': row['requests'],
+            'cost': float(row['cost'] or 0),
+        }
+        for row in events.exclude(session__isnull=True).values('session', 'session__title')
+        .annotate(requests=Count('id'), cost=Sum('estimated_cost_usd'))
+        .order_by('-requests')[:8]
+    ]
+
     context = {
         'profile': profile,
         'total_requests': totals['total_requests'] or 0,
@@ -444,9 +651,13 @@ def analytics_dashboard(request):
         'images_generated': event_type_counts.get('image', 0),
         'vision_calls': event_type_counts.get('vision', 0),
         'chat_messages': event_type_counts.get('chat', 0),
-        'requests_today': events.filter(created_at__date=today).count(),
-        'requests_this_week': events.filter(created_at__date__gte=today - timedelta(days=6)).count(),
-        'requests_this_month': events.filter(created_at__year=today.year, created_at__month=today.month).count(),
+        'requests_today': requests_today,
+        'requests_this_week': requests_this_week,
+        'requests_this_month': requests_this_month,
+        'requests_today_change': pct_change(requests_today, requests_yesterday),
+        'requests_week_change': pct_change(requests_this_week, requests_last_week),
+        'requests_month_change': pct_change(requests_this_month, requests_last_month),
+        'top_conversations': top_conversations,
         'by_model': by_model,
         'by_provider': by_provider,
         'by_event_type': by_event_type,
@@ -462,6 +673,10 @@ def analytics_dashboard(request):
         'latency_buckets_json': json.dumps(latency_buckets),
         'recent_events': recent_events,
         'has_estimated_tokens': events.filter(tokens_are_estimated=True).exists(),
+        'success_rate': success_rate,
+        'error_rate': error_rate,
+        'total_attempts': total_attempts,
+        'failed_attempts': failed_attempts,
     }
     return render(request, 'analytics.html', context)
 
@@ -478,8 +693,20 @@ def ask_ai(request):
         model_id = request.POST.get('model_id', 'cyber-max')
         session_id = request.POST.get('session_id')
         attachments = request.FILES.getlist('attachment')
+        # Session remembers the literal "auto" choice (so Auto mode stays
+        # selected across reloads, re-routing fresh on every future message)
+        # - model_id itself gets resolved to a concrete, real model right
+        # below, so every line after this block can keep treating it as one
+        # exactly like before Smart Routing existed.
         request.session["selected_model"] = model_id
         request.session.modified = True
+        profile = UserProfile.get_or_create_for(request.user)
+        if model_id.lower() == "auto":
+            has_image_attachment = any(
+                os.path.splitext(att.name)[1].lower() in ALLOWED_IMAGE_EXTENSIONS
+                for att in attachments
+            )
+            model_id = resolve_model_id(model_id, user_query, has_image_attachment, profile.default_model)
         if not user_query and not attachments:
             return JsonResponse({"response": "Query cannot be empty"}, status=400)
         if len(attachments) > MAX_ATTACHMENTS_PER_MESSAGE:
@@ -626,6 +853,7 @@ def ask_ai(request):
                             error=str(e),
                             category="vision_provider",
                         )
+                        record_failure(request.user, session, model_config.provider, model_id, "vision")
                         vision_error = JsonResponse({
                             "type": "error",
                             "message": "Couldn't analyze that image. Please try again."
@@ -729,6 +957,7 @@ def ask_ai(request):
                         error=str(e),
                         category="image_provider",
                     )
+                    record_failure(request.user, session, "pollinations", model_id, "image")
                     error_response = JsonResponse({
                         "type": "error",
                         "message": "Image generation failed. Please try again."
@@ -750,8 +979,12 @@ def ask_ai(request):
                 limit_response["X-Session-ID"] = str(session.id)
                 return limit_response
 
-            history = get_conversation_history(session)
-            messages = build_messages(user_query, history)
+            chat_system_prompt = SYSTEM_PROMPT
+            if profile.memory_enabled:
+                memory_context = get_user_memory_context(request.user)
+                if memory_context:
+                    chat_system_prompt = f"{SYSTEM_PROMPT}\n\n{memory_context}"
+            messages = build_context_messages(session, user_query, chat_system_prompt)
             if FeatureFlag.is_enabled('web_search', default=True) and _is_search_query(user_query):
                 search_results = _get_tavily_search(user_query)
                 if search_results:
@@ -763,9 +996,11 @@ def ask_ai(request):
                 full_response = ""
                 start_time = time.time()
                 captured_usage = {}
+                token_gen, serving = _stream_with_failover(model_id, messages, captured_usage.update)
                 try:
-                    for token in chat_stream(model_id, messages, on_usage=captured_usage.update):
-                        full_response += token
+                    for token, is_notice in token_gen:
+                        if not is_notice:
+                            full_response += token
                         yield token
                 except Exception as e:
                     logger.log_request(
@@ -775,18 +1010,31 @@ def ask_ai(request):
                         response_length=len(full_response),
                         error=str(e)
                     )
+                    record_failure(request.user, session, model_config.provider, model_id, "chat", latency=time.time() - start_time)
                     yield f"\n\nError: {str(e)}"
                 else:
                     latency = round(time.time() - start_time, 2)
+                    actual_config = get_model_config(serving["model_id"])
                     if full_response.strip():
+                        is_first_turn = not session.thread.exists()
                         append_turn(session, user_query, full_response, latency=latency)
                         record_usage(
-                            request.user, session, model_config.provider, model_id, "chat",
+                            request.user, session, actual_config.provider, serving["model_id"], "chat",
                             prompt_text=user_query, completion_text=full_response,
                             captured_usage=captured_usage, latency=latency,
                         )
+                        # Both best-effort and non-blocking to the response
+                        # already sent above - a failure here never affects
+                        # the reply the user just received (see their own
+                        # docstrings/try-excepts in conversation_memory.py
+                        # and conversation_intelligence.py).
+                        if is_first_turn:
+                            maybe_generate_smart_title(session, user_query, full_response)
+                        maybe_summarize_session(session)
+                        if profile.memory_enabled:
+                            extract_and_store_facts(request.user, session)
                     logger.log_request(
-                        provider=model_config.provider,
+                        provider=actual_config.provider,
                         latency=latency,
                         prompt_length=len(user_query),
                         response_length=len(full_response)
@@ -817,6 +1065,25 @@ def session_active_leaf(request, session_id):
     leaf = session.active_leaf
     user_message_id = leaf.parent_id if leaf and leaf.role == "assistant" else None
     return JsonResponse({"message_id": session.active_leaf_id, "user_message_id": user_message_id})
+
+
+@login_required
+def session_suggest_followups(request, session_id):
+    """On-demand only (see conversation_intelligence.suggest_followups'
+    docstring) - the frontend calls this after a reply finishes rendering,
+    rather than it running automatically on every single turn."""
+    session = get_object_or_404(ChatSession, id=session_id, user=request.user)
+    leaf = session.active_leaf
+    if not leaf or leaf.role != "assistant" or not (leaf.content or "").strip():
+        return JsonResponse({"suggestions": []})
+    return JsonResponse({"suggestions": suggest_followups(leaf.content)})
+
+
+@login_required
+def session_related_conversations(request, session_id):
+    session = get_object_or_404(ChatSession, id=session_id, user=request.user)
+    related = find_related_conversations(session)
+    return JsonResponse({"results": [{"id": s.id, "title": s.title} for s in related]})
 
 
 @login_required
@@ -853,13 +1120,16 @@ def regenerate_message(request, message_id):
     old_msg = get_object_or_404(Message, id=message_id, role='assistant', session__user=request.user)
     session = old_msg.session
     model_id = request.POST.get('model_id') or request.session.get('selected_model', 'cyber-max')
+    user_query = old_msg.parent.content if old_msg.parent else ""
+    if model_id.lower() == "auto":
+        routing_profile = UserProfile.get_or_create_for(request.user)
+        model_id = resolve_model_id(model_id, user_query, False, routing_profile.default_model)
 
     try:
         model_config = get_model_config(model_id)
     except KeyError:
         return JsonResponse({"type": "error", "message": "Invalid model selection."}, status=400)
 
-    user_query = old_msg.parent.content if old_msg.parent else ""
     # Context up to (but excluding) the user turn this reply answers - it
     # gets appended separately by build_messages, same as the normal send flow.
     history_chain = walk_chain_from(old_msg.parent)[:-1]
@@ -870,9 +1140,11 @@ def regenerate_message(request, message_id):
         full_response = ""
         start_time = time.time()
         captured_usage = {}
+        token_gen, serving = _stream_with_failover(model_id, messages, captured_usage.update)
         try:
-            for token in chat_stream(model_id, messages, on_usage=captured_usage.update):
-                full_response += token
+            for token, is_notice in token_gen:
+                if not is_notice:
+                    full_response += token
                 yield token
         except Exception as e:
             logger.log_request(
@@ -882,18 +1154,20 @@ def regenerate_message(request, message_id):
                 response_length=len(full_response),
                 error=str(e)
             )
+            record_failure(request.user, session, model_config.provider, model_id, "chat", latency=time.time() - start_time)
             yield f"\n\nError: {str(e)}"
         else:
             latency = round(time.time() - start_time, 2)
+            actual_config = get_model_config(serving["model_id"])
             if full_response.strip():
                 regenerate_assistant_reply(old_msg, full_response, latency=latency)
                 record_usage(
-                    request.user, session, model_config.provider, model_id, "chat",
+                    request.user, session, actual_config.provider, serving["model_id"], "chat",
                     prompt_text=user_query, completion_text=full_response,
                     captured_usage=captured_usage, latency=latency,
                 )
             logger.log_request(
-                provider=model_config.provider,
+                provider=actual_config.provider,
                 latency=latency,
                 prompt_length=len(user_query),
                 response_length=len(full_response)
@@ -928,6 +1202,10 @@ def edit_message(request, message_id):
         return JsonResponse({"response": "Query cannot be empty"}, status=400)
 
     model_id = request.POST.get('model_id') or request.session.get('selected_model', 'cyber-max')
+    if model_id.lower() == "auto":
+        routing_profile = UserProfile.get_or_create_for(request.user)
+        model_id = resolve_model_id(model_id, new_content, False, routing_profile.default_model)
+
     try:
         model_config = get_model_config(model_id)
     except KeyError:
@@ -943,9 +1221,11 @@ def edit_message(request, message_id):
         full_response = ""
         start_time = time.time()
         captured_usage = {}
+        token_gen, serving = _stream_with_failover(model_id, messages, captured_usage.update)
         try:
-            for token in chat_stream(model_id, messages, on_usage=captured_usage.update):
-                full_response += token
+            for token, is_notice in token_gen:
+                if not is_notice:
+                    full_response += token
                 yield token
         except Exception as e:
             logger.log_request(
@@ -955,18 +1235,20 @@ def edit_message(request, message_id):
                 response_length=len(full_response),
                 error=str(e)
             )
+            record_failure(request.user, session, model_config.provider, model_id, "chat", latency=time.time() - start_time)
             yield f"\n\nError: {str(e)}"
         else:
             latency = round(time.time() - start_time, 2)
+            actual_config = get_model_config(serving["model_id"])
             if full_response.strip():
                 append_turn(session, new_content, full_response, latency=latency, parent=old_msg.parent)
                 record_usage(
-                    request.user, session, model_config.provider, model_id, "chat",
+                    request.user, session, actual_config.provider, serving["model_id"], "chat",
                     prompt_text=new_content, completion_text=full_response,
                     captured_usage=captured_usage, latency=latency,
                 )
             logger.log_request(
-                provider=model_config.provider,
+                provider=actual_config.provider,
                 latency=latency,
                 prompt_length=len(new_content),
                 response_length=len(full_response)
@@ -1023,6 +1305,334 @@ def toggle_favorite_image(request, message_id):
 
 
 @login_required
+def bookmark_message(request, message_id):
+    """Bookmarking a message (any role/type) - distinct from
+    toggle_favorite_image, which only applies to a generated image card.
+    Reuses the same extra_data JSON blob pattern rather than a new table,
+    same reasoning as that view."""
+    if request.method != "POST":
+        return JsonResponse({"error": "Invalid request"}, status=400)
+    msg = get_object_or_404(Message, id=message_id, session__user=request.user)
+    extra_data = msg.extra_data or {}
+    extra_data["bookmarked"] = not extra_data.get("bookmarked", False)
+    if extra_data["bookmarked"]:
+        extra_data["bookmarked_at"] = timezone.now().isoformat()
+    msg.extra_data = extra_data
+    msg.save(update_fields=["extra_data"])
+    return JsonResponse({"status": "success", "bookmarked": extra_data["bookmarked"]})
+
+
+@login_required
+def bookmarks_list(request):
+    """Read side of the Bookmarks panel - every bookmarked message across all
+    of the user's sessions (any role/type: chat, vision, or image), newest
+    bookmark first. `q` filters by conversation title, the custom bookmark
+    label, or the message content itself, matching how sessions/search/
+    already searches title+content. A soft cap keeps this cheap even for a
+    user with hundreds of bookmarks; there's no pagination yet since a
+    single-page list this size is standard for a bookmarks/favorites panel
+    in comparable products."""
+    q = request.GET.get('q', '').strip()
+
+    candidates = Message.objects.filter(
+        session__user=request.user, extra_data__bookmarked=True,
+    ).select_related('session').order_by('-id')[:500]
+
+    results = []
+    for msg in candidates:
+        extra = msg.extra_data or {}
+        label = extra.get('bookmark_label', '')
+        session_title = msg.session.title
+        if msg.role == 'assistant' and extra.get('type') == 'image':
+            snippet = extra.get('prompt', '') or 'Generated image'
+            msg_type = 'image'
+        elif msg.role == 'assistant' and extra.get('type') == 'vision':
+            snippet = msg.content
+            msg_type = 'vision'
+        else:
+            snippet = msg.content
+            msg_type = 'chat'
+        snippet = (snippet or '').strip()
+
+        if q:
+            haystack = f"{session_title} {label} {snippet}".lower()
+            if q.lower() not in haystack:
+                continue
+
+        results.append({
+            'message_id': msg.id,
+            'session_id': msg.session_id,
+            'session_title': session_title,
+            'label': label,
+            'type': msg_type,
+            'snippet': snippet[:220],
+            'image_url': extra.get('image_url', ''),
+            'bookmarked_at': extra.get('bookmarked_at'),
+        })
+
+    results.sort(key=lambda r: r['bookmarked_at'] or '', reverse=True)
+    return JsonResponse({'results': results[:200]})
+
+
+@login_required
+def set_bookmark_label(request, message_id):
+    """Renames a bookmark - a personal label stored on the bookmark itself,
+    independent of the conversation's own title, the same distinction
+    browser bookmarks draw between a saved title and the page's real one."""
+    if request.method != "POST":
+        return JsonResponse({"error": "Invalid request"}, status=400)
+    msg = get_object_or_404(Message, id=message_id, session__user=request.user)
+    extra_data = msg.extra_data or {}
+    if not extra_data.get("bookmarked"):
+        return JsonResponse({"error": "This message isn't bookmarked."}, status=400)
+    label = request.POST.get('label', '').strip()[:120]
+    extra_data["bookmark_label"] = label
+    msg.extra_data = extra_data
+    msg.save(update_fields=["extra_data"])
+    return JsonResponse({"status": "success", "label": label})
+
+
+# ================= Prompt Library (Part 5) =================
+
+def _serialize_saved_prompt(p):
+    return {
+        "id": p.id,
+        "title": p.title,
+        "content": p.content,
+        "category": p.category,
+        "is_favorite": p.is_favorite,
+        "use_count": p.use_count,
+    }
+
+
+@login_required
+def saved_prompts_list(request):
+    """Powers the whole Prompt Library panel - `q` searches title+content,
+    `category` filters to an exact category, `favorites=1` restricts to
+    favorited prompts. All three can combine (e.g. favorites within one
+    category matching a search term)."""
+    from chat.models import SavedPrompt
+
+    qs = SavedPrompt.objects.filter(user=request.user)
+    q = request.GET.get('q', '').strip()
+    if q:
+        qs = qs.filter(models.Q(title__icontains=q) | models.Q(content__icontains=q))
+    category = request.GET.get('category', '').strip()
+    if category:
+        qs = qs.filter(category=category)
+    if request.GET.get('favorites') == '1':
+        qs = qs.filter(is_favorite=True)
+
+    categories = list(
+        SavedPrompt.objects.filter(user=request.user).exclude(category='')
+        .values_list('category', flat=True).distinct().order_by('category')
+    )
+    return JsonResponse({
+        "results": [_serialize_saved_prompt(p) for p in qs[:200]],
+        "categories": categories,
+    })
+
+
+@login_required
+def create_saved_prompt(request):
+    if request.method != "POST":
+        return JsonResponse({"error": "Invalid request"}, status=400)
+    from chat.models import SavedPrompt
+
+    title = request.POST.get('title', '').strip()[:100]
+    content = request.POST.get('content', '').strip()
+    category = request.POST.get('category', '').strip()[:50]
+    if not content:
+        return JsonResponse({"error": "Prompt content can't be empty."}, status=400)
+    if not title:
+        title = content[:40]
+    prompt = SavedPrompt.objects.create(user=request.user, title=title, content=content, category=category)
+    return JsonResponse({"status": "success", "prompt": _serialize_saved_prompt(prompt)})
+
+
+@login_required
+def update_saved_prompt(request, prompt_id):
+    if request.method != "POST":
+        return JsonResponse({"error": "Invalid request"}, status=400)
+    from chat.models import SavedPrompt
+
+    prompt = get_object_or_404(SavedPrompt, id=prompt_id, user=request.user)
+    if 'title' in request.POST:
+        prompt.title = request.POST.get('title', '').strip()[:100] or prompt.title
+    if 'content' in request.POST:
+        new_content = request.POST.get('content', '').strip()
+        if new_content:
+            prompt.content = new_content
+    if 'category' in request.POST:
+        prompt.category = request.POST.get('category', '').strip()[:50]
+    if 'is_favorite' in request.POST:
+        prompt.is_favorite = request.POST.get('is_favorite') == '1'
+    prompt.save()
+    return JsonResponse({"status": "success", "prompt": _serialize_saved_prompt(prompt)})
+
+
+@login_required
+def delete_saved_prompt(request, prompt_id):
+    if request.method != "POST":
+        return JsonResponse({"error": "Invalid request"}, status=400)
+    from chat.models import SavedPrompt
+
+    prompt = get_object_or_404(SavedPrompt, id=prompt_id, user=request.user)
+    prompt.delete()
+    return JsonResponse({"status": "success"})
+
+
+@login_required
+def use_saved_prompt(request, prompt_id):
+    """Increments use_count (surfaces "most used" ordering potential later)
+    and hands back the content for the composer to insert - a separate
+    write endpoint rather than folding this into the read-side list view,
+    so simply opening the library panel is never itself counted as a use."""
+    if request.method != "POST":
+        return JsonResponse({"error": "Invalid request"}, status=400)
+    from chat.models import SavedPrompt
+
+    prompt = get_object_or_404(SavedPrompt, id=prompt_id, user=request.user)
+    prompt.use_count = models.F('use_count') + 1
+    prompt.save(update_fields=['use_count'])
+    prompt.refresh_from_db()
+    return JsonResponse({"status": "success", "content": prompt.content})
+
+
+@login_required
+def recent_prompts(request):
+    """Prompt History/Recent Prompts - reads directly from the user's own
+    past user-turn Messages rather than a separate log, deduped by exact
+    text (typing the same short prompt many times shouldn't flood this list
+    with identical entries) and capped to a reasonable recency window."""
+    limit = 20
+    seen = set()
+    results = []
+    qs = (
+        Message.objects.filter(session__user=request.user, role='user')
+        .exclude(content='')
+        .order_by('-created_at')
+        .values_list('content', 'created_at')[:200]
+    )
+    for content, created_at in qs:
+        key = content.strip()
+        if not key or key in seen:
+            continue
+        seen.add(key)
+        results.append({"content": content, "created_at": created_at.isoformat()})
+        if len(results) >= limit:
+            break
+    return JsonResponse({"results": results})
+
+
+@login_required
+def delete_message(request, message_id):
+    """Deletes one message and everything under it in the tree (Message.
+    parent's on_delete=CASCADE handles descendants automatically). If the
+    session's active_leaf was the deleted node or one of its descendants,
+    it no longer exists afterward - falls back to whatever message was most
+    recently created in this session, or None if the tree is now empty."""
+    if request.method != "POST":
+        return JsonResponse({"error": "Invalid request"}, status=400)
+    msg = get_object_or_404(Message, id=message_id, session__user=request.user)
+    session = msg.session
+    msg.delete()
+
+    if session.active_leaf_id and not Message.objects.filter(id=session.active_leaf_id).exists():
+        fallback = Message.objects.filter(session=session).order_by('-created_at').first()
+        session.active_leaf = fallback
+        session.save(update_fields=["active_leaf"])
+
+    return JsonResponse({"status": "success"})
+
+
+@login_required
+def continue_message(request, message_id):
+    """Extends an assistant reply that got cut short, in place - unlike
+    regenerate (a fresh sibling reply) this appends new tokens onto the SAME
+    message, since the point is "keep going from where you stopped", not
+    "try again". The model sees its own partial reply as the last assistant
+    turn plus an explicit instruction not to repeat itself, mirroring
+    regenerate_message's streaming structure exactly."""
+    if request.method != "POST":
+        return JsonResponse({"error": "Invalid request"}, status=400)
+
+    if not FeatureFlag.is_enabled('ai_chat', default=True):
+        return JsonResponse({"type": "error", "message": "AI Chat is temporarily disabled by the administrator."})
+
+    if not check_rate_limit(request.user):
+        return JsonResponse(
+            {"type": "error", "message": "You're sending requests too quickly. Please wait a moment and try again."},
+            status=429
+        )
+    allowed, limit_message = check_daily_limit(request.user, "chat")
+    if not allowed:
+        return JsonResponse({"type": "error", "message": limit_message}, status=429)
+
+    old_msg = get_object_or_404(Message, id=message_id, role='assistant', session__user=request.user)
+    session = old_msg.session
+    model_id = request.POST.get('model_id') or request.session.get('selected_model', 'cyber-max')
+    user_query = old_msg.parent.content if old_msg.parent else ""
+    if model_id.lower() == "auto":
+        routing_profile = UserProfile.get_or_create_for(request.user)
+        model_id = resolve_model_id(model_id, user_query, False, routing_profile.default_model)
+
+    try:
+        model_config = get_model_config(model_id)
+    except KeyError:
+        return JsonResponse({"type": "error", "message": "Invalid model selection."}, status=400)
+
+    history_chain = walk_chain_from(old_msg.parent)[:-1]
+    history = messages_to_history_dicts(history_chain)
+    messages = build_messages(user_query, history)
+    messages.append({"role": "assistant", "content": old_msg.content})
+    messages.append({"role": "user", "content": "Continue exactly where you left off. Do not repeat what you already said."})
+
+    def stream_generator():
+        full_response = ""
+        start_time = time.time()
+        captured_usage = {}
+        token_gen, serving = _stream_with_failover(model_id, messages, captured_usage.update)
+        try:
+            for token, is_notice in token_gen:
+                if not is_notice:
+                    full_response += token
+                yield token
+        except Exception as e:
+            logger.log_request(
+                provider=model_config.provider,
+                latency=time.time() - start_time,
+                prompt_length=len(user_query),
+                response_length=len(full_response),
+                error=str(e)
+            )
+            record_failure(request.user, session, model_config.provider, model_id, "chat", latency=time.time() - start_time)
+            yield f"\n\nError: {str(e)}"
+        else:
+            latency = round(time.time() - start_time, 2)
+            actual_config = get_model_config(serving["model_id"])
+            if full_response.strip():
+                old_msg.content = old_msg.content + full_response
+                old_msg.latency = (old_msg.latency or 0) + latency
+                old_msg.save(update_fields=["content", "latency"])
+                record_usage(
+                    request.user, session, actual_config.provider, serving["model_id"], "chat",
+                    prompt_text=user_query, completion_text=full_response,
+                    captured_usage=captured_usage, latency=latency,
+                )
+            logger.log_request(
+                provider=actual_config.provider,
+                latency=latency,
+                prompt_length=len(user_query),
+                response_length=len(full_response)
+            )
+
+    response = StreamingHttpResponse(stream_generator(), content_type="text/plain")
+    response["X-Session-ID"] = str(session.id)
+    return response
+
+
+@login_required
 def delete_session(request, session_id):
     if request.method == "POST":
         get_object_or_404(ChatSession, id=session_id, user=request.user).delete()
@@ -1045,6 +1655,257 @@ def pin_session(request, session_id):
         session.is_pinned = not session.is_pinned
         session.save()
         return JsonResponse({"status": "success"})
+
+
+@login_required
+def toggle_archive_session(request, session_id):
+    """Archiving is a soft hide (excluded from the default sidebar list,
+    reachable via the Archived view) - never a delete. See ChatSession.
+    is_archived's docstring."""
+    if request.method != "POST":
+        return JsonResponse({"error": "Invalid request"}, status=400)
+    session = get_object_or_404(ChatSession, id=session_id, user=request.user)
+    session.is_archived = not session.is_archived
+    session.save(update_fields=["is_archived"])
+    return JsonResponse({"status": "success", "is_archived": session.is_archived})
+
+
+@login_required
+def toggle_favorite_session(request, session_id):
+    """Favorites a whole conversation - distinct from toggle_favorite_image,
+    which favorites one generated image inside a turn."""
+    if request.method != "POST":
+        return JsonResponse({"error": "Invalid request"}, status=400)
+    session = get_object_or_404(ChatSession, id=session_id, user=request.user)
+    session.is_favorite = not session.is_favorite
+    session.save(update_fields=["is_favorite"])
+    return JsonResponse({"status": "success", "is_favorite": session.is_favorite})
+
+
+@login_required
+def duplicate_session(request, session_id):
+    """Deep-copies a session's entire message tree (not just the title) -
+    branch structure, edits, and regenerated siblings all come along, so the
+    duplicate is a genuine independent fork, not just an empty chat with the
+    same name."""
+    if request.method != "POST":
+        return JsonResponse({"error": "Invalid request"}, status=400)
+    original = get_object_or_404(ChatSession, id=session_id, user=request.user)
+    new_session = ChatSession.objects.create(
+        user=request.user, title=f"{original.title} (copy)", folder=original.folder,
+    )
+    # `thread` is ordered by created_at (Message.Meta), so every parent is
+    # already in id_map by the time its children are processed - one pass,
+    # no second lookup query needed.
+    id_map = {}
+    new_active_leaf = None
+    for old_msg in original.thread.order_by('created_at'):
+        new_msg = Message.objects.create(
+            session=new_session, role=old_msg.role, content=old_msg.content,
+            parent=id_map.get(old_msg.parent_id), extra_data=old_msg.extra_data,
+            latency=old_msg.latency,
+        )
+        id_map[old_msg.id] = new_msg
+        if old_msg.id == original.active_leaf_id:
+            new_active_leaf = new_msg
+    if new_active_leaf:
+        new_session.active_leaf = new_active_leaf
+        new_session.save(update_fields=["active_leaf"])
+    return JsonResponse({"status": "success", "session_id": new_session.id})
+
+
+@login_required
+def bulk_session_action(request):
+    """Powers the sidebar's multi-select toolbar - delete/archive/unarchive
+    across however many sessions are checked, in one request instead of one
+    round-trip per chat."""
+    if request.method != "POST":
+        return JsonResponse({"error": "Invalid request"}, status=400)
+    action = request.POST.get('action')
+    session_ids = request.POST.getlist('session_ids')
+    sessions = ChatSession.objects.filter(id__in=session_ids, user=request.user)
+    if action == 'delete':
+        count = sessions.count()
+        sessions.delete()
+    elif action == 'archive':
+        count = sessions.update(is_archived=True)
+    elif action == 'unarchive':
+        count = sessions.update(is_archived=False)
+    else:
+        return JsonResponse({"error": "Unknown action"}, status=400)
+    return JsonResponse({"status": "success", "count": count})
+
+
+@login_required
+def set_session_folder(request, session_id):
+    """Move a single chat into a folder (or out of one, when folder=''). If
+    the target folder has no metadata row yet, one is created lazily so a
+    freshly-typed folder name immediately gets a colour-swatch entry in the
+    manager - keeps the string-membership and the metadata rows in sync."""
+    if request.method != "POST":
+        return JsonResponse({"error": "Invalid request"}, status=400)
+    from chat.models import Folder
+
+    session = get_object_or_404(ChatSession, id=session_id, user=request.user)
+    folder_name = request.POST.get('folder', '').strip()[:100]
+    session.folder = folder_name
+    session.save(update_fields=["folder"])
+    if folder_name:
+        Folder.objects.get_or_create(user=request.user, name=folder_name)
+    return JsonResponse({"status": "success", "folder": session.folder})
+
+
+@login_required
+def create_folder(request):
+    """Create an empty folder (metadata row) so it appears in the manager
+    before any chat is filed into it - the composer/move flow can then move
+    chats into it by name."""
+    if request.method != "POST":
+        return JsonResponse({"error": "Invalid request"}, status=400)
+    from chat.models import Folder
+
+    name = request.POST.get('name', '').strip()[:100]
+    if not name:
+        return JsonResponse({"error": "Folder name can't be empty."}, status=400)
+    color = request.POST.get('color', '').strip()
+    valid_colors = {c for c, _ in ChatSession.COLOR_CHOICES}
+    if color not in valid_colors:
+        color = ''
+    folder, created = Folder.objects.get_or_create(
+        user=request.user, name=name, defaults={'color': color},
+    )
+    if not created:
+        return JsonResponse({"error": "A folder with that name already exists."}, status=400)
+    return JsonResponse({"status": "success", "name": folder.name, "color": folder.color})
+
+
+@login_required
+def rename_folder(request):
+    """Rename a folder: updates the metadata row AND every chat filed under
+    the old name in one shot. If a folder with the new name already exists,
+    this MERGES into it (chats from both end up under the new name and the
+    old metadata row is removed) rather than erroring - the least surprising
+    outcome when a user renames "work" onto an existing "Work"."""
+    if request.method != "POST":
+        return JsonResponse({"error": "Invalid request"}, status=400)
+    from chat.models import Folder
+
+    old_name = request.POST.get('old_name', '').strip()[:100]
+    new_name = request.POST.get('new_name', '').strip()[:100]
+    if not old_name or not new_name:
+        return JsonResponse({"error": "Both the current and new folder name are required."}, status=400)
+    if old_name == new_name:
+        return JsonResponse({"status": "success", "name": new_name})
+
+    ChatSession.objects.filter(user=request.user, folder=old_name).update(folder=new_name)
+
+    existing = Folder.objects.filter(user=request.user, name=new_name).first()
+    old_folder = Folder.objects.filter(user=request.user, name=old_name).first()
+    if existing:
+        # Merge: keep the destination row, drop the source metadata row.
+        if old_folder:
+            old_folder.delete()
+    elif old_folder:
+        old_folder.name = new_name
+        old_folder.save(update_fields=["name"])
+    else:
+        Folder.objects.get_or_create(user=request.user, name=new_name)
+    return JsonResponse({"status": "success", "name": new_name})
+
+
+@login_required
+def delete_folder(request):
+    """Delete a folder WITHOUT deleting any chats: unfiles every chat under
+    it (folder='') and removes the metadata row. This is intentionally the
+    only 'delete' in the folder workflow - there is deliberately no
+    'delete folder and its chats', so a folder delete can never lose a
+    conversation."""
+    if request.method != "POST":
+        return JsonResponse({"error": "Invalid request"}, status=400)
+    from chat.models import Folder
+
+    name = request.POST.get('name', '').strip()[:100]
+    if not name:
+        return JsonResponse({"error": "Folder name is required."}, status=400)
+    unfiled = ChatSession.objects.filter(user=request.user, folder=name).update(folder='')
+    Folder.objects.filter(user=request.user, name=name).delete()
+    return JsonResponse({"status": "success", "unfiled": unfiled})
+
+
+@login_required
+def set_folder_color(request):
+    """Change a folder's colour swatch. Upserts the metadata row so it works
+    even on a legacy folder that only ever existed as a membership string."""
+    if request.method != "POST":
+        return JsonResponse({"error": "Invalid request"}, status=400)
+    from chat.models import Folder
+
+    name = request.POST.get('name', '').strip()[:100]
+    color = request.POST.get('color', '').strip()
+    if not name:
+        return JsonResponse({"error": "Folder name is required."}, status=400)
+    valid_colors = {c for c, _ in ChatSession.COLOR_CHOICES}
+    if color not in valid_colors:
+        return JsonResponse({"error": "Invalid color"}, status=400)
+    folder, _ = Folder.objects.get_or_create(user=request.user, name=name)
+    folder.color = color
+    folder.save(update_fields=["color"])
+    return JsonResponse({"status": "success", "name": name, "color": color})
+
+
+@login_required
+def set_session_color(request, session_id):
+    if request.method != "POST":
+        return JsonResponse({"error": "Invalid request"}, status=400)
+    session = get_object_or_404(ChatSession, id=session_id, user=request.user)
+    color = request.POST.get('color', '').strip()
+    valid_colors = {c for c, _label in ChatSession.COLOR_CHOICES}
+    if color not in valid_colors:
+        return JsonResponse({"error": "Invalid color"}, status=400)
+    session.color_label = color
+    session.save(update_fields=["color_label"])
+    return JsonResponse({"status": "success", "color_label": session.color_label})
+
+
+@login_required
+def search_chats(request):
+    """Server-side search across session titles AND message content - the
+    sidebar's plain text filter only ever matched titles already rendered in
+    the DOM; this is what lets it also find a match buried inside an old
+    conversation. Highlighting itself happens client-side (this just returns
+    a snippet; wrapping the match in <mark> from a JSON string is simpler and
+    safer than building HTML server-side)."""
+    query = request.GET.get('q', '').strip()
+    if len(query) < 2:
+        return JsonResponse({"results": []})
+
+    results = []
+    seen_session_ids = set()
+
+    title_matches = ChatSession.objects.filter(user=request.user, title__icontains=query).order_by('-id')[:10]
+    for s in title_matches:
+        results.append({'session_id': s.id, 'title': s.title, 'snippet': None, 'match_type': 'title'})
+        seen_session_ids.add(s.id)
+
+    message_matches = (
+        Message.objects.filter(session__user=request.user, content__icontains=query)
+        .exclude(role='system').select_related('session').order_by('-created_at')[:30]
+    )
+    query_lower = query.lower()
+    for m in message_matches:
+        if m.session_id in seen_session_ids or len(results) >= 20:
+            continue
+        seen_session_ids.add(m.session_id)
+        idx = m.content.lower().find(query_lower)
+        start = max(0, idx - 40)
+        end = min(len(m.content), idx + len(query) + 40)
+        snippet = ('…' if start > 0 else '') + m.content[start:end] + ('…' if end < len(m.content) else '')
+        results.append({
+            'session_id': m.session_id, 'title': m.session.title,
+            'snippet': snippet, 'match_type': 'message',
+        })
+
+    return JsonResponse({"results": results[:20], "query": query})
 
 
 @login_required

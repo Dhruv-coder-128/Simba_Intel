@@ -552,33 +552,61 @@
             border-left: 3px solid #00ff88;
         }
 
-        /* --- SIDEBAR ITEM --- */
+        /* ==================================================================
+           SIDEBAR CHAT ROW - fixed-column layout (rebuild)
+
+           Every row - server-rendered or JS-inserted, pinned/favorite/
+           folder/plain, active or not, in or out of select mode - shares
+           EXACTLY this structure and these widths:
+
+             [checkbox 20px] [ [icons 40px][chevron 14px][title 1fr] ] [menu 24px]
+             \____________/   \_____________ .chat-link ____________/  \________/
+              always reserved                                           always reserved
+
+           Nothing here changes size based on content or mode - only
+           visibility/opacity/color toggle. That's what guarantees the
+           title starts at the same X on every single row.
+           ================================================================== */
         .chat-item-container {
             display: flex;
-            justify-content: space-between;
             align-items: center;
             position: relative;
+            height: 34px;
             margin-bottom: 2px;
             min-width: 0;
             width: 100%;
             box-sizing: border-box;
+            border-radius: var(--radius-sm);
+            transition: background 0.15s ease;
         }
 
-        /* .chat-item-container::before {
-            content: "";
-            position: absolute;
-            left: 50%;
-            top: 0;
-            bottom: 0;
-            width: 1px;
-            background: linear-gradient(to bottom,
-                    transparent,
-                    rgba(0, 255, 200, 0.3),
-                    transparent);
-        } */
+        /* Hover highlights the WHOLE row (checkbox/menu gutters included),
+           not just the title text. */
+        .chat-item-container:hover {
+            background: rgba(255, 255, 255, 0.04);
+        }
 
+        .chat-item-container:hover .chat-link {
+            color: var(--text);
+        }
 
+        /* Checkbox column - fixed width whether or not Select mode is on;
+           only visibility toggles (see body.bulk-select-mode below), so
+           this column's footprint never changes and the title never moves
+           when Select is toggled on/off. */
+        .chat-bulk-checkbox {
+            flex: 0 0 14px;
+            width: 14px;
+            height: 14px;
+            margin: 0 0 0 6px;
+            accent-color: var(--accent);
+            cursor: pointer;
+            visibility: hidden;
+        }
 
+        body.bulk-select-mode .chat-bulk-checkbox {
+            visibility: visible;
+        }
 
         .chat-link {
             flex: 1;
@@ -589,49 +617,96 @@
                place. min-width:0 lets it actually shrink to the row. */
             min-width: 0;
             max-width: 100%;
-            display: block;
-            padding: 7px 10px;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 0 6px;
             font-family: 'JetBrains Mono', monospace;
             font-size: 12px;
             text-decoration: none;
-            border-radius: var(--radius-sm);
-            transition: background 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
+            transition: color 0.15s ease;
             color: var(--text-dim);
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
             box-sizing: border-box;
         }
 
-        .chat-link:hover {
-            color: var(--text);
-            background: rgba(255, 255, 255, 0.04);
-            /* Inset box-shadow instead of a transform: gives the same "lift"
-               cue without shifting box geometry, which is exactly what could
-               re-trigger the horizontal-overflow scrollbar on hover. */
-            box-shadow: inset 2px 0 0 rgba(var(--accent-rgb), 0.4);
+        /* Status-icon column - ONE fixed width for color-dot/pin/favorite/
+           folder TOGETHER (not one reserved slot per icon type): they are
+           right-aligned inside it, so no matter how many of the four are
+           actually present on a given chat, they always end flush against
+           the chevron - meaning the chevron and title always start at the
+           same X position on every row, with zero exceptions. Sized (and
+           clipped via overflow:hidden) for the realistic common case of up
+           to ~3 badges at once; the four-simultaneous case is rare enough
+           that a hairline visual overlap there is an acceptable trade-off
+           for never affecting the column's own width, which is the actual,
+           load-bearing guarantee. */
+        .chat-row-icons {
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 3px;
+            flex: 0 0 40px;
+            width: 40px;
+            overflow: hidden;
         }
 
-        .active-chat {
-            color: var(--accent) !important;
-            background: rgba(var(--accent-rgb), 0.08) !important;
+        .chat-link-marker {
+            flex: 0 0 14px;
+            width: 14px;
+            text-align: center;
+            opacity: 0.5;
+        }
+
+        .chat-link-title {
+            flex: 1;
+            min-width: 0;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        /* Active chat: background + a left accent bar, drawn as an INSET
+           box-shadow rather than a border - a border adds to the box's
+           width and would need the title/icons/checkbox to shift right by
+           its exact thickness to compensate (which is exactly the kind of
+           per-state offset this rebuild removes). box-shadow paints inside
+           the existing box with zero layout effect, so the row's geometry
+           - and every column's position within it - is identical whether
+           or not it's the active one. */
+        .chat-item-container.active-chat {
+            background: rgba(var(--accent-rgb), 0.08);
+            box-shadow: inset 2px 0 0 var(--accent);
+        }
+
+        .chat-item-container.active-chat .chat-link {
+            color: var(--accent);
             font-weight: 600;
-            border-left: 2px solid var(--accent);
         }
 
-        .active-chat .chat-link {
-            padding-left: 8px;
-        }
-
-        /* --- HOVER TO SHOW THREE DOTS --- */
+        /* --- Three-dot menu column - fixed width, always reserved --- */
         .side-menu {
-            position: absolute;
-            right: 5px;
-            display: none;
+            position: relative;
+            flex: 0 0 24px;
+            width: 24px;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            transition: opacity 0.15s ease;
         }
 
         .chat-item-container:hover .side-menu {
-            display: block;
+            opacity: 1;
+        }
+
+        /* Touch devices have no hover state at all - without this, the
+           three-dot menu (rename/pin/archive/delete/folder/color) could
+           never be reached on mobile or tablet, a dead-end for every
+           conversation-management action from a touch device. */
+        @media (hover: none) {
+            .side-menu { opacity: 1; }
         }
 
         .side-menu-btn {
@@ -650,30 +725,45 @@
             display: none;
             position: absolute;
             right: 0;
-            background: #1a1d24;
-            min-width: 120px;
+            background: var(--sidebar);
+            min-width: 150px;
             border: 1px solid var(--border);
             z-index: 1000;
-            border-radius: 4px;
-            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.5);
+            border-radius: var(--radius-md);
+            box-shadow: var(--shadow-lg);
+            padding: 5px;
+            overflow: hidden;
         }
 
         .side-dropdown.show {
             display: block;
+            animation: dropdownFade 0.14s ease;
         }
 
         .side-dropdown a {
             color: var(--text);
-            padding: 10px 12px;
+            padding: 8px 10px;
             text-decoration: none;
-            display: block;
-            font-size: 11px;
+            display: flex;
+            align-items: center;
+            gap: 9px;
+            font-size: 12px;
+            border-radius: var(--radius-sm);
+            transition: background 0.12s ease, color 0.12s ease;
         }
+
+        .side-dropdown a i { width: 14px; text-align: center; color: var(--text-dim); }
 
         .side-dropdown a:hover {
             background: var(--accent-dim);
             color: var(--accent);
         }
+
+        .side-dropdown a:hover i { color: var(--accent); }
+
+        .side-dropdown-danger { color: #ff6b6b !important; }
+        .side-dropdown-danger i { color: #ff6b6b !important; }
+        .side-dropdown-danger:hover { background: rgba(255, 75, 43, 0.1) !important; color: #ff6b6b !important; }
 
         /* --- Conversation list pagination --- */
         .chat-pagination {
@@ -742,6 +832,710 @@
 
         .chat-item-container {
             animation: chatRowEnter 0.18s ease;
+        }
+
+        /* --- Sidebar organization: view toggle, search results, folders,
+           bulk-select, date groups, color labels --- */
+        .history-section-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 10px;
+        }
+
+        .history-section-header .label {
+            margin-bottom: 0;
+        }
+
+        .history-view-toggle {
+            display: flex;
+            gap: 2px;
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: var(--radius-sm);
+            padding: 2px;
+        }
+
+        .view-toggle-btn {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 10px;
+            padding: 3px 8px;
+            border-radius: 4px;
+            color: var(--text-dim);
+            text-decoration: none;
+            transition: background 0.15s ease, color 0.15s ease;
+        }
+
+        .view-toggle-btn.active {
+            background: var(--accent-dim);
+            color: var(--accent);
+        }
+
+        .search-results-panel {
+            display: none;
+            flex-direction: column;
+            gap: 2px;
+            margin-bottom: var(--space-2);
+            max-height: 260px;
+            overflow-y: auto;
+        }
+
+        .search-results-panel.show {
+            display: flex;
+        }
+
+        .search-result-item {
+            display: block;
+            padding: 8px 10px;
+            border-radius: var(--radius-sm);
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid var(--border-soft);
+            text-decoration: none;
+            color: var(--text);
+            font-size: 11.5px;
+            cursor: pointer;
+            transition: border-color 0.15s ease, background 0.15s ease;
+        }
+
+        .search-result-item:hover {
+            border-color: rgba(var(--accent-rgb), 0.35);
+            background: var(--accent-dim);
+        }
+
+        .search-result-title {
+            font-family: 'JetBrains Mono', monospace;
+            color: var(--accent);
+            margin-bottom: 2px;
+        }
+
+        .search-result-snippet {
+            color: var(--text-dim);
+            font-size: 11px;
+            line-height: 1.4;
+        }
+
+        .search-result-snippet mark {
+            background: rgba(var(--accent-rgb), 0.35);
+            color: var(--text);
+            border-radius: 2px;
+            padding: 0 1px;
+        }
+
+        .search-empty {
+            padding: 10px;
+            font-size: 11px;
+            color: var(--text-dim);
+            text-align: center;
+        }
+
+        /* --- Folder section (Part 3: full folder management) --- */
+        .folder-section {
+            margin-bottom: var(--space-3);
+        }
+
+        .folder-section-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: var(--space-2);
+        }
+
+        .folder-section-label {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 10px;
+            letter-spacing: 1.2px;
+            text-transform: uppercase;
+            color: var(--text-dim);
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .folder-add-btn {
+            width: 22px;
+            height: 22px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            background: none;
+            border: 1px solid var(--border-soft);
+            border-radius: var(--radius-sm);
+            color: var(--text-dim);
+            font-size: 10px;
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+
+        .folder-add-btn:hover {
+            color: var(--accent);
+            border-color: rgba(var(--accent-rgb), 0.4);
+            background: var(--accent-dim);
+        }
+
+        .folder-chips {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+        }
+
+        .folder-chip-wrap {
+            position: relative;
+            display: inline-flex;
+            align-items: stretch;
+        }
+
+        .folder-chip {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 10.5px;
+            padding: 4px 9px;
+            border-radius: 999px;
+            border: 1px solid var(--border-soft);
+            color: var(--text-dim);
+            text-decoration: none;
+            transition: all 0.15s ease;
+            white-space: nowrap;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .folder-chip:hover {
+            color: var(--text);
+            border-color: rgba(var(--accent-rgb), 0.3);
+        }
+
+        .folder-chip.active {
+            background: var(--accent-dim);
+            color: var(--accent);
+            border-color: var(--accent);
+        }
+
+        .folder-chip-dot {
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+
+        .folder-chip-dot-none {
+            background: transparent;
+            border: 1px solid var(--text-dim);
+        }
+
+        .folder-chip-count {
+            font-size: 9px;
+            opacity: 0.65;
+            padding-left: 2px;
+        }
+
+        /* The per-chip options button sits just to the right, revealed on
+           hover of the wrapper - keeps the chip row clean at rest. */
+        .folder-chip-menu-btn {
+            display: none;
+            align-items: center;
+            justify-content: center;
+            background: none;
+            border: none;
+            color: var(--text-dim);
+            font-size: 10px;
+            cursor: pointer;
+            padding: 0 4px;
+            margin-left: -2px;
+        }
+
+        .folder-chip-wrap:hover .folder-chip-menu-btn { display: inline-flex; }
+        .folder-chip-menu-btn:hover { color: var(--accent); }
+
+        /* No hover on touch - the options button must be reachable by tap
+           alone, not only revealed by a mouseover that can't happen. */
+        @media (hover: none) {
+            .folder-chip-menu-btn { display: inline-flex; }
+        }
+
+        .folder-empty-hint {
+            font-size: 10.5px;
+            color: var(--text-dim);
+            opacity: 0.7;
+            line-height: 1.5;
+            padding: 2px 2px 0;
+        }
+
+        /* Shared context-menu popover (folders) */
+        .context-menu {
+            position: fixed;
+            z-index: 4000;
+            min-width: 172px;
+            background: var(--sidebar);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-md);
+            box-shadow: var(--shadow-lg);
+            padding: 5px;
+            display: none;
+            animation: cmdPaletteIn 0.12s ease;
+        }
+
+        .context-menu.show { display: block; }
+
+        .context-menu-item {
+            display: flex;
+            align-items: center;
+            gap: 9px;
+            width: 100%;
+            padding: 8px 10px;
+            border: none;
+            background: none;
+            color: var(--text);
+            font-family: 'Outfit', sans-serif;
+            font-size: 12.5px;
+            text-align: left;
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            transition: background 0.12s ease;
+        }
+
+        .context-menu-item i { width: 14px; text-align: center; color: var(--text-dim); }
+        .context-menu-item:hover { background: var(--accent-dim); }
+        .context-menu-item:hover i { color: var(--accent); }
+        .context-menu-item.danger { color: #ff6b6b; }
+        .context-menu-item.danger i { color: #ff6b6b; }
+        .context-menu-item.danger:hover { background: rgba(255, 75, 43, 0.1); }
+
+        .context-menu-divider {
+            height: 1px;
+            background: var(--border-soft);
+            margin: 4px 6px;
+        }
+
+        .context-menu-colors {
+            display: flex;
+            gap: 6px;
+            padding: 6px 10px;
+        }
+
+        .context-menu-colors .color-swatch {
+            width: 16px;
+            height: 16px;
+        }
+
+        /* Generic confirmation dialog */
+        .confirm-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            z-index: 4200;
+            background: rgba(4, 6, 10, 0.62);
+            backdrop-filter: blur(4px);
+            -webkit-backdrop-filter: blur(4px);
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .confirm-overlay.show { display: flex; }
+
+        .confirm-dialog {
+            width: 100%;
+            max-width: 400px;
+            background: var(--sidebar);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-lg);
+            padding: 24px;
+            text-align: center;
+            animation: cmdPaletteIn 0.16s ease;
+        }
+
+        .confirm-dialog-icon {
+            width: 44px;
+            height: 44px;
+            margin: 0 auto 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            background: rgba(255, 184, 77, 0.12);
+            color: #ffb84d;
+            font-size: 18px;
+        }
+
+        .confirm-dialog.danger .confirm-dialog-icon {
+            background: rgba(255, 75, 43, 0.12);
+            color: #ff6b6b;
+        }
+
+        .confirm-dialog h3 {
+            margin: 0 0 8px;
+            font-size: 16px;
+            color: var(--text);
+        }
+
+        .confirm-dialog p {
+            margin: 0 0 20px;
+            font-size: 13px;
+            line-height: 1.5;
+            color: var(--text-dim);
+        }
+
+        .confirm-dialog-actions {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+        }
+
+        .confirm-btn {
+            flex: 1;
+            padding: 10px 16px;
+            border-radius: var(--radius-sm);
+            font-family: 'Outfit', sans-serif;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            border: 1px solid var(--border-soft);
+        }
+
+        .confirm-btn-cancel {
+            background: transparent;
+            color: var(--text-dim);
+        }
+
+        .confirm-btn-cancel:hover {
+            color: var(--text);
+            border-color: var(--text-dim);
+        }
+
+        .confirm-btn-confirm {
+            background: var(--accent-dim);
+            border-color: var(--accent);
+            color: var(--accent);
+        }
+
+        .confirm-btn-confirm:hover {
+            background: var(--accent);
+            color: var(--bg);
+        }
+
+        .confirm-dialog.danger .confirm-btn-confirm {
+            background: rgba(255, 75, 43, 0.1);
+            border-color: #ff6b6b;
+            color: #ff6b6b;
+        }
+
+        .confirm-dialog.danger .confirm-btn-confirm:hover {
+            background: #ff4b2b;
+            color: #fff;
+        }
+
+        .bulk-select-row {
+            display: flex;
+            justify-content: flex-end;
+            margin-bottom: var(--space-2);
+        }
+
+        .bulk-select-toggle {
+            background: none;
+            border: 1px solid var(--border-soft);
+            color: var(--text-dim);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 10.5px;
+            padding: 4px 9px;
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+
+        .bulk-select-toggle:hover,
+        .bulk-select-toggle.active {
+            color: var(--accent);
+            border-color: rgba(var(--accent-rgb), 0.4);
+        }
+
+        .bulk-action-toolbar {
+            display: none;
+            align-items: center;
+            gap: 6px;
+            padding: 8px;
+            margin-bottom: var(--space-2);
+            background: rgba(var(--accent-rgb), 0.06);
+            border: 1px solid rgba(var(--accent-rgb), 0.2);
+            border-radius: var(--radius-sm);
+            font-size: 11px;
+            color: var(--text-dim);
+        }
+
+        .bulk-action-toolbar.show {
+            display: flex;
+        }
+
+        #bulk-selected-count {
+            flex: 1;
+        }
+
+        .btn-mini {
+            background: none;
+            border: 1px solid var(--border-soft);
+            color: var(--text-dim);
+            padding: 4px 8px;
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            font-size: 11px;
+            transition: all 0.15s ease;
+        }
+
+        .btn-mini:hover {
+            color: var(--accent);
+            border-color: rgba(var(--accent-rgb), 0.4);
+        }
+
+        .btn-mini.danger:hover {
+            color: #ff4b2b;
+            border-color: rgba(255, 75, 43, 0.4);
+        }
+
+        /* Bulk mode still hides the three-dot menu (avoids two competing
+           interaction affordances during a selection) - opacity, not
+           display:none, so the column's reserved 24px never disappears
+           from the row's flex layout in either mode. */
+        body.bulk-select-mode .side-menu {
+            opacity: 0 !important;
+            pointer-events: none;
+        }
+
+        .chat-section-label {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 10px;
+            letter-spacing: 1.5px;
+            color: var(--text-dim);
+            margin: 10px 0 6px;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .chat-date-group {
+            margin-bottom: 4px;
+        }
+
+        .chat-date-header {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 10px;
+            letter-spacing: 1px;
+            color: var(--text-dim);
+            opacity: 0.65;
+            /* Same left edge as .chat-section-label and every row - no
+               left margin here, matching the shared grid this task is
+               about establishing (a stray 2px offset previously made
+               "Today"/"Yesterday" sit slightly right of "FAVORITES" and
+               the rows beneath them). */
+            margin: 8px 0 4px 0;
+        }
+
+        .chat-list-empty {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+            padding: 30px 10px;
+            color: var(--text-dim);
+            font-size: 12px;
+            text-align: center;
+        }
+
+        .chat-list-empty i {
+            font-size: 22px;
+            opacity: 0.4;
+        }
+
+        .chat-color-dot {
+            display: inline-block;
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+
+        .chat-color-red { background: #ff5470; }
+        .chat-color-orange { background: #ffa64d; }
+        .chat-color-yellow { background: #ffd93d; }
+        .chat-color-green { background: #39ff88; }
+        .chat-color-blue { background: #4da3ff; }
+        .chat-color-purple { background: #b388ff; }
+
+        .chat-pin-icon {
+            font-size: 9px;
+            color: var(--accent);
+            transform: rotate(45deg);
+        }
+
+        .chat-favorite-icon {
+            font-size: 9px;
+            color: #ffd93d;
+        }
+
+        .chat-folder-icon {
+            font-size: 9px;
+            color: var(--text-dim);
+        }
+
+        .side-dropdown-colors {
+            display: flex;
+            gap: 5px;
+            padding: 8px 12px;
+            border-top: 1px solid var(--border-soft);
+            border-bottom: 1px solid var(--border-soft);
+        }
+
+        .color-swatch {
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            cursor: pointer;
+            padding: 0;
+        }
+
+        .color-swatch-none { background: transparent; border-style: dashed; }
+        .color-swatch-red { background: #ff5470; }
+        .color-swatch-orange { background: #ffa64d; }
+        .color-swatch-yellow { background: #ffd93d; }
+        .color-swatch-green { background: #39ff88; }
+        .color-swatch-blue { background: #4da3ff; }
+        .color-swatch-purple { background: #b388ff; }
+
+        /* --- Sidebar resize + collapse --- */
+        #sidebar {
+            position: relative;
+            flex-shrink: 0;
+        }
+
+        #sidebar.collapsed {
+            width: 64px !important;
+            padding: var(--space-3) var(--space-2);
+            overflow: hidden;
+        }
+
+        #sidebar.collapsed .brand {
+            margin-bottom: var(--space-2);
+        }
+
+        #sidebar.collapsed .history-section,
+        #sidebar.collapsed .auth-section .profile-trigger-name,
+        #sidebar.collapsed .auth-section .profile-trigger-chevron,
+        #sidebar.collapsed .system-monitor,
+        #sidebar.collapsed .brand .text-wrapper > span,
+        #sidebar.collapsed .brand .text-wrapper .ai-status,
+        #sidebar.collapsed .new-chat:not(.new-chat-icon-only) {
+            display: none !important;
+        }
+
+        /* Collapsed mode keeps the glyph as the sole brand mark, centered */
+        #sidebar.collapsed .brand .text-wrapper {
+            justify-content: center;
+            width: 100%;
+        }
+
+        #sidebar.collapsed .brand {
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        #sidebar.collapsed .auth-section .profile-trigger-row {
+            justify-content: center;
+        }
+
+        /* --- Collapsed icon rail: professional icon-only quick access, shown
+           only while collapsed - keeps New Chat/Search/Bookmarks/Analytics/
+           Settings/Admin reachable without expanding, matching Cursor/Notion/
+           Linear's collapsed-sidebar pattern instead of leaving dead space. */
+        .sidebar-icon-rail {
+            display: none;
+        }
+
+        #sidebar.collapsed .sidebar-icon-rail {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 6px;
+            padding: 10px 0;
+            margin-top: 4px;
+            border-top: 1px solid var(--border-soft);
+            border-bottom: 1px solid var(--border-soft);
+            /* history-section (which normally flex:1's to push auth-section
+               to the bottom) is display:none when collapsed - without this,
+               nothing fills that space and the profile row jumps straight
+               up under the icon rail, leaving a large dead gap at the
+               bottom instead. Growing the rail itself keeps the icons
+               naturally top-aligned (their own default flex-start) while
+               its border-bottom slides down to sit right above the profile
+               row, so the collapsed rail reads as one dense, intentional
+               block rather than an unfinished one. */
+            flex: 1;
+            min-height: 0;
+        }
+
+        .rail-icon-btn {
+            width: 36px;
+            height: 36px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: var(--radius-sm);
+            color: var(--text-dim);
+            background: transparent;
+            border: 1px solid transparent;
+            text-decoration: none;
+            cursor: pointer;
+            font-size: 15px;
+            transition: all 0.15s ease;
+        }
+
+        .rail-icon-btn:hover {
+            color: var(--accent);
+            background: var(--accent-dim);
+            border-color: rgba(var(--accent-rgb), 0.3);
+        }
+
+        .rail-icon-btn.rail-icon-primary {
+            color: var(--accent);
+            border-color: rgba(var(--accent-rgb), 0.25);
+        }
+
+        .sidebar-resize-handle {
+            position: absolute;
+            top: 0;
+            right: -3px;
+            width: 6px;
+            height: 100%;
+            cursor: col-resize;
+            z-index: 20;
+        }
+
+        .sidebar-resize-handle:hover,
+        .sidebar-resize-handle.resizing {
+            background: rgba(var(--accent-rgb), 0.25);
+        }
+
+        .sidebar-collapse-btn {
+            background: none;
+            border: 1px solid var(--border-soft);
+            color: var(--text-dim);
+            width: 22px;
+            height: 22px;
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 11px;
+            transition: all 0.15s ease;
+        }
+
+        .sidebar-collapse-btn:hover {
+            color: var(--accent);
+            border-color: rgba(var(--accent-rgb), 0.4);
+        }
+
+        @media (max-width: 991px) {
+            .sidebar-resize-handle, .sidebar-collapse-btn { display: none; }
         }
 
         /* --- WORKSPACE --- */
@@ -845,6 +1639,13 @@
             border-color: rgba(var(--accent-rgb), 0.35);
         }
 
+        /* Same touch-reachability fix as .side-menu/.folder-chip-menu-btn:
+           edit/delete on a sent message must not require a hover that touch
+           devices can never produce. */
+        @media (hover: none) {
+            .edit-msg-btn { opacity: 1; }
+        }
+
         .branch-switcher {
             display: flex;
             align-items: center;
@@ -919,7 +1720,8 @@
             z-index: 3000;
             align-items: flex-start;
             justify-content: center;
-            padding-top: 12vh;
+            padding: 12vh 16px 16px;
+            box-sizing: border-box;
         }
 
         .command-palette-overlay.show {
@@ -1022,6 +1824,231 @@
 
         .cmd-palette-info {
             padding: 8px 12px 12px;
+        }
+
+        /* --- Toast notifications (Part 9 - consistent success/error feedback) --- */
+        #toast-container {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            z-index: 5000;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            pointer-events: none;
+        }
+
+        .simba-toast {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 12px 16px;
+            min-width: 220px;
+            max-width: 360px;
+            background: var(--sidebar, var(--card));
+            border: 1px solid var(--border-soft);
+            border-left: 3px solid var(--accent);
+            border-radius: var(--radius-md, 10px);
+            box-shadow: 0 12px 32px rgba(0, 0, 0, 0.4);
+            color: var(--text);
+            font-size: 13px;
+            animation: toastIn 0.25s ease;
+            pointer-events: auto;
+        }
+
+        .simba-toast.toast-success { border-left-color: #39ff88; }
+        .simba-toast.toast-error { border-left-color: #ff5470; }
+        .simba-toast.toast-info { border-left-color: var(--accent); }
+
+        .simba-toast i { font-size: 15px; }
+        .simba-toast.toast-success i { color: #39ff88; }
+        .simba-toast.toast-error i { color: #ff5470; }
+        .simba-toast.toast-info i { color: var(--accent); }
+
+        .simba-toast.toast-out {
+            animation: toastOut 0.2s ease forwards;
+        }
+
+        @keyframes toastIn {
+            from { opacity: 0; transform: translateX(20px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+
+        @keyframes toastOut {
+            from { opacity: 1; transform: translateX(0); }
+            to { opacity: 0; transform: translateX(20px); }
+        }
+
+        /* --- Bookmarks panel (Part 2) --- */
+        .bookmarks-panel-box {
+            max-width: 620px;
+            max-height: 70vh;
+        }
+
+        .bookmarks-results {
+            overflow-y: auto;
+            padding: 8px;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .bookmark-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            padding: 10px 12px;
+            border-radius: var(--radius-sm);
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid var(--border-soft);
+            transition: border-color 0.15s ease, background 0.15s ease;
+        }
+
+        .bookmark-item:hover {
+            border-color: rgba(var(--accent-rgb), 0.3);
+            background: var(--accent-dim);
+        }
+
+        .bookmark-item-icon {
+            width: 30px;
+            height: 30px;
+            flex-shrink: 0;
+            border-radius: var(--radius-sm);
+            background: var(--accent-dim);
+            color: var(--accent);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 13px;
+        }
+
+        .bookmark-item-body {
+            flex: 1;
+            min-width: 0;
+            cursor: pointer;
+        }
+
+        .bookmark-item-title {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 13px;
+            color: var(--accent);
+            margin-bottom: 2px;
+        }
+
+        .bookmark-item-convo {
+            font-size: 10.5px;
+            color: var(--text-dim);
+            margin-bottom: 3px;
+        }
+
+        .bookmark-item-snippet {
+            font-size: 12px;
+            color: var(--text-dim);
+            line-height: 1.4;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            line-clamp: 2;
+            -webkit-box-orient: vertical;
+        }
+
+        .bookmark-item-snippet mark {
+            background: rgba(var(--accent-rgb), 0.35);
+            color: var(--text);
+            border-radius: 2px;
+            padding: 0 1px;
+        }
+
+        .bookmark-item-date {
+            font-size: 10px;
+            color: var(--text-dim);
+            margin-top: 4px;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .bookmark-item-actions {
+            display: flex;
+            gap: 4px;
+            flex-shrink: 0;
+        }
+
+        .bookmark-item-actions .rail-icon-btn {
+            width: 28px;
+            height: 28px;
+            font-size: 12px;
+        }
+
+        .bookmarks-entry-btn {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            padding: 8px 10px;
+            margin-bottom: var(--space-2);
+            border-radius: var(--radius-sm);
+            background: transparent;
+            border: 1px solid var(--border-soft);
+            color: var(--text-dim);
+            font-family: 'Outfit', sans-serif;
+            font-size: 12.5px;
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+
+        .bookmarks-entry-btn:hover {
+            color: var(--accent);
+            border-color: rgba(var(--accent-rgb), 0.35);
+            background: var(--accent-dim);
+        }
+
+        /* --- Prompt Library (Part 5) --- */
+        .prompt-library-tabs {
+            display: flex;
+            gap: 4px;
+            padding: 8px 12px 0;
+            border-bottom: 1px solid var(--border-soft);
+        }
+
+        .prompt-library-tab {
+            background: none;
+            border: none;
+            border-bottom: 2px solid transparent;
+            color: var(--text-dim);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 11.5px;
+            letter-spacing: 0.5px;
+            padding: 8px 10px;
+            cursor: pointer;
+            transition: color 0.15s ease, border-color 0.15s ease;
+        }
+
+        .prompt-library-tab:hover { color: var(--text); }
+
+        .prompt-library-tab.active {
+            color: var(--accent);
+            border-bottom-color: var(--accent);
+        }
+
+        .prompt-item-category-badge {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 10px;
+            padding: 1px 7px;
+            border-radius: 999px;
+            background: var(--accent-dim);
+            color: var(--accent);
+            border: 1px solid var(--accent-soft);
+            margin-left: 6px;
+        }
+
+        /* "Jump to conversation" landing highlight */
+        .jump-highlight {
+            animation: jumpFlash 2.2s ease;
+        }
+
+        @keyframes jumpFlash {
+            0% { box-shadow: 0 0 0 2px rgba(var(--accent-rgb), 0.6); background: var(--accent-dim); }
+            100% { box-shadow: 0 0 0 0 rgba(var(--accent-rgb), 0); background: transparent; }
         }
 
         .cmd-palette-shortcut-row {
@@ -1703,10 +2730,49 @@
             opacity: 1;
         }
 
+        .followup-suggestions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 8px;
+        }
+
+        .followup-suggestions:empty { display: none; }
+
+        .followup-chip {
+            background: var(--accent-dim);
+            border: 1px solid rgba(var(--accent-rgb), 0.3);
+            color: var(--accent);
+            border-radius: 999px;
+            padding: 5px 12px;
+            font-size: 12px;
+            font-family: 'Outfit', sans-serif;
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+
+        .followup-chip:hover {
+            background: rgba(var(--accent-rgb), 0.2);
+            border-color: var(--accent);
+        }
+
+        .followup-empty {
+            font-size: 11.5px;
+            color: var(--text-dim);
+        }
+
         .copy-btn:hover {
             background: var(--accent-dim);
             border-color: var(--accent);
         }
+
+        .copy-btn.danger { color: #ff4b2b; border-color: rgba(255, 75, 43, 0.3); }
+        .copy-btn.danger:hover { background: rgba(255, 75, 43, 0.1); border-color: #ff4b2b; }
+
+        .bookmark-btn.active { color: #ffd93d; border-color: rgba(255, 217, 61, 0.4); }
+        .bookmark-btn.active:hover { background: rgba(255, 217, 61, 0.1); }
+
+        .delete-msg-btn:hover { color: #ff4b2b !important; border-color: rgba(255, 75, 43, 0.4) !important; }
 
         .code-header {
             display: flex;
@@ -1718,6 +2784,98 @@
             right: 10px;
             z-index: 20;
         }
+
+        /* --- Code block toolbar (language label, wrap/collapse/fullscreen/copy) --- */
+        pre {
+            padding-top: 38px !important;
+        }
+
+        .code-toolbar-simba {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 10px;
+            background: rgba(0, 0, 0, 0.35);
+            border-bottom: 1px solid var(--border-soft);
+            border-radius: var(--radius-md) var(--radius-md) 0 0;
+            z-index: 5;
+        }
+
+        .code-lang-label {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 10.5px;
+            color: var(--text-dim);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .code-toolbar-spacer { flex: 1; }
+
+        .code-tool-btn {
+            background: none;
+            border: 1px solid var(--border-soft);
+            color: var(--text-dim);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 10.5px;
+            padding: 3px 7px;
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            transition: all 0.15s ease;
+        }
+
+        .code-tool-btn:hover {
+            color: var(--accent);
+            border-color: rgba(var(--accent-rgb), 0.4);
+        }
+
+        pre code, pre.line-numbers { white-space: pre; }
+        pre.code-wrap code, pre.code-wrap { white-space: pre-wrap !important; word-break: break-word; }
+
+        pre.code-collapsed {
+            max-height: 340px;
+            overflow-y: hidden;
+            mask-image: linear-gradient(to bottom, black 75%, transparent 100%);
+            -webkit-mask-image: linear-gradient(to bottom, black 75%, transparent 100%);
+        }
+
+        pre.code-fullscreen {
+            position: fixed !important;
+            inset: 24px !important;
+            z-index: 9999 !important;
+            max-height: none !important;
+            width: auto !important;
+            margin: 0 !important;
+            overflow: auto !important;
+            mask-image: none !important;
+            -webkit-mask-image: none !important;
+            background: var(--surface) !important;
+            border: 1px solid var(--border) !important;
+            border-radius: var(--radius-md) !important;
+            box-shadow: var(--shadow-lg);
+        }
+
+        /* A solid (NOT blurred) scrim behind the fullscreen block - the old
+           implementation blurred #workspace/#sidebar, which, because filter
+           establishes a containing block for fixed descendants, actually
+           blurred the fullscreen code itself and dimmed the whole app. This
+           is a clean, VS-Code-style dark backdrop with zero blur and no
+           layout shift (the code block is position:fixed, out of flow). */
+        body.code-fullscreen-active::before {
+            content: "";
+            position: fixed;
+            inset: 0;
+            z-index: 9998;
+            background: rgba(4, 6, 10, 0.88);
+        }
+
+        body.code-fullscreen-active { overflow: hidden; }
 
 
         /* પ્રોગ્રેસ બારનું મેઈન કન્ટેનર [cite: 2026-03-01] */
@@ -1741,6 +2899,12 @@
             box-shadow: 0 0 10px var(--accent-dim);
             transition: width 0.5s ease-in-out;
         } */
+
+        .system-monitor {
+            padding: var(--space-2) var(--space-1);
+            border-top: 1px solid var(--accent-dim);
+            margin-top: var(--space-2);
+        }
 
         /* Compact single-row CPU/RAM readout - replaces the old 96px SVG
            rings, which alone cost ~140px of sidebar height for a decorative
@@ -2343,8 +3507,11 @@
                 margin-bottom: 8px !important;
             }
 
-            .chat-item-container .chat-link {
-                padding: 8px 10px !important;
+            /* Taller rows on mobile for touch comfort - still one fixed
+               height applied uniformly, so every row remains identical
+               within this breakpoint too. */
+            .chat-item-container {
+                height: 40px !important;
             }
 
             /* Workspace - full width no sidebar space */
@@ -2778,10 +3945,14 @@
 
     <script
         src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/autoloader/prism-autoloader.min.js" defer></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/line-numbers/prism-line-numbers.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/line-numbers/prism-line-numbers.min.js" defer></script>
 
 </head>
 
 <body>
+
+    <div id="toast-container"></div>
 
     {% if active_broadcast %}
         {% if active_broadcast.is_popup %}
@@ -2869,6 +4040,62 @@
         </div>
     </div>
 
+    <div id="bookmarksPanel" class="command-palette-overlay" onclick="if(event.target===this) closeBookmarksPanel();">
+        <div class="command-palette-box bookmarks-panel-box">
+            <div class="command-palette-input-row">
+                <i class="fa-solid fa-bookmark"></i>
+                <input type="text" id="bookmarksSearchInput" placeholder="Search bookmarks..."
+                    autocomplete="off" spellcheck="false"
+                    oninput="filterBookmarks(this.value)">
+                <kbd onclick="closeBookmarksPanel()" style="cursor:pointer;">ESC</kbd>
+            </div>
+            <div id="bookmarksResults" class="bookmarks-results"></div>
+        </div>
+    </div>
+
+    <div id="promptLibraryPanel" class="command-palette-overlay" onclick="if(event.target===this) closePromptLibrary();">
+        <div class="command-palette-box bookmarks-panel-box">
+            <div class="command-palette-input-row">
+                <i class="fa-solid fa-book-bookmark"></i>
+                <input type="text" id="promptLibrarySearchInput" placeholder="Search saved prompts..."
+                    autocomplete="off" spellcheck="false"
+                    oninput="filterSavedPrompts(this.value)">
+                <button type="button" class="btn-mini" onclick="openNewPromptDialog()" title="Save a new prompt"><i class="fa-solid fa-plus"></i> New</button>
+                <kbd onclick="closePromptLibrary()" style="cursor:pointer;">ESC</kbd>
+            </div>
+            <div class="prompt-library-tabs">
+                <button type="button" class="prompt-library-tab active" data-tab="all" onclick="switchPromptLibraryTab('all')">All</button>
+                <button type="button" class="prompt-library-tab" data-tab="favorites" onclick="switchPromptLibraryTab('favorites')">Favorites</button>
+                <button type="button" class="prompt-library-tab" data-tab="recent" onclick="switchPromptLibraryTab('recent')">Recent</button>
+            </div>
+            <div id="promptLibraryCategoryChips" class="folder-chips" style="padding: 0 12px;"></div>
+            <div id="promptLibraryResults" class="bookmarks-results"></div>
+        </div>
+    </div>
+
+    <!-- Folder context menu (Part 3) - positioned at cursor/button on open -->
+    <div id="folderContextMenu" class="context-menu" data-folder-name="" data-folder-color="">
+        <button type="button" class="context-menu-item" onclick="folderMenuRename()"><i class="fa-solid fa-pen"></i> Rename</button>
+        <div class="context-menu-divider"></div>
+        <div class="context-menu-colors" id="folderMenuColors"></div>
+        <div class="context-menu-divider"></div>
+        <button type="button" class="context-menu-item danger" onclick="folderMenuDelete()"><i class="fa-solid fa-trash"></i> Delete folder</button>
+    </div>
+
+    <!-- Generic confirmation dialog (Part 3/10) - replaces native confirm()
+         for destructive folder actions, styled to match the design system -->
+    <div id="confirmDialogOverlay" class="confirm-overlay" onclick="if(event.target===this) closeConfirmDialog();">
+        <div class="confirm-dialog" role="alertdialog" aria-modal="true">
+            <div class="confirm-dialog-icon" id="confirmDialogIcon"><i class="fa-solid fa-triangle-exclamation"></i></div>
+            <h3 id="confirmDialogTitle">Are you sure?</h3>
+            <p id="confirmDialogMessage"></p>
+            <div class="confirm-dialog-actions">
+                <button type="button" class="confirm-btn confirm-btn-cancel" onclick="closeConfirmDialog()">Cancel</button>
+                <button type="button" class="confirm-btn confirm-btn-confirm" id="confirmDialogConfirmBtn">Confirm</button>
+            </div>
+        </div>
+    </div>
+
     {% if verification_required and not email_verified %}
     <div id="verifyEmailModal" class="verify-email-overlay">
         <div class="verify-email-card">
@@ -2908,6 +4135,7 @@
     <div id="mobile-overlay" class="mobile-overlay"></div>
 
     <div id="sidebar">
+        <div class="sidebar-resize-handle" id="sidebarResizeHandle"></div>
         <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
         <div class="brand">
             <div class="text-wrapper">
@@ -2918,11 +4146,27 @@
                     <span class="status-text">CORE ONLINE</span>
                 </div>
             </div>
+            <button type="button" class="sidebar-collapse-btn" id="sidebarCollapseBtn" onclick="toggleSidebarCollapse()" title="Collapse sidebar">
+                <i class="fa-solid fa-angles-left"></i>
+            </button>
             <!-- Mobile close button -->
             <button id="mobile-close-btn" class="mobile-close-btn">
                 <i class="fa-solid fa-xmark"></i>
             </button>
         </div>
+
+        <div class="sidebar-icon-rail">
+            <a href="/" class="rail-icon-btn rail-icon-primary" title="New chat"><i class="fa-solid fa-plus"></i></a>
+            <button type="button" class="rail-icon-btn" title="Search chats" onclick="expandSidebarAndFocusSearch()"><i class="fa-solid fa-magnifying-glass"></i></button>
+            <button type="button" class="rail-icon-btn" title="Bookmarks" onclick="openBookmarksPanel()"><i class="fa-solid fa-bookmark"></i></button>
+            <button type="button" class="rail-icon-btn" title="Prompt Library" onclick="openPromptLibrary()"><i class="fa-solid fa-book-bookmark"></i></button>
+            <a href="{% url 'analytics_dashboard' %}" class="rail-icon-btn" title="Analytics" onclick="saveChatStateBeforeLeaving()"><i class="fa-solid fa-chart-line"></i></a>
+            <a href="{% url 'profile_settings' %}" class="rail-icon-btn" title="Settings" onclick="saveChatStateBeforeLeaving()"><i class="fa-solid fa-gear"></i></a>
+            {% if can_access_admin_console %}
+            <a href="{% url 'admin_dashboard' %}" class="rail-icon-btn" title="Admin Console"><i class="fa-solid fa-shield-halved"></i></a>
+            {% endif %}
+        </div>
+
         <a href="/" class="new-chat">/initialize_new_intel</a>
         {% if current_session %}
         <button type="button" class="new-chat"
@@ -2931,7 +4175,7 @@
         </button>
         {% endif %}
 
-        <div class="system-monitor" style="padding: 8px 2px; border-top: 1px solid var(--accent-dim); margin-top: 8px;">
+        <div class="system-monitor">
             <div class="mini-stats">
                 <div class="mini-stat">
                     <div class="mini-stat-row"><span>CPU</span><span class="mini-stat-val" id="cpu-val">0%</span></div>
@@ -2946,75 +4190,116 @@
         </div>
 
         <div class="history-section">
-            <span class="label">ARCHIVE_LOG</span>
+            <div class="history-section-header">
+                <span class="label">ARCHIVE_LOG</span>
+                <div class="history-view-toggle">
+                    <a href="/?view=active{% if folder_filter %}&folder={{ folder_filter|urlencode }}{% endif %}" class="view-toggle-btn {% if view_mode != 'archived' %}active{% endif %}">Active</a>
+                    <a href="/?view=archived{% if folder_filter %}&folder={{ folder_filter|urlencode }}{% endif %}" class="view-toggle-btn {% if view_mode == 'archived' %}active{% endif %}">Archived</a>
+                </div>
+            </div>
 
             <div class="sidebar-search">
                 <i class="fa-solid fa-magnifying-glass"></i>
-                <input type="text" id="chat-search-input" placeholder="Search conversations..."
+                <input type="text" id="chat-search-input" placeholder="Search titles &amp; messages..."
                     oninput="filterChatHistory()" aria-label="Search conversations">
                 <kbd class="cmd-palette-hint" onclick="openCommandPalette()" title="Open command palette">⌘K</kbd>
             </div>
+            <div id="search-results-panel" class="search-results-panel"></div>
 
-            <div id="pinned-chats">
-                {% for s in sessions %}
-                {% if s.is_pinned %}
-                <div
-                    class="chat-item-container {% if s.id|stringformat:'s' == current_session.id|stringformat:'s' %}active-chat{% endif %}">
-                    <a href="/?session={{ s.id }}" class="chat-link">
-                        > {{ s.title }}...
-                        <i class="fa-solid fa-thumbtack"
-                            style="font-size: 10px; color: var(--accent); margin-left: 8px; transform: rotate(45deg);"></i>
-                    </a>
+            <button type="button" class="bookmarks-entry-btn" onclick="openBookmarksPanel()">
+                <i class="fa-solid fa-bookmark"></i> Bookmarks
+            </button>
+            <button type="button" class="bookmarks-entry-btn" onclick="openPromptLibrary()">
+                <i class="fa-solid fa-book-bookmark"></i> Prompt Library
+            </button>
 
-                    <div class="side-menu">
-                        <button class="side-menu-btn" onclick="toggleMenu(event, 'drop-{{ s.id }}')">
-                            <i class="fa-solid fa-ellipsis-vertical"></i>
-                        </button>
-                        <div id="drop-{{ s.id }}" class="side-dropdown">
-                            <a href="javascript:void(0)" onclick="togglePin('{{ s.id }}')">
-                                <i class="fa-solid fa-thumbtack"></i> Unpin
-                            </a>
-                            <a href="javascript:void(0)" onclick="renameChat('{{ s.id }}', '{{ s.title }}')">
-                                <i class="fa-solid fa-pen"></i> Rename
-                            </a>
-                            <a href="javascript:void(0)" onclick="deleteChat('{{ s.id }}')" style="color: #ff4b2b;">
-                                <i class="fa-solid fa-trash"></i> Delete
-                            </a>
-                        </div>
-                    </div>
+            <div class="folder-section">
+                <div class="folder-section-header">
+                    <span class="folder-section-label"><i class="fa-solid fa-folder-tree"></i> Folders</span>
+                    <button type="button" class="folder-add-btn" onclick="createFolderPrompt()" title="New folder"><i class="fa-solid fa-plus"></i></button>
                 </div>
+                {% if folders %}
+                <div class="folder-chips">
+                    <a href="/?view={{ view_mode }}" class="folder-chip {% if not folder_filter %}active{% endif %}"><i class="fa-solid fa-layer-group"></i> All</a>
+                    {% for f in folders %}
+                    <div class="folder-chip-wrap">
+                        <a href="/?view={{ view_mode }}&folder={{ f.name|urlencode }}"
+                           class="folder-chip {% if folder_filter == f.name %}active{% endif %}"
+                           oncontextmenu="return openFolderMenu(event, '{{ f.name|escapejs }}', '{{ f.color|escapejs }}')">
+                            <span class="folder-chip-dot {% if f.color %}chat-color-{{ f.color }}{% else %}folder-chip-dot-none{% endif %}"></span>
+                            {{ f.name }}
+                            {% if f.count %}<span class="folder-chip-count">{{ f.count }}</span>{% endif %}
+                        </a>
+                        <button type="button" class="folder-chip-menu-btn" onclick="openFolderMenuFromBtn(event, this, '{{ f.name|escapejs }}', '{{ f.color|escapejs }}')" title="Folder options"><i class="fa-solid fa-ellipsis"></i></button>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="folder-empty-hint">No folders yet. Use a chat's menu → Set Folder, or the + above.</div>
                 {% endif %}
-                {% endfor %}
             </div>
 
-            <div id="live-chat-list">
-                {% for s in sessions %}
-                {% if not s.is_pinned %}
-                <div
-                    class="chat-item-container {% if s.id|stringformat:'s' == current_session.id|stringformat:'s' %}active-chat{% endif %}">
-                    <a href="/?session={{ s.id }}" class="chat-link">
-                        > {{ s.title }}...
-                    </a>
+            <div class="bulk-select-row">
+                <button type="button" class="bulk-select-toggle" id="bulkSelectToggleBtn" onclick="toggleBulkSelectMode()">
+                    <i class="fa-solid fa-square-check"></i> Select
+                </button>
+            </div>
+            <div id="bulk-action-toolbar" class="bulk-action-toolbar">
+                <span id="bulk-selected-count">0 selected</span>
+                <button type="button" class="btn-mini" title="Archive" onclick="bulkAction('archive')"><i class="fa-solid fa-box-archive"></i></button>
+                <button type="button" class="btn-mini" title="Unarchive" onclick="bulkAction('unarchive')"><i class="fa-solid fa-box-open"></i></button>
+                <button type="button" class="btn-mini danger" title="Delete" onclick="bulkAction('delete')"><i class="fa-solid fa-trash"></i></button>
+                <button type="button" class="btn-mini" onclick="toggleBulkSelectMode()">Cancel</button>
+            </div>
 
-                    <div class="side-menu">
-                        <button class="side-menu-btn" onclick="toggleMenu(event, 'drop-{{ s.id }}')">
-                            <i class="fa-solid fa-ellipsis-vertical"></i>
-                        </button>
-                        <div id="drop-{{ s.id }}" class="side-dropdown">
-                            <a href="javascript:void(0)" onclick="togglePin('{{ s.id }}')">
-                                <i class="fa-solid fa-thumbtack"></i> Pin
-                            </a>
-                            <a href="javascript:void(0)" onclick="renameChat('{{ s.id }}', '{{ s.title }}')">
-                                <i class="fa-solid fa-pen"></i> Rename
-                            </a>
-                            <a href="javascript:void(0)" onclick="deleteChat('{{ s.id }}')" style="color: #ff4b2b;">
-                                <i class="fa-solid fa-trash"></i> Delete
-                            </a>
-                        </div>
-                    </div>
+            <div id="pinned-chats">
+                {% for s in pinned_sessions %}{% include "partials/_chat_row.html" %}{% endfor %}
+            </div>
+
+            {% if favorite_sessions %}
+            <div class="chat-section-label"><i class="fa-solid fa-star"></i> FAVORITES</div>
+            <div id="favorite-chats">
+                {% for s in favorite_sessions %}{% include "partials/_chat_row.html" %}{% endfor %}
+            </div>
+            {% endif %}
+
+            <div id="live-chat-list">
+                {% if grouped_sessions.today %}
+                <div class="chat-date-group" data-group="today">
+                    <div class="chat-date-header">Today</div>
+                    {% for s in grouped_sessions.today %}{% include "partials/_chat_row.html" %}{% endfor %}
                 </div>
                 {% endif %}
-                {% endfor %}
+                {% if grouped_sessions.yesterday %}
+                <div class="chat-date-group" data-group="yesterday">
+                    <div class="chat-date-header">Yesterday</div>
+                    {% for s in grouped_sessions.yesterday %}{% include "partials/_chat_row.html" %}{% endfor %}
+                </div>
+                {% endif %}
+                {% if grouped_sessions.week %}
+                <div class="chat-date-group" data-group="week">
+                    <div class="chat-date-header">Last 7 Days</div>
+                    {% for s in grouped_sessions.week %}{% include "partials/_chat_row.html" %}{% endfor %}
+                </div>
+                {% endif %}
+                {% if grouped_sessions.month %}
+                <div class="chat-date-group" data-group="month">
+                    <div class="chat-date-header">Last 30 Days</div>
+                    {% for s in grouped_sessions.month %}{% include "partials/_chat_row.html" %}{% endfor %}
+                </div>
+                {% endif %}
+                {% if grouped_sessions.older %}
+                <div class="chat-date-group" data-group="older">
+                    <div class="chat-date-header">Older</div>
+                    {% for s in grouped_sessions.older %}{% include "partials/_chat_row.html" %}{% endfor %}
+                </div>
+                {% endif %}
+                {% if not grouped_sessions.today and not grouped_sessions.yesterday and not grouped_sessions.week and not grouped_sessions.month and not grouped_sessions.older and not pinned_sessions and not favorite_sessions %}
+                <div class="chat-list-empty">
+                    <i class="fa-solid {% if view_mode == 'archived' %}fa-box-open{% else %}fa-comments{% endif %}"></i>
+                    <span>{% if view_mode == 'archived' %}No archived conversations.{% else %}No conversations yet - start one below.{% endif %}</span>
+                </div>
+                {% endif %}
             </div>
 
             <div id="chatPagination" class="chat-pagination"></div>
@@ -3093,7 +4378,7 @@
                 <h1 style="font-family: 'JetBrains Mono'; letter-spacing: 3px; color: 	#bf9b30; font-size: 24px;">
                     SIMBA_INTEL</h1>
                 <p style="font-family: 'Outfit'; opacity: 0.6; margin-bottom: 40px;">SYSTEM READY. STANDING BY FOR
-                    COMMANDS, DHRUV.</p>
+                    COMMANDS, {{ profile.display_name|default:request.user.get_full_name|default:request.user.username|upper }}.</p>
 
                 <div
                     style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; max-width: 600px; margin: 0 auto;">
@@ -3123,7 +4408,7 @@
 
             {% for m in messages %}
             <div class="chat-block user-block" data-message-id="{{ m.user_message_id }}">
-                <span class="msg-label">{{m.user}}_INPUT</span>
+                <span class="msg-label">{{ profile.display_name|default:request.user.get_full_name|default:request.user.username|upper }}_INPUT</span>
                 <div class="content">{{ m.user_query }}</div>
                 <textarea class="raw-query" style="display:none;">{{ m.user_query }}</textarea>
                 {% if not m.extra_data %}
@@ -3131,6 +4416,9 @@
                     <i class="fa-solid fa-pen"></i>
                 </button>
                 {% endif %}
+                <button class="edit-msg-btn delete-msg-btn" onclick="deleteMessage(this)" title="Delete message" aria-label="Delete message" style="right: calc(100% + 42px);">
+                    <i class="fa-solid fa-trash"></i>
+                </button>
                 {% if m.user_sibling_count > 1 %}
                 <div class="branch-switcher" data-sibling-ids="{{ m.user_sibling_ids|join:',' }}" data-current-id="{{ m.user_message_id }}">
                     <button class="branch-nav-btn" onclick="switchBranch(this, -1)" aria-label="Previous version"><i class="fa-solid fa-chevron-left"></i></button>
@@ -3140,7 +4428,7 @@
                 {% endif %}
             </div>
             {% if m.extra_data and m.extra_data.type == "image" %}
-            <div class="chat-block simba-block">
+            <div class="chat-block simba-block" data-message-id="{{ m.id }}">
                 <span class="msg-label">
                     SIMBA_IMAGE
                 </span>
@@ -3169,12 +4457,26 @@
                             <button class="copy-btn" onclick="regenerateImage('{{ m.extra_data.prompt|escapejs }}', '{{ m.extra_data.prompt|escapejs }}')">
                                 <i class="fa-solid fa-rotate"></i> Regenerate
                             </button>
+                            <button class="copy-btn" onclick="shareChat('{{ m.extra_data.prompt|escapejs }}')">
+                                <i class="fa-solid fa-share-nodes"></i> Share
+                            </button>
+                            <button class="copy-btn bookmark-btn {% if m.extra_data.bookmarked %}active{% endif %}" onclick="bookmarkMessage(this)" title="Bookmark this image">
+                                <i class="fa-{% if m.extra_data.bookmarked %}solid{% else %}regular{% endif %} fa-bookmark"></i>
+                            </button>
+                            <button class="copy-btn danger" onclick="deleteMessage(this)" title="Delete this image">
+                                <i class="fa-solid fa-trash"></i>
+                            </button>
                         </div>
                     </div>
                 </div>
+                <div class="reply-mini-actions">
+                    <button class="reply-mini-btn" onclick="editPromptFromReply(this)" title="Edit the prompt that produced this image">
+                        <i class="fa-solid fa-pen"></i> Edit Prompt
+                    </button>
+                </div>
             </div>
             {% elif m.extra_data and m.extra_data.type == "vision" %}
-            <div class="chat-block simba-block">
+            <div class="chat-block simba-block" data-message-id="{{ m.id }}">
                 <span class="msg-label">
                     SIMBA_VISION{% if m.latency %} • {{ m.latency }}s{% endif %}
                 </span>
@@ -3189,10 +4491,28 @@
                 {% endif %}
                 <textarea style="display:none;" class="raw-data">{{ m.ai_response }}</textarea>
                 <div class="content markdown-content">{{ m.ai_response }}</div>
-                <div style="display: flex; gap: 10px; margin-top: 5px;">
+                <div class="reply-actions" style="display: flex; gap: 10px; margin-top: 5px; align-items: center;">
                     <button class="copy-btn"
                         onclick="copyToClipboard(this.closest('.simba-block').querySelector('.raw-data').value, this)">
                         <i class="fa-regular fa-copy"></i> COPY_INTEL
+                    </button>
+                    <button class="copy-btn"
+                        onclick="shareChat(this.closest('.simba-block').querySelector('.raw-data').value)">
+                        <i class="fa-solid fa-share-nodes"></i> SHARE
+                    </button>
+                    <button class="copy-btn bookmark-btn {% if m.extra_data.bookmarked %}active{% endif %}" onclick="bookmarkMessage(this)" title="Bookmark this reply">
+                        <i class="fa-{% if m.extra_data.bookmarked %}solid{% else %}regular{% endif %} fa-bookmark"></i>
+                    </button>
+                    <button class="copy-btn danger" onclick="deleteMessage(this)" title="Delete this reply">
+                        <i class="fa-solid fa-trash"></i>
+                    </button>
+                </div>
+                <div class="reply-mini-actions">
+                    <button class="reply-mini-btn" onclick="editPromptFromReply(this)" title="Edit the prompt that produced this reply">
+                        <i class="fa-solid fa-pen"></i> Edit Prompt
+                    </button>
+                    <button class="reply-mini-btn" onclick="copyPromptFromReply(this)" title="Copy the prompt that produced this reply">
+                        <i class="fa-solid fa-copy"></i> Copy Prompt
                     </button>
                 </div>
             </div>
@@ -3216,6 +4536,15 @@
                     <button class="copy-btn" onclick="regenerateText(this)">
                         <i class="fa-solid fa-rotate"></i> Regenerate
                     </button>
+                    <button class="copy-btn" onclick="continueMessage(this)" title="Extend this reply if it got cut short">
+                        <i class="fa-solid fa-forward"></i> Continue
+                    </button>
+                    <button class="copy-btn bookmark-btn {% if m.extra_data.bookmarked %}active{% endif %}" onclick="bookmarkMessage(this)" title="Bookmark this reply">
+                        <i class="fa-{% if m.extra_data.bookmarked %}solid{% else %}regular{% endif %} fa-bookmark"></i>
+                    </button>
+                    <button class="copy-btn danger" onclick="deleteMessage(this)" title="Delete this reply">
+                        <i class="fa-solid fa-trash"></i>
+                    </button>
                     {% if m.assistant_sibling_count > 1 %}
                     <div class="branch-switcher" data-sibling-ids="{{ m.assistant_sibling_ids|join:',' }}" data-current-id="{{ m.id }}">
                         <button class="branch-nav-btn" onclick="switchBranch(this, -1)" aria-label="Previous version"><i class="fa-solid fa-chevron-left"></i></button>
@@ -3231,7 +4560,11 @@
                     <button class="reply-mini-btn" onclick="copyPromptFromReply(this)" title="Copy the prompt that produced this reply">
                         <i class="fa-solid fa-copy"></i> Copy Prompt
                     </button>
+                    <button class="reply-mini-btn" onclick="suggestFollowups(this)" title="Suggest what to ask next">
+                        <i class="fa-solid fa-wand-magic-sparkles"></i> Suggest Follow-ups
+                    </button>
                 </div>
+                <div class="followup-suggestions"></div>
             </div>
             {% endif %}
             {% endfor %}
@@ -3266,6 +4599,7 @@
 
                     <div class="cyber-select" id="cyberSelect">
                         <span id="selectedText">
+                            {% if selected_model == 'auto' %}Auto (Smart Routing){% endif %}
                             {% for model in models %}
                             {% if model.id == selected_model %}{{ model.display_name }}{% endif %}
                             {% endfor %}
@@ -3275,6 +4609,10 @@
                     </div>
 
                     <div class="cyber-options" id="cyberOptions">
+                        <div class="cyber-option {% if selected_model == 'auto' %}active{% endif %}"
+                            data-value="auto" title="Automatically picks a model based on your message - vision for attached images, a stronger model for complex requests, a faster one for short/simple ones.">
+                            <i class="fa-solid fa-wand-magic-sparkles"></i> Auto (Smart Routing)
+                        </div>
                         {% for model in models %}
                         <div class="cyber-option {% if selected_model == model.id %}active{% endif %}"
                             data-value="{{ model.id }}">
@@ -3317,6 +4655,11 @@
                 </div>
 
 
+
+                <!-- SAVE PROMPT BUTTON -->
+                <button class="voice-btn" id="savePromptBtn" type="button" onclick="savePromptFromComposer()" title="Save this prompt to your library">
+                    <i class="fa-solid fa-bookmark"></i>
+                </button>
 
                 <!-- VOICE BUTTON -->
                 <button class="voice-btn" id="micBtn" type="button" onclick="toggleVoiceUplink()">
@@ -3520,23 +4863,34 @@
             return Array.from(document.querySelectorAll('#live-chat-list .chat-item-container'));
         }
 
+        function updateDateGroupHeaderVisibility() {
+            document.querySelectorAll('#live-chat-list .chat-date-group').forEach(group => {
+                const anyVisible = Array.from(group.querySelectorAll('.chat-item-container')).some(r => r.style.display !== 'none');
+                const header = group.querySelector('.chat-date-header');
+                if (header) header.style.display = anyVisible ? '' : 'none';
+            });
+        }
+
         function updateChatListDisplay() {
             const searchInput = document.getElementById('chat-search-input');
             const query = (searchInput ? searchInput.value : '').trim().toLowerCase();
             const pinnedRows = Array.from(document.querySelectorAll('#pinned-chats .chat-item-container'));
+            const favoriteRows = Array.from(document.querySelectorAll('#favorite-chats .chat-item-container'));
             const liveRows = getLiveChatRows();
             const pager = document.getElementById('chatPagination');
 
             if (query) {
-                [...pinnedRows, ...liveRows].forEach(row => {
+                [...pinnedRows, ...favoriteRows, ...liveRows].forEach(row => {
                     const text = row.querySelector('.chat-link')?.innerText.toLowerCase() || '';
                     row.style.display = text.includes(query) ? '' : 'none';
                 });
+                updateDateGroupHeaderVisibility();
                 if (pager) pager.innerHTML = '';
                 return;
             }
 
             pinnedRows.forEach(row => { row.style.display = ''; });
+            favoriteRows.forEach(row => { row.style.display = ''; });
 
             const totalPages = Math.max(1, Math.ceil(liveRows.length / CHAT_PAGE_SIZE));
             chatListPage = Math.min(Math.max(1, chatListPage), totalPages);
@@ -3545,6 +4899,7 @@
                 const page = Math.floor(i / CHAT_PAGE_SIZE) + 1;
                 row.style.display = page === chatListPage ? '' : 'none';
             });
+            updateDateGroupHeaderVisibility();
 
             if (!pager) return;
             if (liveRows.length <= CHAT_PAGE_SIZE) {
@@ -3564,13 +4919,495 @@
             updateChatListDisplay();
         }
 
+        // ================= Search: instant title filter + debounced
+        // server-side title+message search =================
+        let chatSearchDebounceTimer = null;
+
+        function escapeHtml(str) {
+            const div = document.createElement('div');
+            div.textContent = str;
+            return div.innerHTML;
+        }
+
+        // Single source of truth for the "optimistic" sidebar row inserted
+        // right after a brand-new chat's first message streams back (before
+        // the next full page load would otherwise render it via
+        // partials/_chat_row.html). Mirrors that partial's structure
+        // exactly - checkbox / icons+chevron+title / menu-placeholder - so
+        // this transient row occupies the identical fixed columns as every
+        // other row instead of drifting out of alignment. A brand-new
+        // session has no pin/favorite/folder/colour yet, so the icon slot
+        // is legitimately empty here, not just omitted.
+        function buildOptimisticChatRowHTML(sessionId, rawTitle) {
+            const displayTitle = escapeHtml(rawTitle.length > 20 ? rawTitle.substring(0, 20) + "..." : rawTitle);
+            return `
+    <div class="chat-item-container active-chat" style="animation: slideIn 0.3s ease;">
+        <input type="checkbox" class="chat-bulk-checkbox" data-session-id="${sessionId}" onclick="event.stopPropagation(); onBulkCheckboxChange();" aria-label="Select conversation">
+        <a href="/?session=${sessionId}" class="chat-link">
+            <span class="chat-row-icons"></span>
+            <span class="chat-link-marker">&gt;</span>
+            <span class="chat-link-title">${displayTitle}</span>
+        </a>
+        <div class="side-menu"></div>
+    </div>
+`;
+        }
+
+        function highlightMatch(text, query) {
+            const escaped = escapeHtml(text);
+            const escapedQuery = escapeHtml(query).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            if (!escapedQuery) return escaped;
+            return escaped.replace(new RegExp(escapedQuery, 'gi'), (m) => `<mark>${m}</mark>`);
+        }
+
+        function renderSearchResults(results, query) {
+            const panel = document.getElementById('search-results-panel');
+            if (!results.length) {
+                panel.innerHTML = '<div class="search-empty">No matches.</div>';
+                panel.classList.add('show');
+                return;
+            }
+            panel.innerHTML = results.map(r => `
+                <a class="search-result-item" href="/?session=${r.session_id}">
+                    <div class="search-result-title">${highlightMatch(r.title, query)}</div>
+                    ${r.snippet ? `<div class="search-result-snippet">${highlightMatch(r.snippet, query)}</div>` : ''}
+                </a>
+            `).join('');
+            panel.classList.add('show');
+        }
+
         function filterChatHistory() {
             // Any edit to the search box always restarts at page 1 once
             // cleared, so the user never lands on a page emptied out by
             // whatever they were previously filtering for.
             chatListPage = 1;
             updateChatListDisplay();
+
+            const query = document.getElementById('chat-search-input').value.trim();
+            const panel = document.getElementById('search-results-panel');
+            clearTimeout(chatSearchDebounceTimer);
+            if (query.length < 2) {
+                panel.classList.remove('show');
+                panel.innerHTML = '';
+                return;
+            }
+            // Debounced: this hits the DB (title AND message content), so it
+            // shouldn't fire on every keystroke the way the instant title
+            // filter above does.
+            chatSearchDebounceTimer = setTimeout(() => {
+                fetch(`/sessions/search/?q=${encodeURIComponent(query)}`, { signal: AbortSignal.timeout(8000) })
+                    .then(res => res.json())
+                    .then(data => renderSearchResults(data.results || [], query))
+                    .catch(() => {});
+            }, 250);
         }
+
+        // ================= Toast notifications (Part 9) =================
+        function showToast(message, type) {
+            const container = document.getElementById('toast-container');
+            if (!container) return;
+            const icon = type === 'success' ? 'fa-solid fa-circle-check' : type === 'error' ? 'fa-solid fa-triangle-exclamation' : 'fa-solid fa-circle-info';
+            const toast = document.createElement('div');
+            toast.className = `simba-toast toast-${type || 'info'}`;
+            toast.innerHTML = `<i class="${icon}"></i><span>${escapeHtml(message)}</span>`;
+            container.appendChild(toast);
+            setTimeout(() => {
+                toast.classList.add('toast-out');
+                setTimeout(() => toast.remove(), 220);
+            }, 3200);
+        }
+
+        // Settings > Save redirects back here with ?saved=1 - the only
+        // feedback the user previously got that Save actually worked was
+        // silently landing back on the chat page.
+        (function showSettingsSavedToast() {
+            const params = new URLSearchParams(window.location.search);
+            if (!params.get('saved')) return;
+            showToast('Settings saved', 'success');
+            params.delete('saved');
+            const newSearch = params.toString();
+            history.replaceState(null, '', window.location.pathname + (newSearch ? `?${newSearch}` : ''));
+        })();
+
+        // ================= Bookmarks panel (Part 2 - centralized bookmark workflow) =================
+        let bookmarksCache = [];
+        let bookmarksDebounceTimer = null;
+
+        function openBookmarksPanel() {
+            const overlay = document.getElementById('bookmarksPanel');
+            const input = document.getElementById('bookmarksSearchInput');
+            if (!overlay) return;
+            overlay.classList.add('show');
+            if (input) { input.value = ''; setTimeout(() => input.focus(), 30); }
+            loadBookmarks('');
+        }
+
+        function closeBookmarksPanel() {
+            document.getElementById('bookmarksPanel')?.classList.remove('show');
+        }
+
+        function loadBookmarks(q) {
+            const panel = document.getElementById('bookmarksResults');
+            if (panel) panel.innerHTML = '<div class="search-empty"><i class="fa-solid fa-spinner fa-spin"></i> Loading bookmarks...</div>';
+            fetch(`/bookmarks/?q=${encodeURIComponent(q || '')}`, { signal: AbortSignal.timeout(8000) })
+                .then(res => res.json())
+                .then(data => { bookmarksCache = data.results || []; renderBookmarksResults(bookmarksCache, q || ''); })
+                .catch(() => { if (panel) panel.innerHTML = '<div class="search-empty">Could not load bookmarks.</div>'; });
+        }
+
+        function filterBookmarks(query) {
+            clearTimeout(bookmarksDebounceTimer);
+            bookmarksDebounceTimer = setTimeout(() => loadBookmarks(query.trim()), 200);
+        }
+
+        function bookmarkTypeIcon(type) {
+            if (type === 'image') return 'fa-solid fa-image';
+            if (type === 'vision') return 'fa-solid fa-eye';
+            return 'fa-solid fa-message';
+        }
+
+        function formatBookmarkDate(iso) {
+            if (!iso) return '';
+            try {
+                return new Date(iso).toLocaleString(undefined, {
+                    month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
+                    timeZone: '{{ user_timezone }}',
+                });
+            } catch (e) { return ''; }
+        }
+
+        function renderBookmarksResults(results, query) {
+            const panel = document.getElementById('bookmarksResults');
+            if (!panel) return;
+            if (!results.length) {
+                panel.innerHTML = `<div class="search-empty"><i class="fa-solid fa-bookmark" style="opacity:0.4;font-size:22px;display:block;margin-bottom:8px;"></i>${query ? 'No bookmarks match that search.' : 'No bookmarks yet - bookmark any reply from its action row.'}</div>`;
+                return;
+            }
+            panel.innerHTML = results.map(r => `
+                <div class="bookmark-item" data-message-id="${r.message_id}">
+                    <div class="bookmark-item-icon"><i class="${bookmarkTypeIcon(r.type)}"></i></div>
+                    <div class="bookmark-item-body" onclick="jumpToBookmark(${r.session_id}, ${r.message_id})">
+                        <div class="bookmark-item-title">${highlightMatch(r.label || r.session_title, query)}</div>
+                        ${r.label ? `<div class="bookmark-item-convo"><i class="fa-solid fa-diagram-project"></i> ${escapeHtml(r.session_title)}</div>` : ''}
+                        ${r.snippet ? `<div class="bookmark-item-snippet">${highlightMatch(r.snippet, query)}</div>` : ''}
+                        <div class="bookmark-item-date">${formatBookmarkDate(r.bookmarked_at)}</div>
+                    </div>
+                    <div class="bookmark-item-actions">
+                        <button type="button" class="rail-icon-btn" title="Rename bookmark" onclick="renameBookmark(${r.message_id})"><i class="fa-solid fa-pen"></i></button>
+                        <button type="button" class="rail-icon-btn" title="Jump to conversation" onclick="jumpToBookmark(${r.session_id}, ${r.message_id})"><i class="fa-solid fa-arrow-right"></i></button>
+                        <button type="button" class="rail-icon-btn" title="Remove bookmark" onclick="removeBookmarkFromPanel(${r.message_id}, this)"><i class="fa-solid fa-trash"></i></button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function jumpToBookmark(sessionId, messageId) {
+            closeBookmarksPanel();
+            window.location.href = `/?session=${sessionId}&jump=${messageId}`;
+        }
+
+        function renameBookmark(messageId) {
+            const current = bookmarksCache.find(r => r.message_id === messageId);
+            const label = prompt('Rename this bookmark:', current ? current.label : '');
+            if (label === null) return;
+            fetch(`/messages/${messageId}/bookmark/label/`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRFToken': csrfToken },
+                body: `label=${encodeURIComponent(label.trim())}`,
+                signal: AbortSignal.timeout(8000),
+            })
+                .then(res => res.json())
+                .then(() => {
+                    loadBookmarks(document.getElementById('bookmarksSearchInput')?.value.trim() || '');
+                    showToast('Bookmark renamed', 'success');
+                })
+                .catch(() => showToast('Could not rename this bookmark.', 'error'));
+        }
+
+        function removeBookmarkFromPanel(messageId, btn) {
+            const item = btn.closest('.bookmark-item');
+            fetch(`/messages/${messageId}/bookmark/`, {
+                method: 'POST',
+                headers: { 'X-CSRFToken': csrfToken },
+                signal: AbortSignal.timeout(8000),
+            })
+                .then(res => res.json())
+                .then(() => {
+                    if (item) item.remove();
+                    bookmarksCache = bookmarksCache.filter(r => r.message_id !== messageId);
+                    // Keep the same in-page reply's bookmark icon in sync if it's
+                    // currently rendered (unbookmarking here shouldn't require a
+                    // reload of the conversation to see it reflected).
+                    const liveBtn = document.querySelector(`.chat-block[data-message-id="${messageId}"] .bookmark-btn`);
+                    if (liveBtn) {
+                        liveBtn.classList.remove('active');
+                        const icon = liveBtn.querySelector('i');
+                        if (icon) icon.className = 'fa-regular fa-bookmark';
+                    }
+                    if (!bookmarksCache.length) renderBookmarksResults([], document.getElementById('bookmarksSearchInput')?.value.trim() || '');
+                    showToast('Bookmark removed', 'info');
+                })
+                .catch(() => showToast('Could not remove this bookmark.', 'error'));
+        }
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') closeBookmarksPanel();
+        });
+
+        // ================= Prompt Library (Part 5) =================
+        let promptLibraryTab = 'all';
+        let promptLibraryCategory = '';
+        let promptLibraryDebounceTimer = null;
+        let promptLibraryCache = [];
+
+        function openPromptLibrary() {
+            const overlay = document.getElementById('promptLibraryPanel');
+            const input = document.getElementById('promptLibrarySearchInput');
+            if (!overlay) return;
+            overlay.classList.add('show');
+            if (input) { input.value = ''; setTimeout(() => input.focus(), 30); }
+            promptLibraryTab = 'all';
+            promptLibraryCategory = '';
+            document.querySelectorAll('.prompt-library-tab').forEach(t => t.classList.toggle('active', t.dataset.tab === 'all'));
+            loadPromptLibrary('');
+        }
+
+        function closePromptLibrary() {
+            document.getElementById('promptLibraryPanel')?.classList.remove('show');
+        }
+
+        function switchPromptLibraryTab(tab) {
+            promptLibraryTab = tab;
+            document.querySelectorAll('.prompt-library-tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
+            const query = document.getElementById('promptLibrarySearchInput')?.value.trim() || '';
+            if (tab === 'recent') {
+                loadRecentPrompts();
+            } else {
+                loadPromptLibrary(query);
+            }
+        }
+
+        function loadPromptLibrary(q) {
+            const panel = document.getElementById('promptLibraryResults');
+            const chipsPanel = document.getElementById('promptLibraryCategoryChips');
+            if (panel) panel.innerHTML = '<div class="search-empty"><i class="fa-solid fa-spinner fa-spin"></i> Loading...</div>';
+            const params = new URLSearchParams();
+            if (q) params.set('q', q);
+            if (promptLibraryTab === 'favorites') params.set('favorites', '1');
+            if (promptLibraryCategory) params.set('category', promptLibraryCategory);
+            fetch(`/prompts/?${params.toString()}`, { signal: AbortSignal.timeout(8000) })
+                .then(res => res.json())
+                .then(data => {
+                    promptLibraryCache = data.results || [];
+                    renderPromptLibraryResults(promptLibraryCache, q || '');
+                    if (chipsPanel) {
+                        const categories = data.categories || [];
+                        chipsPanel.innerHTML = categories.length ? [
+                            `<button type="button" class="folder-chip ${!promptLibraryCategory ? 'active' : ''}" onclick="filterPromptLibraryCategory('')">All</button>`,
+                            ...categories.map(c => `<button type="button" class="folder-chip ${promptLibraryCategory === c ? 'active' : ''}" onclick="filterPromptLibraryCategory('${escapeHtml(c)}')"><i class="fa-solid fa-tag"></i> ${escapeHtml(c)}</button>`)
+                        ].join('') : '';
+                    }
+                })
+                .catch(() => { if (panel) panel.innerHTML = '<div class="search-empty">Could not load prompts.</div>'; });
+        }
+
+        function filterPromptLibraryCategory(category) {
+            promptLibraryCategory = category;
+            loadPromptLibrary(document.getElementById('promptLibrarySearchInput')?.value.trim() || '');
+        }
+
+        function loadRecentPrompts() {
+            const panel = document.getElementById('promptLibraryResults');
+            const chipsPanel = document.getElementById('promptLibraryCategoryChips');
+            if (chipsPanel) chipsPanel.innerHTML = '';
+            if (panel) panel.innerHTML = '<div class="search-empty"><i class="fa-solid fa-spinner fa-spin"></i> Loading...</div>';
+            fetch('/prompts/recent/', { signal: AbortSignal.timeout(8000) })
+                .then(res => res.json())
+                .then(data => {
+                    const results = data.results || [];
+                    if (!panel) return;
+                    if (!results.length) {
+                        panel.innerHTML = '<div class="search-empty">No recent prompts yet - anything you send becomes part of your history.</div>';
+                        return;
+                    }
+                    panel.innerHTML = results.map(r => `
+                        <div class="bookmark-item">
+                            <div class="bookmark-item-icon"><i class="fa-solid fa-clock-rotate-left"></i></div>
+                            <div class="bookmark-item-body" onclick="insertPromptText(this)" data-content="${escapeHtml(r.content)}">
+                                <div class="bookmark-item-snippet">${escapeHtml(r.content)}</div>
+                            </div>
+                        </div>
+                    `).join('');
+                })
+                .catch(() => { if (panel) panel.innerHTML = '<div class="search-empty">Could not load recent prompts.</div>'; });
+        }
+
+        function filterSavedPrompts(query) {
+            clearTimeout(promptLibraryDebounceTimer);
+            promptLibraryDebounceTimer = setTimeout(() => {
+                if (promptLibraryTab === 'recent') return;
+                loadPromptLibrary(query.trim());
+            }, 200);
+        }
+
+        function renderPromptLibraryResults(results, query) {
+            const panel = document.getElementById('promptLibraryResults');
+            if (!panel) return;
+            if (!results.length) {
+                panel.innerHTML = `<div class="search-empty"><i class="fa-solid fa-book-bookmark" style="opacity:0.4;font-size:22px;display:block;margin-bottom:8px;"></i>${query ? 'No prompts match that search.' : 'No saved prompts yet - use the bookmark icon next to the composer to save one.'}</div>`;
+                return;
+            }
+            panel.innerHTML = results.map(p => `
+                <div class="bookmark-item" data-prompt-id="${p.id}">
+                    <div class="bookmark-item-icon"><i class="fa-solid fa-book-bookmark"></i></div>
+                    <div class="bookmark-item-body" onclick="usePromptFromLibrary(${p.id})">
+                        <div class="bookmark-item-title">${highlightMatch(p.title, query)}${p.category ? `<span class="prompt-item-category-badge">${escapeHtml(p.category)}</span>` : ''}</div>
+                        <div class="bookmark-item-snippet">${highlightMatch(p.content, query)}</div>
+                        <div class="bookmark-item-date">Used ${p.use_count} time${p.use_count === 1 ? '' : 's'}</div>
+                    </div>
+                    <div class="bookmark-item-actions">
+                        <button type="button" class="rail-icon-btn" title="${p.is_favorite ? 'Unfavorite' : 'Favorite'}" onclick="toggleFavoritePrompt(${p.id}, this)"><i class="fa-${p.is_favorite ? 'solid' : 'regular'} fa-star"></i></button>
+                        <button type="button" class="rail-icon-btn" title="Edit" onclick="editSavedPrompt(${p.id})"><i class="fa-solid fa-pen"></i></button>
+                        <button type="button" class="rail-icon-btn" title="Delete" onclick="deleteSavedPromptFromPanel(${p.id}, this)"><i class="fa-solid fa-trash"></i></button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function insertPromptText(el) {
+            const input = document.getElementById('user-input');
+            if (input) { input.value = el.dataset.content; input.focus(); }
+            closePromptLibrary();
+        }
+
+        function usePromptFromLibrary(promptId) {
+            fetch(`/prompts/${promptId}/use/`, {
+                method: 'POST',
+                headers: { 'X-CSRFToken': csrfToken },
+                signal: AbortSignal.timeout(8000),
+            })
+                .then(res => res.json())
+                .then(data => {
+                    const input = document.getElementById('user-input');
+                    if (input && data.content) { input.value = data.content; input.focus(); }
+                    closePromptLibrary();
+                })
+                .catch(() => showToast('Could not use this prompt.', 'error'));
+        }
+
+        function toggleFavoritePrompt(promptId, btn) {
+            const current = promptLibraryCache.find(p => p.id === promptId);
+            const nextValue = current ? !current.is_favorite : true;
+            fetch(`/prompts/${promptId}/update/`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRFToken': csrfToken },
+                body: `is_favorite=${nextValue ? '1' : '0'}`,
+                signal: AbortSignal.timeout(8000),
+            })
+                .then(res => res.json())
+                .then(() => loadPromptLibrary(document.getElementById('promptLibrarySearchInput')?.value.trim() || ''))
+                .catch(() => showToast('Could not update favorite.', 'error'));
+        }
+
+        function editSavedPrompt(promptId) {
+            const current = promptLibraryCache.find(p => p.id === promptId);
+            const newTitle = prompt('Prompt title:', current ? current.title : '');
+            if (newTitle === null) return;
+            const newCategory = prompt('Category (optional):', current ? current.category : '') || '';
+            fetch(`/prompts/${promptId}/update/`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRFToken': csrfToken },
+                body: `title=${encodeURIComponent(newTitle.trim())}&category=${encodeURIComponent(newCategory.trim())}`,
+                signal: AbortSignal.timeout(8000),
+            })
+                .then(res => res.json())
+                .then(() => {
+                    loadPromptLibrary(document.getElementById('promptLibrarySearchInput')?.value.trim() || '');
+                    showToast('Prompt updated', 'success');
+                })
+                .catch(() => showToast('Could not update this prompt.', 'error'));
+        }
+
+        function deleteSavedPromptFromPanel(promptId, btn) {
+            if (!confirm('Delete this saved prompt?')) return;
+            const item = btn.closest('.bookmark-item');
+            fetch(`/prompts/${promptId}/delete/`, {
+                method: 'POST',
+                headers: { 'X-CSRFToken': csrfToken },
+                signal: AbortSignal.timeout(8000),
+            })
+                .then(res => res.json())
+                .then(() => {
+                    if (item) item.remove();
+                    promptLibraryCache = promptLibraryCache.filter(p => p.id !== promptId);
+                    showToast('Prompt deleted', 'info');
+                })
+                .catch(() => showToast('Could not delete this prompt.', 'error'));
+        }
+
+        function openNewPromptDialog() {
+            const input = document.getElementById('user-input');
+            const defaultContent = input ? input.value.trim() : '';
+            const content = prompt('Prompt content:', defaultContent);
+            if (!content || !content.trim()) return;
+            const title = prompt('Give it a short title:', content.trim().slice(0, 40)) || content.trim().slice(0, 40);
+            const category = prompt('Category (optional):', '') || '';
+            fetch('/prompts/create/', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRFToken': csrfToken },
+                body: `title=${encodeURIComponent(title.trim())}&content=${encodeURIComponent(content.trim())}&category=${encodeURIComponent(category.trim())}`,
+                signal: AbortSignal.timeout(8000),
+            })
+                .then(res => res.json())
+                .then(() => {
+                    loadPromptLibrary(document.getElementById('promptLibrarySearchInput')?.value.trim() || '');
+                    showToast('Prompt saved', 'success');
+                })
+                .catch(() => showToast('Could not save this prompt.', 'error'));
+        }
+
+        function savePromptFromComposer() {
+            const input = document.getElementById('user-input');
+            const content = input ? input.value.trim() : '';
+            if (!content) { alert('Type something in the composer first.'); return; }
+            const title = prompt('Save this as a prompt - give it a short title:', content.slice(0, 40));
+            if (title === null) return;
+            const category = prompt('Category (optional):', '') || '';
+            fetch('/prompts/create/', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRFToken': csrfToken },
+                body: `title=${encodeURIComponent((title || content).trim().slice(0, 40))}&content=${encodeURIComponent(content)}&category=${encodeURIComponent(category.trim())}`,
+                signal: AbortSignal.timeout(8000),
+            })
+                .then(res => res.json())
+                .then(() => showToast('Prompt saved to your library', 'success'))
+                .catch(() => showToast('Could not save this prompt.', 'error'));
+        }
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') closePromptLibrary();
+        });
+
+        // "Jump to original conversation" from the Bookmarks panel lands here
+        // with ?jump=<message_id> - scroll to it and give it a brief highlight
+        // flash so it's obvious which reply was meant, then strip the param
+        // so a later refresh of this same URL doesn't re-trigger it.
+        (function jumpToMessageFromQuery() {
+            const params = new URLSearchParams(window.location.search);
+            const jumpId = params.get('jump');
+            if (!jumpId) return;
+            const target = document.querySelector(`[data-message-id="${jumpId}"]`);
+            if (target) {
+                setTimeout(() => {
+                    target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    target.classList.add('jump-highlight');
+                    setTimeout(() => target.classList.remove('jump-highlight'), 2200);
+                }, 150);
+            }
+            params.delete('jump');
+            const newSearch = params.toString();
+            history.replaceState(null, '', window.location.pathname + (newSearch ? `?${newSearch}` : ''));
+        })();
 
         // Land on whichever page already contains the active conversation,
         // so switching pages is never required just to see what's selected.
@@ -3668,6 +5505,374 @@
             location.reload();
         }
 
+        async function toggleFavoriteSession(id) {
+            const res = await fetch(`/sessions/${id}/favorite/`, {
+                method: "POST",
+                headers: { "Content-Type": "application/x-www-form-urlencoded", "X-CSRFToken": csrfToken }
+            });
+            if (res.ok) location.reload();
+            else alert("Favorite failed");
+        }
+
+        async function toggleArchiveSession(id) {
+            const res = await fetch(`/sessions/${id}/archive/`, {
+                method: "POST",
+                headers: { "Content-Type": "application/x-www-form-urlencoded", "X-CSRFToken": csrfToken }
+            });
+            if (res.ok) location.reload();
+            else alert("Archive failed");
+        }
+
+        async function duplicateChat(id) {
+            const res = await fetch(`/sessions/${id}/duplicate/`, {
+                method: "POST",
+                headers: { "Content-Type": "application/x-www-form-urlencoded", "X-CSRFToken": csrfToken }
+            });
+            if (res.ok) {
+                const data = await res.json();
+                location.href = `/?session=${data.session_id}`;
+            } else alert("Duplicate failed");
+        }
+
+        // ================= Generic confirmation dialog (Part 3/10) =================
+        // Replaces native confirm() for destructive actions with a styled,
+        // on-brand dialog. Callback-based: pass an onConfirm; Cancel/Esc/
+        // backdrop-click just close it.
+        let _confirmCallback = null;
+        function showConfirm({ title, message, confirmLabel = 'Confirm', danger = false, onConfirm }) {
+            const overlay = document.getElementById('confirmDialogOverlay');
+            const dialog = overlay.querySelector('.confirm-dialog');
+            document.getElementById('confirmDialogTitle').textContent = title || 'Are you sure?';
+            document.getElementById('confirmDialogMessage').textContent = message || '';
+            const confirmBtn = document.getElementById('confirmDialogConfirmBtn');
+            confirmBtn.textContent = confirmLabel;
+            dialog.classList.toggle('danger', !!danger);
+            _confirmCallback = onConfirm;
+            overlay.classList.add('show');
+            setTimeout(() => confirmBtn.focus(), 30);
+        }
+
+        function closeConfirmDialog() {
+            document.getElementById('confirmDialogOverlay').classList.remove('show');
+            _confirmCallback = null;
+        }
+
+        document.getElementById('confirmDialogConfirmBtn').addEventListener('click', () => {
+            const cb = _confirmCallback;
+            closeConfirmDialog();
+            if (cb) cb();
+        });
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') closeConfirmDialog();
+        });
+
+        // ================= Folder management (Part 3) =================
+        const FOLDER_COLORS = [
+            ['', 'None'], ['red', 'Red'], ['orange', 'Orange'], ['yellow', 'Yellow'],
+            ['green', 'Green'], ['blue', 'Blue'], ['purple', 'Purple'],
+        ];
+
+        function createFolderPrompt() {
+            const name = prompt('New folder name:');
+            if (name === null) return;
+            const trimmed = name.trim();
+            if (!trimmed) return;
+            fetch("{% url 'create_folder' %}", {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRFToken': csrfToken },
+                body: `name=${encodeURIComponent(trimmed)}`,
+                signal: AbortSignal.timeout(8000),
+            })
+                .then(res => res.json().then(data => ({ ok: res.ok, data })))
+                .then(({ ok, data }) => {
+                    if (!ok) { showToast(data.error || 'Could not create folder.', 'error'); return; }
+                    showToast('Folder created', 'success');
+                    location.reload();
+                })
+                .catch(() => showToast('Network error - please try again.', 'error'));
+        }
+
+        function buildFolderMenuColors(currentColor) {
+            const wrap = document.getElementById('folderMenuColors');
+            wrap.innerHTML = FOLDER_COLORS.map(([value, label]) =>
+                `<button type="button" class="color-swatch ${value ? 'color-swatch-' + value : 'color-swatch-none'}"
+                    title="${label}" style="${value === currentColor ? 'outline:2px solid var(--accent);outline-offset:1px;' : ''}"
+                    onclick="folderMenuSetColor('${value}')"></button>`
+            ).join('');
+        }
+
+        function positionContextMenu(menu, x, y) {
+            menu.classList.add('show');
+            const rect = menu.getBoundingClientRect();
+            const maxX = window.innerWidth - rect.width - 8;
+            const maxY = window.innerHeight - rect.height - 8;
+            menu.style.left = Math.max(8, Math.min(x, maxX)) + 'px';
+            menu.style.top = Math.max(8, Math.min(y, maxY)) + 'px';
+        }
+
+        function openFolderMenu(event, name, color) {
+            event.preventDefault();
+            const menu = document.getElementById('folderContextMenu');
+            menu.dataset.folderName = name;
+            menu.dataset.folderColor = color || '';
+            buildFolderMenuColors(color || '');
+            positionContextMenu(menu, event.clientX, event.clientY);
+            return false;
+        }
+
+        function openFolderMenuFromBtn(event, btn, name, color) {
+            event.preventDefault();
+            event.stopPropagation();
+            const menu = document.getElementById('folderContextMenu');
+            menu.dataset.folderName = name;
+            menu.dataset.folderColor = color || '';
+            buildFolderMenuColors(color || '');
+            const rect = btn.getBoundingClientRect();
+            positionContextMenu(menu, rect.left, rect.bottom + 4);
+        }
+
+        function closeFolderMenu() {
+            document.getElementById('folderContextMenu').classList.remove('show');
+        }
+
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('#folderContextMenu') && !e.target.closest('.folder-chip-menu-btn')) {
+                closeFolderMenu();
+            }
+        });
+
+        function folderMenuRename() {
+            const menu = document.getElementById('folderContextMenu');
+            const oldName = menu.dataset.folderName;
+            closeFolderMenu();
+            const newName = prompt('Rename folder:', oldName);
+            if (newName === null) return;
+            const trimmed = newName.trim();
+            if (!trimmed || trimmed === oldName) return;
+            fetch("{% url 'rename_folder' %}", {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRFToken': csrfToken },
+                body: `old_name=${encodeURIComponent(oldName)}&new_name=${encodeURIComponent(trimmed)}`,
+                signal: AbortSignal.timeout(8000),
+            })
+                .then(res => res.json().then(data => ({ ok: res.ok, data })))
+                .then(({ ok, data }) => {
+                    if (!ok) { showToast(data.error || 'Could not rename folder.', 'error'); return; }
+                    showToast('Folder renamed', 'success');
+                    location.reload();
+                })
+                .catch(() => showToast('Network error - please try again.', 'error'));
+        }
+
+        function folderMenuSetColor(color) {
+            const menu = document.getElementById('folderContextMenu');
+            const name = menu.dataset.folderName;
+            closeFolderMenu();
+            fetch("{% url 'set_folder_color' %}", {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRFToken': csrfToken },
+                body: `name=${encodeURIComponent(name)}&color=${encodeURIComponent(color)}`,
+                signal: AbortSignal.timeout(8000),
+            })
+                .then(res => res.json().then(data => ({ ok: res.ok, data })))
+                .then(({ ok, data }) => {
+                    if (!ok) { showToast(data.error || 'Could not update folder color.', 'error'); return; }
+                    location.reload();
+                })
+                .catch(() => showToast('Network error - please try again.', 'error'));
+        }
+
+        function folderMenuDelete() {
+            const menu = document.getElementById('folderContextMenu');
+            const name = menu.dataset.folderName;
+            closeFolderMenu();
+            showConfirm({
+                title: `Delete "${name}"?`,
+                message: 'The folder will be removed and its chats moved out of it. No conversations are deleted.',
+                confirmLabel: 'Delete folder',
+                danger: true,
+                onConfirm: () => {
+                    fetch("{% url 'delete_folder' %}", {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRFToken': csrfToken },
+                        body: `name=${encodeURIComponent(name)}`,
+                        signal: AbortSignal.timeout(8000),
+                    })
+                        .then(res => res.json().then(data => ({ ok: res.ok, data })))
+                        .then(({ ok, data }) => {
+                            if (!ok) { showToast(data.error || 'Could not delete folder.', 'error'); return; }
+                            showToast(`Folder deleted${data.unfiled ? ` · ${data.unfiled} chat(s) unfiled` : ''}`, 'info');
+                            // If we were viewing the deleted folder, go back to All.
+                            const params = new URLSearchParams(window.location.search);
+                            if (params.get('folder') === name) {
+                                window.location.href = '/';
+                            } else {
+                                location.reload();
+                            }
+                        })
+                        .catch(() => showToast('Network error - please try again.', 'error'));
+                },
+            });
+        }
+
+        async function promptSetFolder(id, currentFolder) {
+            const folder = prompt("Folder name (leave blank to remove from folder):", currentFolder || "");
+            if (folder === null) return;
+            const res = await fetch(`/sessions/${id}/folder/`, {
+                method: "POST",
+                headers: { "Content-Type": "application/x-www-form-urlencoded", "X-CSRFToken": csrfToken },
+                body: `folder=${encodeURIComponent(folder)}`
+            });
+            if (res.ok) location.reload();
+            else showToast("Setting folder failed", 'error');
+        }
+
+        async function setSessionColor(id, color) {
+            const res = await fetch(`/sessions/${id}/color/`, {
+                method: "POST",
+                headers: { "Content-Type": "application/x-www-form-urlencoded", "X-CSRFToken": csrfToken },
+                body: `color=${encodeURIComponent(color)}`
+            });
+            if (res.ok) location.reload();
+            else alert("Setting color failed");
+        }
+
+        // ================= Bulk select =================
+        function toggleBulkSelectMode() {
+            const isOn = document.body.classList.toggle('bulk-select-mode');
+            document.getElementById('bulkSelectToggleBtn').classList.toggle('active', isOn);
+            document.getElementById('bulk-action-toolbar').classList.toggle('show', isOn);
+            if (!isOn) {
+                document.querySelectorAll('.chat-bulk-checkbox').forEach(cb => cb.checked = false);
+            }
+            onBulkCheckboxChange();
+        }
+
+        function onBulkCheckboxChange() {
+            const checked = document.querySelectorAll('.chat-bulk-checkbox:checked');
+            const countEl = document.getElementById('bulk-selected-count');
+            if (countEl) countEl.textContent = `${checked.length} selected`;
+        }
+
+        async function bulkAction(action) {
+            const ids = Array.from(document.querySelectorAll('.chat-bulk-checkbox:checked')).map(cb => cb.dataset.sessionId);
+            if (!ids.length) { showToast("No conversations selected.", 'info'); return; }
+
+            const run = async () => {
+                const params = new URLSearchParams();
+                params.set('action', action);
+                ids.forEach(id => params.append('session_ids', id));
+                const res = await fetch('/sessions/bulk-action/', {
+                    method: "POST",
+                    headers: { "Content-Type": "application/x-www-form-urlencoded", "X-CSRFToken": csrfToken },
+                    body: params.toString()
+                });
+                if (res.ok) location.reload();
+                else showToast("Bulk action failed", 'error');
+            };
+
+            if (action === 'delete') {
+                showConfirm({
+                    title: `Delete ${ids.length} conversation${ids.length === 1 ? '' : 's'}?`,
+                    message: 'This permanently removes the selected conversations and cannot be undone.',
+                    confirmLabel: 'Delete',
+                    danger: true,
+                    onConfirm: run,
+                });
+            } else {
+                run();
+            }
+        }
+
+        // ================= Sidebar resize + collapse =================
+        (function initSidebarResize() {
+            const sidebar = document.getElementById('sidebar');
+            const handle = document.getElementById('sidebarResizeHandle');
+            if (!sidebar || !handle) return;
+
+            const MIN_WIDTH = 200, MAX_WIDTH = 420;
+            // Collapse/resize are desktop-only affordances (the collapse
+            // button itself is hidden below 991px) - a stale "collapsed"
+            // flag from an earlier desktop visit must never squeeze the
+            // mobile overlay sidebar down to 64px on a phone.
+            if (window.innerWidth > 991) {
+                const savedWidth = localStorage.getItem('simba_sidebar_width');
+                if (savedWidth) sidebar.style.width = `${Math.min(MAX_WIDTH, Math.max(MIN_WIDTH, parseInt(savedWidth, 10)))}px`;
+                if (localStorage.getItem('simba_sidebar_collapsed') === '1') {
+                    sidebar.classList.add('collapsed');
+                }
+            }
+            updateCollapseBtnIcon();
+
+            let dragging = false;
+            handle.addEventListener('mousedown', (e) => {
+                if (sidebar.classList.contains('collapsed')) return;
+                dragging = true;
+                handle.classList.add('resizing');
+                document.body.style.userSelect = 'none';
+                e.preventDefault();
+            });
+            document.addEventListener('mousemove', (e) => {
+                if (!dragging) return;
+                const width = Math.min(MAX_WIDTH, Math.max(MIN_WIDTH, e.clientX));
+                sidebar.style.width = `${width}px`;
+            });
+            document.addEventListener('mouseup', () => {
+                if (!dragging) return;
+                dragging = false;
+                handle.classList.remove('resizing');
+                document.body.style.userSelect = '';
+                localStorage.setItem('simba_sidebar_width', parseInt(sidebar.style.width, 10));
+            });
+        })();
+
+        function updateCollapseBtnIcon() {
+            const sidebar = document.getElementById('sidebar');
+            const btn = document.getElementById('sidebarCollapseBtn');
+            if (!sidebar || !btn) return;
+            const collapsed = sidebar.classList.contains('collapsed');
+            btn.innerHTML = collapsed ? '<i class="fa-solid fa-angles-right"></i>' : '<i class="fa-solid fa-angles-left"></i>';
+            btn.title = collapsed ? 'Expand sidebar' : 'Collapse sidebar';
+        }
+
+        function toggleSidebarCollapse() {
+            const sidebar = document.getElementById('sidebar');
+            const collapsed = sidebar.classList.toggle('collapsed');
+            localStorage.setItem('simba_sidebar_collapsed', collapsed ? '1' : '0');
+            updateCollapseBtnIcon();
+        }
+
+        function expandSidebarAndFocusSearch() {
+            const sidebar = document.getElementById('sidebar');
+            if (sidebar.classList.contains('collapsed')) {
+                sidebar.classList.remove('collapsed');
+                localStorage.setItem('simba_sidebar_collapsed', '0');
+                updateCollapseBtnIcon();
+            }
+            setTimeout(() => document.getElementById('chat-search-input')?.focus(), 200);
+        }
+
+        // ================= Timezone auto-detect (Part 5 - centralized timezone) =================
+        // Fires once per browser session (not every page load - the backend
+        // is a no-op once the detected name matches anyway, this just avoids
+        // the redundant request). A manual pick in Settings > General sets
+        // profile.timezone_auto=False server-side, which makes this silently
+        // stop taking effect - see set_timezone view.
+        (function detectAndSyncTimezone() {
+            if (sessionStorage.getItem('simba_tz_synced')) return;
+            try {
+                const detected = Intl.DateTimeFormat().resolvedOptions().timeZone;
+                if (!detected) return;
+                fetch("{% url 'set_timezone' %}", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/x-www-form-urlencoded", "X-CSRFToken": csrfToken },
+                    body: `timezone=${encodeURIComponent(detected)}`,
+                    signal: AbortSignal.timeout(8000),
+                }).then(() => sessionStorage.setItem('simba_tz_synced', '1')).catch(() => {});
+            } catch (e) { /* Intl unsupported - fall back to server default (UTC) */ }
+        })();
+
         function copyToClipboard(text, btn) {
             navigator.clipboard.writeText(text).then(() => {
                 const original = btn.innerHTML;
@@ -3690,6 +5895,38 @@
             const simbaBlock = btn.closest('.simba-block');
             const userBlock = simbaBlock ? simbaBlock.previousElementSibling : null;
             return (userBlock && userBlock.classList.contains('user-block')) ? userBlock : null;
+        }
+
+        function suggestFollowups(btn) {
+            const sessionId = new URLSearchParams(window.location.search).get('session');
+            if (!sessionId) { alert("This conversation isn't saved yet - send a message first."); return; }
+            const simbaBlock = btn.closest('.simba-block');
+            const container = simbaBlock ? simbaBlock.querySelector('.followup-suggestions') : null;
+            if (container) container.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Thinking of follow-ups...';
+            btn.disabled = true;
+            fetch(`/session/${sessionId}/suggest-followups/`, { signal: AbortSignal.timeout(15000) })
+                .then(res => res.json())
+                .then(data => {
+                    if (!container) return;
+                    const suggestions = data.suggestions || [];
+                    if (!suggestions.length) {
+                        container.innerHTML = '<span class="followup-empty">No suggestions this time.</span>';
+                        return;
+                    }
+                    container.innerHTML = suggestions.map(s =>
+                        `<button type="button" class="followup-chip" onclick="useFollowupSuggestion(this)">${escapeHtml(s)}</button>`
+                    ).join('');
+                })
+                .catch(() => { if (container) container.innerHTML = '<span class="followup-empty">Could not load suggestions.</span>'; })
+                .finally(() => { btn.disabled = false; });
+        }
+
+        function useFollowupSuggestion(chipBtn) {
+            const input = document.getElementById('user-input');
+            if (!input) return;
+            input.value = chipBtn.textContent;
+            input.focus();
+            sendQuery();
         }
 
         function editPromptFromReply(btn) {
@@ -3723,6 +5960,12 @@
             applyCodeButtons();
         }
 
+        function codeBlockLanguageLabel(pre) {
+            const codeEl = pre.querySelector("code");
+            const match = codeEl && codeEl.className.match(/language-(\S+)/);
+            return match ? match[1] : "text";
+        }
+
         function applyCodeButtons(root) {
             // Scoped to the just-rendered container when the caller has one
             // (every new/streamed message), falling back to the whole
@@ -3732,41 +5975,77 @@
             // in the size of the new message.
             (root || document).querySelectorAll("pre").forEach(pre => {
 
-                if (pre.querySelector(".copy-btn")) return;
+                if (pre.querySelector(".code-toolbar-simba")) return;
 
                 pre.style.position = "relative";
+                const language = codeBlockLanguageLabel(pre);
+                // Tall blocks start collapsed to a readable preview height -
+                // "Expand" is one click away, never hidden entirely.
+                const isTall = pre.innerText.split("\n").length > 18;
+                if (isTall) pre.classList.add("code-collapsed");
 
-                const btn = document.createElement("button");
-                btn.className = "copy-btn";
-                btn.style.position = "absolute";
-                btn.style.top = "8px";
-                btn.style.right = "10px";
-                btn.innerHTML = '<i class="fa-regular fa-copy"></i> COPY';
+                const toolbar = document.createElement("div");
+                toolbar.className = "code-toolbar-simba";
+                toolbar.innerHTML = `
+                    <span class="code-lang-label">${language}</span>
+                    <span class="code-toolbar-spacer"></span>
+                    <button type="button" class="code-tool-btn code-wrap-btn" title="Toggle line wrap"><i class="fa-solid fa-arrows-left-right"></i></button>
+                    ${isTall ? '<button type="button" class="code-tool-btn code-collapse-btn" title="Expand"><i class="fa-solid fa-chevron-down"></i></button>' : ''}
+                    <button type="button" class="code-tool-btn code-fullscreen-btn" title="Fullscreen"><i class="fa-solid fa-expand"></i></button>
+                    <button type="button" class="code-tool-btn code-copy-btn" title="Copy code"><i class="fa-regular fa-copy"></i> Copy</button>
+                `;
+                pre.prepend(toolbar);
 
-                btn.onclick = function () {
-
+                toolbar.querySelector(".code-copy-btn").onclick = () => {
                     const codeElement = pre.querySelector("code");
-
-                    let codeText = "";
-
-                    if (codeElement) {
-                        codeText = codeElement.innerText;
-                    } else {
-                        codeText = pre.innerText;
-                    }
-
+                    const codeText = codeElement ? codeElement.innerText : pre.innerText;
+                    const copyBtn = toolbar.querySelector(".code-copy-btn");
                     navigator.clipboard.writeText(codeText).then(() => {
-                        btn.innerHTML = "COPIED!";
-                        setTimeout(() => {
-                            btn.innerHTML = '<i class="fa-regular fa-copy"></i> COPY_CODE';
-                        }, 2000);
+                        copyBtn.innerHTML = '<i class="fa-solid fa-check"></i> Copied';
+                        setTimeout(() => { copyBtn.innerHTML = '<i class="fa-regular fa-copy"></i> Copy'; }, 2000);
                     });
-
                 };
 
-                pre.appendChild(btn);
+                toolbar.querySelector(".code-wrap-btn").onclick = () => {
+                    pre.classList.toggle("code-wrap");
+                };
+
+                const fsBtn = toolbar.querySelector(".code-fullscreen-btn");
+                fsBtn.onclick = () => {
+                    const nowFull = pre.classList.toggle("code-fullscreen");
+                    document.body.classList.toggle("code-fullscreen-active", nowFull);
+                    fsBtn.innerHTML = nowFull
+                        ? '<i class="fa-solid fa-compress"></i>'
+                        : '<i class="fa-solid fa-expand"></i>';
+                    fsBtn.title = nowFull ? "Exit fullscreen (Esc)" : "Fullscreen";
+                };
+
+                const collapseBtn = toolbar.querySelector(".code-collapse-btn");
+                if (collapseBtn) {
+                    collapseBtn.onclick = () => {
+                        const nowCollapsed = pre.classList.toggle("code-collapsed");
+                        collapseBtn.innerHTML = nowCollapsed
+                            ? '<i class="fa-solid fa-chevron-down"></i>'
+                            : '<i class="fa-solid fa-chevron-up"></i>';
+                        collapseBtn.title = nowCollapsed ? "Expand" : "Collapse";
+                    };
+                }
             });
         }
+
+        // Esc exits code fullscreen (matches the button's "Esc" hint).
+        document.addEventListener('keydown', (e) => {
+            if (e.key !== 'Escape') return;
+            const full = document.querySelector('pre.code-fullscreen');
+            if (!full) return;
+            full.classList.remove('code-fullscreen');
+            document.body.classList.remove('code-fullscreen-active');
+            const fsBtn = full.querySelector('.code-fullscreen-btn');
+            if (fsBtn) {
+                fsBtn.innerHTML = '<i class="fa-solid fa-expand"></i>';
+                fsBtn.title = 'Fullscreen';
+            }
+        });
 
         // ================= Custom Dropdown Logic (૧૦૦% સિંક ફિક્સ્ડ) =================
         const select = document.getElementById("cyberSelect");
@@ -4039,6 +6318,11 @@
         // renderMarkdown() above, so it needs no separate pass here.
         function renderRichContent(container) {
             if (!container) return;
+            // The line-numbers plugin only activates for a <pre> that already
+            // has this class at highlight time (it hooks into Prism's own
+            // "complete" callback) - marked.js never adds it, so every fenced
+            // code block needs it added here, before Prism runs.
+            container.querySelectorAll("pre").forEach(pre => pre.classList.add("line-numbers"));
             if (window.Prism) Prism.highlightAllUnder(container);
             renderMermaidBlocks(container);
         }
@@ -4439,7 +6723,7 @@
                 }
                 cf.insertAdjacentHTML("beforeend", `
 <div class="chat-block user-block">
-<span class="msg-label">DHRUV_INPUT</span>
+<span class="msg-label">{{ profile.display_name|default:request.user.get_full_name|default:request.user.username|upper|escapejs }}_INPUT</span>
 <div class="content">${formattedQuery}</div>
 </div>
 `);
@@ -4529,15 +6813,7 @@
                             updateBrowserURL(sID);
                             const listContainer = document.getElementById('live-chat-list');
                             if (listContainer) {
-                                const rawTitle = userPrompt.length > 20 ? userPrompt.substring(0, 20) + "..." : userPrompt;
-                                const displayTitle = escapeHtml(rawTitle);
-                                const newEntry = `
-    <div class="chat-item-container active-chat" style="animation: slideIn 0.3s ease;">
-        <a href="/?session=${sID}" class="chat-link active-chat">
-            > ${displayTitle}
-        </a>
-    </div>
-`;
+                                const newEntry = buildOptimisticChatRowHTML(sID, userPrompt);
                                 document.querySelectorAll('.chat-item-container, .chat-link').forEach(el => {
                                     el.classList.remove('active-chat');
                                 });
@@ -4555,6 +6831,7 @@
                     const loader = document.getElementById(loaderId);
                     const contentDiv = document.getElementById(`content-${loaderId}`);
                     if (labelElement) labelElement.innerText = "SIMBA_IMAGE";
+                    if (loader && data.message_id) loader.dataset.messageId = data.message_id;
 
                     if (contentDiv) {
                         contentDiv.innerHTML = `
@@ -4585,7 +6862,21 @@
                                     <button class="copy-btn regen-btn">
                                         <i class="fa-solid fa-rotate"></i> Regenerate
                                     </button>
+                                    <button class="copy-btn share-btn">
+                                        <i class="fa-solid fa-share-nodes"></i> Share
+                                    </button>
+                                    <button class="copy-btn bookmark-btn" onclick="bookmarkMessage(this)" title="Bookmark this image">
+                                        <i class="fa-regular fa-bookmark"></i>
+                                    </button>
+                                    <button class="copy-btn danger" onclick="deleteMessage(this)" title="Delete this image">
+                                        <i class="fa-solid fa-trash"></i>
+                                    </button>
                                 </div>
+                            </div>
+                            <div class="reply-mini-actions">
+                                <button class="reply-mini-btn" onclick="editPromptFromReply(this)" title="Edit the prompt that produced this image">
+                                    <i class="fa-solid fa-pen"></i> Edit Prompt
+                                </button>
                             </div>
                         `;
                     }
@@ -4640,11 +6931,13 @@
                             const copyPromptBtn = contentDiv.querySelector(".copy-prompt-btn");
                             const regenBtn = contentDiv.querySelector(".regen-btn");
                             const favoriteBtn = contentDiv.querySelector(".favorite-btn");
+                            const shareBtn = contentDiv.querySelector(".share-btn");
                             if (downloadBtn) downloadBtn.addEventListener("click", () => downloadImage(data.url, "simba-intel-image.jpg"));
                             if (openBtn) openBtn.addEventListener("click", () => openImage(data.url));
                             if (copyPromptBtn) copyPromptBtn.addEventListener("click", function () { copyToClipboard(data.prompt, this); });
                             if (regenBtn) regenBtn.addEventListener("click", () => regenerateImage(data.prompt, data.prompt));
                             if (favoriteBtn) favoriteBtn.addEventListener("click", function () { toggleFavoriteImage(this); });
+                            if (shareBtn) shareBtn.addEventListener("click", () => shareChat(data.prompt));
                         }
 
                         setStatus("status-online", "CORE ONLINE");
@@ -4878,7 +7171,7 @@
 
             cf.insertAdjacentHTML("beforeend", `
 <div class="chat-block user-block">
-<span class="msg-label">DHRUV_INPUT</span>
+<span class="msg-label">{{ profile.display_name|default:request.user.get_full_name|default:request.user.username|upper|escapejs }}_INPUT</span>
 <div class="content">${formattedQuery}${attachmentBadge}</div>
 <textarea class="raw-query" style="display:none;">${escapedQuery}</textarea>
 </div>
@@ -4972,12 +7265,38 @@
                     }
 
                     if (data.type === "vision") {
+                        if (loader && data.message_id) loader.dataset.messageId = data.message_id;
                         if (contentDiv) {
-                            contentDiv.innerHTML = `<div class="markdown-content">${renderMarkdown(data.response)}</div>`;
+                            contentDiv.innerHTML = `
+                                <textarea class="raw-data" style="display:none;">${data.response}</textarea>
+                                <div class="markdown-content">${renderMarkdown(data.response)}</div>
+                                <div class="reply-actions" style="display:flex;gap:10px;margin-top:5px;align-items:center;">
+                                    <button class="copy-btn" onclick="copyToClipboard(this.closest('.simba-block').querySelector('.raw-data').value, this)">
+                                        <i class="fa-regular fa-copy"></i> COPY_INTEL
+                                    </button>
+                                    <button class="copy-btn" onclick="shareChat(this.closest('.simba-block').querySelector('.raw-data').value)">
+                                        <i class="fa-solid fa-share-nodes"></i> SHARE
+                                    </button>
+                                    <button class="copy-btn bookmark-btn" onclick="bookmarkMessage(this)" title="Bookmark this reply">
+                                        <i class="fa-regular fa-bookmark"></i>
+                                    </button>
+                                    <button class="copy-btn danger" onclick="deleteMessage(this)" title="Delete this reply">
+                                        <i class="fa-solid fa-trash"></i>
+                                    </button>
+                                </div>
+                                <div class="reply-mini-actions">
+                                    <button class="reply-mini-btn" onclick="editPromptFromReply(this)" title="Edit the prompt that produced this reply">
+                                        <i class="fa-solid fa-pen"></i> Edit Prompt
+                                    </button>
+                                    <button class="reply-mini-btn" onclick="copyPromptFromReply(this)" title="Copy the prompt that produced this reply">
+                                        <i class="fa-solid fa-copy"></i> Copy Prompt
+                                    </button>
+                                </div>
+                            `;
                             renderRichContent(loader);
                             applyCodeButtons(loader);
                         }
-                        labelElement.innerText = "SIMBA_RESPONSE";
+                        labelElement.innerText = "SIMBA_VISION";
                         setStatus("status-online", "CORE ONLINE");
                         playBlip();
                         return;
@@ -4994,21 +7313,11 @@
 
                         const listContainer = document.getElementById('live-chat-list');
                         if (listContainer) {
-                            const rawTitle = query.length > 20 ? query.substring(0, 20) + "..." : query;
-                            const displayTitle = escapeHtml(rawTitle);
-
-                            const newEntry = `
-    <div class="chat-item-container active-chat" style="animation: slideIn 0.3s ease;">
-        <a href="/?session=${sID}" class="chat-link active-chat">
-            > ${displayTitle}
-        </a>
-    </div>
-`;
+                            const newEntry = buildOptimisticChatRowHTML(sID, query);
 
                             document.querySelectorAll('.chat-item-container, .chat-link').forEach(el => {
                                 el.classList.remove('active-chat');
                             });
-                            document.querySelectorAll('.chat-link').forEach(link => link.classList.remove('active-chat'));
 
                             listContainer.insertAdjacentHTML('afterbegin', newEntry);
                         }
@@ -5133,6 +7442,15 @@
                         <button class="copy-btn" onclick="regenerateText(this)">
                             <i class="fa-solid fa-rotate"></i> Regenerate
                         </button>
+                        <button class="copy-btn" onclick="continueMessage(this)" title="Extend this reply if it got cut short">
+                            <i class="fa-solid fa-forward"></i> Continue
+                        </button>
+                        <button class="copy-btn bookmark-btn" onclick="bookmarkMessage(this)" title="Bookmark this reply">
+                            <i class="fa-regular fa-bookmark"></i>
+                        </button>
+                        <button class="copy-btn danger" onclick="deleteMessage(this)" title="Delete this reply">
+                            <i class="fa-solid fa-trash"></i>
+                        </button>
                     </div>
                     <div class="reply-mini-actions">
                         <button class="reply-mini-btn" onclick="editPromptFromReply(this)" title="Edit the prompt that produced this reply">
@@ -5141,7 +7459,11 @@
                         <button class="reply-mini-btn" onclick="copyPromptFromReply(this)" title="Copy the prompt that produced this reply">
                             <i class="fa-solid fa-copy"></i> Copy Prompt
                         </button>
+                        <button class="reply-mini-btn" onclick="suggestFollowups(this)" title="Suggest what to ask next">
+                            <i class="fa-solid fa-wand-magic-sparkles"></i> Suggest Follow-ups
+                        </button>
                     </div>
+                    <div class="followup-suggestions"></div>
                 `);
 
                 const latency = ((performance.now() - startTime) / 1000).toFixed(2);
@@ -5393,6 +7715,124 @@
             }
         }
 
+        function bookmarkMessage(btn) {
+            const block = btn.closest('.chat-block');
+            const messageId = block ? block.dataset.messageId : null;
+            if (!messageId || messageId === "None") { alert("This message hasn't been saved yet."); return; }
+            btn.disabled = true;
+            fetch(`/messages/${messageId}/bookmark/`, {
+                method: 'POST',
+                headers: { 'X-CSRFToken': csrfToken },
+                signal: AbortSignal.timeout(10000),
+            })
+                .then(res => res.json().then(data => ({ ok: res.ok, data })))
+                .then(({ ok, data }) => {
+                    if (!ok) { alert(data.message || data.error || 'Could not bookmark.'); return; }
+                    btn.classList.toggle('active', data.bookmarked);
+                    const icon = btn.querySelector('i');
+                    if (icon) icon.className = data.bookmarked ? 'fa-solid fa-bookmark' : 'fa-regular fa-bookmark';
+                })
+                .catch(() => alert('Network error - please try again.'))
+                .finally(() => { btn.disabled = false; });
+        }
+
+        async function deleteMessage(btn) {
+            const block = btn.closest('.chat-block');
+            const messageId = block ? block.dataset.messageId : null;
+            if (!messageId || messageId === "None") { alert("This message hasn't been saved yet."); return; }
+            if (!confirm("Delete this message? Any replies under it will be deleted too.")) return;
+            try {
+                const res = await fetch(`/messages/${messageId}/delete/`, {
+                    method: 'POST',
+                    headers: { 'X-CSRFToken': csrfToken },
+                    signal: AbortSignal.timeout(10000),
+                });
+                // A full reload is the simplest correct redraw here: deleting a
+                // node can cascade to every descendant (a whole sub-branch),
+                // which is more than a targeted DOM patch could safely handle -
+                // same reasoning switchBranch's reload already relies on.
+                if (res.ok) location.reload();
+                else alert('Delete failed.');
+            } catch (e) {
+                alert('Network error - please try again.');
+            }
+        }
+
+        async function continueMessage(btn) {
+            if (isSendingQuery || isGeneratingImage) return;
+
+            const simbaBlock = btn.closest('.simba-block');
+            const messageId = simbaBlock ? simbaBlock.dataset.messageId : null;
+            if (!messageId || messageId === "None") {
+                alert("This reply hasn't been saved yet - nothing to continue.");
+                return;
+            }
+
+            isSendingQuery = true;
+            currentAbortController = new AbortController();
+            armWatchdog(currentAbortController, TEXT_REQUEST_TIMEOUT_MS);
+            setSendButtonBusy(true);
+
+            const modelId =
+                document.getElementById("model-selector").value ||
+                localStorage.getItem("selected_simba_model") ||
+                "cyber-max";
+
+            const cf = document.getElementById("chat-flow");
+            const rawDataEl = simbaBlock.querySelector('.raw-data');
+            const existingContent = rawDataEl ? rawDataEl.value : "";
+            const markdownDiv = simbaBlock.querySelector('.markdown-content');
+            const previousContentHTML = simbaBlock.innerHTML;
+
+            try {
+                const res = await fetch(`/messages/${messageId}/continue/`, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/x-www-form-urlencoded",
+                        "X-CSRFToken": csrfToken
+                    },
+                    body: `model_id=${encodeURIComponent(modelId)}`,
+                    signal: currentAbortController.signal
+                });
+
+                if (!res.ok) throw new Error(`Server error: ${res.status}`);
+
+                const reader = res.body.getReader();
+                const decoder = new TextDecoder();
+                let addedResponse = "";
+
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+                    resetWatchdog(currentAbortController, TEXT_REQUEST_TIMEOUT_MS);
+                    const chunk = decoder.decode(value, { stream: true });
+                    addedResponse += chunk.replace("<think>", "").replace("</think>", "");
+                    if (markdownDiv) markdownDiv.innerHTML = renderMarkdown(existingContent + addedResponse);
+                    cf.scrollTop = cf.scrollHeight;
+                }
+
+                if (addedResponse.trim()) {
+                    if (rawDataEl) rawDataEl.value = existingContent + addedResponse;
+                    renderRichContent(simbaBlock);
+                    applyCodeButtons(simbaBlock);
+                    playBlip();
+                }
+            } catch (e) {
+                if (e.name === "AbortError" && watchdogTimedOut) {
+                    simbaBlock.innerHTML = previousContentHTML;
+                    alert("Continue timed out - no response from the server. Please try again.");
+                } else if (e.name !== "AbortError") {
+                    console.error("Continue failed:", e);
+                    alert("Continue failed. The original response is unchanged.");
+                }
+            } finally {
+                clearWatchdog();
+                isSendingQuery = false;
+                currentAbortController = null;
+                setSendButtonBusy(false);
+            }
+        }
+
         // ================= Branch/sibling switcher =================
         // Regenerate and edit both create real sibling branches (Phase 3) -
         // this is the missing navigation UI: "<  2/3  >" pills that flip
@@ -5540,7 +7980,13 @@
                 });
             });
 
-            const themeNames = { cyberpunk: 'Cyberpunk', 'midnight-purple': 'Midnight Purple', 'matrix-green': 'Matrix Green', light: 'Light' };
+            // Kept in sync with UserProfile.THEME_CHOICES (chat/models.py) -
+            // this used to only list 4 of the 10 real themes.
+            const themeNames = {
+                cyberpunk: 'Cyber Dark (default)', 'midnight-purple': 'Midnight', 'matrix-green': 'Matrix',
+                nord: 'Nord', synthwave: 'Synthwave', 'purple-neon': 'Purple Neon', ocean: 'Ocean',
+                'minimal-dark': 'Minimal Dark', graphite: 'Graphite', light: 'Light',
+            };
             Object.entries(themeNames).forEach(([value, name]) => {
                 items.push({
                     id: `theme:${value}`,
@@ -5691,7 +8137,22 @@
             if (e.isComposing || e.repeat) return;
 
             const isMac = navigator.platform.toUpperCase().includes('MAC');
-            if ((isMac ? e.metaKey : e.ctrlKey) && e.key.toLowerCase() === 'k') {
+            const mod = isMac ? e.metaKey : e.ctrlKey;
+            // Ctrl/Cmd+Shift+P: same command palette, matching the shortcut
+            // VS Code/many editors use for their own "command palette" -
+            // an alias for Ctrl/Cmd+K, not a second feature.
+            if (mod && e.shiftKey && e.key.toLowerCase() === 'p') {
+                e.preventDefault();
+                try {
+                    const overlay = document.getElementById('commandPalette');
+                    if (overlay && overlay.classList.contains('show')) closeCommandPalette();
+                    else openCommandPalette();
+                } catch (err) {
+                    console.error('Command palette toggle failed:', err);
+                }
+                return;
+            }
+            if (mod && e.key.toLowerCase() === 'k') {
                 e.preventDefault();
                 try {
                     const overlay = document.getElementById('commandPalette');
@@ -5706,6 +8167,14 @@
                     // press try again instead of silently doing nothing forever.
                     console.error('Command palette toggle failed:', err);
                 }
+                return;
+            }
+            // Ctrl//: focuses the sidebar's conversation search - the classic
+            // "quick search" shortcut (Slack/Linear/GitHub all use it).
+            if (mod && e.key === '/') {
+                e.preventDefault();
+                const searchInput = document.getElementById('chat-search-input');
+                if (searchInput) { searchInput.focus(); searchInput.select(); }
                 return;
             }
 
@@ -6289,8 +8758,10 @@
         function checkUnlock(e) {
             if (e.key === 'Enter') {
                 const pass = document.getElementById('lock-pass');
-                // 'dhruv' અથવા 'admin' પાસવર્ડ (તમે બદલી શકો છો)
-                if (pass.value === 'dhruv' || pass.value === 'admin') {
+                // Cosmetic-only "lockdown" Easter egg (real access control is
+                // Django's @login_required, not this) - unlock code is
+                // generic rather than any one person's name.
+                if (pass.value === 'admin') {
                     document.getElementById('lockdown-screen').style.display = 'none';
                     pass.value = '';
                     pass.style.borderColor = 'rgba(255, 68, 68, 0.4)'; // reset color

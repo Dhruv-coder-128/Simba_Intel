@@ -11,11 +11,15 @@ def messages_to_history_dicts(chain: List[Message], limit: int = 10) -> List[Dic
     historical message's parent, which may not be the current active leaf).
     """
     # Each turn is one user node + one assistant node, so `limit` turns is
-    # `limit * 2` nodes - preserves the exact semantics of the old
-    # ChatMessage-based implementation this replaces (including taking the
-    # OLDEST `limit` turns, not the most recent - unchanged on purpose here;
-    # a separate concern from the schema migration).
-    chain = chain[:limit * 2]
+    # `limit * 2` nodes. Takes the MOST RECENT `limit` turns - a prior
+    # version of this function took the oldest ones instead (a legacy
+    # artifact carried over from the ChatMessage-based implementation this
+    # replaced), which meant a long conversation's context window never
+    # advanced past its first few turns. Long-conversation continuity is
+    # restored further by conversation_memory.build_context_messages, which
+    # prepends an AI-generated summary of whatever falls outside this
+    # window instead of just silently dropping it.
+    chain = chain[-limit * 2:] if limit else chain
 
     history = []
     for msg in chain:
