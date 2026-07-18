@@ -13,7 +13,7 @@ from chat.models import ChatMessage, ChatSession, ErrorLog, FeatureFlag, Folder,
 from chat.providers.pollinations_image_provider import PollinationsImageProvider
 from chat.services.cost_table import estimate_cost
 from chat.services.memory import get_conversation_history
-from chat.services.message_tree import append_turn, build_display_messages, walk_active_chain
+from chat.services.message_tree import append_turn, build_display_messages, regenerate_assistant_reply, walk_active_chain
 from chat.services.model_registry import MODEL_REGISTRY, ModelConfig, get_model_config, is_model_allowed_for_user, list_available_models
 from chat.services.usage import RATE_LIMIT_MAX_REQUESTS, check_rate_limit, estimate_tokens, record_usage
 from chat.services.verification import is_email_verified, verification_required
@@ -25,8 +25,13 @@ _backfill_migration = importlib.import_module("chat.migrations.0010_backfill_mes
 
 class ModelRegistryTests(TestCase):
     def test_get_model_config_returns_expected_provider(self):
+        # Sprint 6: Cyber Max became a virtual model backed by a pool of
+        # real Groq models (chat/providers/virtual_provider.py) - "virtual"
+        # is the correct provider now, not "groq" directly. See
+        # VirtualRouterProviderTests for the routing/health/retry behavior
+        # this enables.
         config = get_model_config("cyber-max")
-        self.assertEqual(config.provider, "groq")
+        self.assertEqual(config.provider, "virtual")
 
     def test_get_model_config_is_case_insensitive(self):
         config = get_model_config("CYBER-MAX")
@@ -59,6 +64,219 @@ class PollinationsImageProviderTests(TestCase):
     def test_seed_is_embedded_in_generated_url(self):
         result = self.provider.generate("a cat", seed=42)
         self.assertIn("seed=42", result["image_url"])
+
+
+class GroqProviderTests(TestCase):
+    """Regression coverage for chat_stream's empty-choices handling (Sprint
+    4 production-stability fix)."""
+
+    def test_chat_stream_skips_chunks_with_empty_choices(self):
+        from chat.providers.groq_provider import GroqProvider
+
+        class FakeDelta:
+            def __init__(self, content):
+                self.content = content
+
+        class FakeChoice:
+            def __init__(self, content):
+                self.delta = FakeDelta(content)
+
+        class FakeChunk:
+            def __init__(self, choices):
+                self.choices = choices
+
+        # A trailing keep-alive/usage-only chunk with an empty choices list
+        # is a real, encountered shape (see MistralProvider.chat_stream,
+        # which already guards against exactly this via stream_options) -
+        # indexing choices[0] unconditionally would raise IndexError here
+        # instead of just skipping the empty chunk.
+        fake_stream = [
+            FakeChunk([FakeChoice("Hello")]),
+            FakeChunk([]),
+            FakeChunk([FakeChoice(" world")]),
+        ]
+
+        provider = GroqProvider(api_key="test-key")
+        with patch.object(provider.client.chat.completions, "create", return_value=fake_stream):
+            tokens = list(provider.chat_stream([{"role": "user", "content": "hi"}], "cyber-max"))
+        self.assertEqual(tokens, ["Hello", " world"])
+
+
+class _RateLimitError(Exception):
+    """Stands in for groq.RateLimitError - virtual_provider._is_rate_limit_error
+    matches by exception class name, so a same-named local class exercises
+    the exact same branch without importing the real SDK exception."""
+
+
+class VirtualRouterProviderTests(TestCase):
+    """Sprint 6: Cyber Max is now a virtual model backed by a pool of real
+    Groq models (chat/providers/virtual_provider.py) - these are the
+    scenarios the sprint explicitly asked to be verified: model 1 success
+    (model 2+ never called), model 1 rate-limited (model 2 answers), model
+    1 & 2 rate-limited (model 3 answers), and every model failing (a
+    graceful exception, not an infinite loop). Also covers the health
+    cooldown (a rate-limited model is skipped on the very next request, not
+    just within the same one) and the retry-once-per-model rule for
+    transient (non-rate-limit) failures.
+
+    Patches chat.providers.virtual_provider.get_provider directly (the name
+    bound inside that module) - VirtualRouterProvider.chat_stream calls
+    get_provider(member.provider) once per pool member per attempt, so the
+    mock's side_effect receives the real (messages, model, **kwargs) call
+    exactly as a real GroqProvider would."""
+
+    def setUp(self):
+        from django.core.cache import cache
+        cache.clear()
+        from chat.providers.virtual_provider import MODEL_POOLS
+        pool = sorted(MODEL_POOLS["cyber-max-pool"], key=lambda m: m.priority)
+        self.m1, self.m2, self.m3 = pool[0].model, pool[1].model, pool[2].model
+        self.messages = [{"role": "user", "content": "hi"}]
+
+    def _router(self):
+        from chat.providers.virtual_provider import VirtualRouterProvider
+        return VirtualRouterProvider()
+
+    def test_model1_success_model2_never_called(self):
+        calls = []
+
+        def fake(msgs, model, **kwargs):
+            calls.append(model)
+            if model == self.m1:
+                return iter(["hello"])
+            raise AssertionError(f"model2+ should never be called, got {model}")
+
+        with patch("chat.providers.virtual_provider.get_provider") as mock_gp:
+            mock_gp.return_value.chat_stream.side_effect = fake
+            out = list(self._router().chat_stream(self.messages, "cyber-max-pool"))
+        self.assertEqual(out, ["hello"])
+        self.assertEqual(calls, [self.m1])
+
+    def test_model1_rate_limited_model2_answers(self):
+        calls = []
+
+        def fake(msgs, model, **kwargs):
+            calls.append(model)
+            if model == self.m1:
+                raise _RateLimitError("rate_limit_exceeded")
+            if model == self.m2:
+                return iter(["from model 2"])
+            raise AssertionError(f"model3+ should never be called, got {model}")
+
+        with patch("chat.providers.virtual_provider.get_provider") as mock_gp:
+            mock_gp.return_value.chat_stream.side_effect = fake
+            out = list(self._router().chat_stream(self.messages, "cyber-max-pool"))
+        self.assertEqual(out, ["from model 2"])
+        # A rate-limited model is never retried within the same request -
+        # straight to cooldown and the next candidate.
+        self.assertEqual(calls, [self.m1, self.m2])
+
+    def test_model1_and_model2_rate_limited_model3_answers(self):
+        def fake(msgs, model, **kwargs):
+            if model in (self.m1, self.m2):
+                raise _RateLimitError("rate_limit_exceeded")
+            if model == self.m3:
+                return iter(["from model 3"])
+            raise AssertionError(f"model4+ should never be called, got {model}")
+
+        with patch("chat.providers.virtual_provider.get_provider") as mock_gp:
+            mock_gp.return_value.chat_stream.side_effect = fake
+            out = list(self._router().chat_stream(self.messages, "cyber-max-pool"))
+        self.assertEqual(out, ["from model 3"])
+
+    def test_every_model_failing_raises_gracefully_not_infinitely(self):
+        with patch("chat.providers.virtual_provider.get_provider") as mock_gp:
+            mock_gp.return_value.chat_stream.side_effect = RuntimeError("total outage")
+            with self.assertRaises(RuntimeError):
+                list(self._router().chat_stream(self.messages, "cyber-max-pool"))
+
+    def test_rate_limited_model_is_skipped_on_the_next_request(self):
+        def fake(msgs, model, **kwargs):
+            if model == self.m1:
+                raise _RateLimitError("rate_limit_exceeded")
+            return iter(["ok"])
+
+        with patch("chat.providers.virtual_provider.get_provider") as mock_gp:
+            mock_gp.return_value.chat_stream.side_effect = fake
+            router = self._router()
+            list(router.chat_stream(self.messages, "cyber-max-pool"))  # m1 fails, m2 answers
+
+            calls = []
+
+            def fake2(msgs, model, **kwargs):
+                calls.append(model)
+                return iter(["ok"])
+
+            mock_gp.return_value.chat_stream.side_effect = fake2
+            list(router.chat_stream(self.messages, "cyber-max-pool"))  # m1 should be skipped now
+        self.assertNotIn(self.m1, calls)
+        self.assertEqual(calls[0], self.m2)
+
+    def test_transient_error_retried_once_then_moves_to_next_model(self):
+        attempts_on_m1 = []
+
+        def fake(msgs, model, **kwargs):
+            if model == self.m1:
+                attempts_on_m1.append(1)
+                raise TimeoutError("connection timed out")
+            if model == self.m2:
+                return iter(["ok"])
+            raise AssertionError(f"unexpected model {model}")
+
+        with patch("chat.providers.virtual_provider.get_provider") as mock_gp:
+            mock_gp.return_value.chat_stream.side_effect = fake
+            out = list(self._router().chat_stream(self.messages, "cyber-max-pool"))
+        self.assertEqual(out, ["ok"])
+        # Exactly one retry (2 total attempts) before moving on.
+        self.assertEqual(len(attempts_on_m1), 2)
+
+    def test_transient_error_does_not_trigger_a_cooldown(self):
+        with patch("chat.providers.virtual_provider.get_provider") as mock_gp:
+            def fake(msgs, model, **kwargs):
+                if model == self.m1:
+                    raise TimeoutError("connection timed out")
+                return iter(["ok"])
+            mock_gp.return_value.chat_stream.side_effect = fake
+            router = self._router()
+            list(router.chat_stream(self.messages, "cyber-max-pool"))
+
+            calls = []
+
+            def fake2(msgs, model, **kwargs):
+                calls.append(model)
+                return iter(["ok"])
+
+            mock_gp.return_value.chat_stream.side_effect = fake2
+            list(router.chat_stream(self.messages, "cyber-max-pool"))
+        # Unlike a rate limit, a timeout must not be remembered - model 1
+        # is tried again (and succeeds) on the very next request.
+        self.assertEqual(calls[0], self.m1)
+
+    def test_end_to_end_through_ask_ai_stays_invisible_to_the_user(self):
+        """Cyber Max's pool switching must never surface to the client - the
+        streamed body should contain only the real answer, never a model
+        name, provider name, or "switched" notice (that notice is reserved
+        for the outer, cross-visible-model failover in ai_router.py, which
+        this inner pool is designed to normally avoid ever triggering)."""
+        user = User.objects.create_user(username="virtual_router_user", password="x")
+        self.client.force_login(user)
+
+        def fake(msgs, model, **kwargs):
+            if model == self.m1:
+                raise _RateLimitError("rate_limit_exceeded")
+            return iter(["real answer"])
+
+        with patch("chat.providers.virtual_provider.get_provider") as mock_gp, \
+             patch("chat.services.conversation_intelligence.ai_chat") as mock_title_chat:
+            mock_gp.return_value.chat_stream.side_effect = fake
+            mock_title_chat.return_value = "Some Title"
+            response = self.client.post(reverse("ask_ai"), {"query": "hi", "model_id": "cyber-max"})
+            body = b"".join(response.streaming_content).decode()
+
+        self.assertEqual(body, "real answer")
+        self.assertNotIn("Switched to", body)
+        for leaked in (self.m1, self.m2, self.m3, "groq", "virtual"):
+            self.assertNotIn(leaked, body)
 
 
 class ConversationHistoryTests(TestCase):
@@ -136,6 +354,48 @@ class AskAiViewTests(TestCase):
     def test_system_stats_requires_login(self):
         response = self.client.get(reverse("system_stats"))
         self.assertEqual(response.status_code, 302)
+
+    @patch("chat.views.chat_stream_with_failover")
+    def test_new_chat_inherits_active_folder(self, mock_chat_stream):
+        """Regression test (Sprint 2 folder bug): a brand-new chat started
+        while a folder is the active sidebar filter must be persisted with
+        that folder immediately, not just reflected client-side until the
+        next page load reverts it."""
+        mock_chat_stream.return_value = iter(["ok"])
+        self.client.force_login(self.user)
+        response = self.client.post(
+            reverse("ask_ai"), {"query": "hi", "model_id": "cyber-max", "folder": "Python"}
+        )
+        self.assertEqual(response.status_code, 200)
+        b"".join(response.streaming_content)  # drain the generator so append_turn actually runs
+        session = ChatSession.objects.get(user=self.user)
+        self.assertEqual(session.folder, "Python")
+
+    @patch("chat.views.chat_stream_with_failover")
+    def test_new_chat_without_folder_param_stays_unfiled(self, mock_chat_stream):
+        mock_chat_stream.return_value = iter(["ok"])
+        self.client.force_login(self.user)
+        response = self.client.post(reverse("ask_ai"), {"query": "hi", "model_id": "cyber-max"})
+        self.assertEqual(response.status_code, 200)
+        b"".join(response.streaming_content)
+        session = ChatSession.objects.get(user=self.user)
+        self.assertEqual(session.folder, "")
+
+    @patch("chat.views.chat_stream_with_failover")
+    def test_continuing_existing_chat_ignores_folder_param(self, mock_chat_stream):
+        """The `folder` param must only ever apply at session-creation time -
+        continuing an existing chat must never silently refile it just
+        because a different folder happens to be the active sidebar filter."""
+        mock_chat_stream.return_value = iter(["ok"])
+        self.client.force_login(self.user)
+        session = ChatSession.objects.create(user=self.user, title="Existing", folder="Work")
+        response = self.client.post(reverse("ask_ai"), {
+            "query": "hi", "model_id": "cyber-max", "session_id": session.id, "folder": "Python",
+        })
+        self.assertEqual(response.status_code, 200)
+        b"".join(response.streaming_content)
+        session.refresh_from_db()
+        self.assertEqual(session.folder, "Work")
 
 
 class ModelAccessControlTests(TestCase):
@@ -903,7 +1163,10 @@ class UsageWiringTests(TestCase):
         self._consume(response)
         events = UsageEvent.objects.filter(user=self.user, event_type="chat")
         self.assertEqual(events.count(), 1)
-        self.assertEqual(events.first().provider, "groq")
+        # Sprint 6: Cyber Max is now routed through the "virtual" pseudo-
+        # provider (chat/providers/virtual_provider.py), not "groq" directly
+        # - see ModelRegistryTests.test_get_model_config_returns_expected_provider.
+        self.assertEqual(events.first().provider, "virtual")
         self.assertTrue(events.first().tokens_are_estimated)
 
     @patch("chat.views.chat_stream_with_failover")
@@ -1788,6 +2051,116 @@ class ConversationIntelligenceTests(TestCase):
         foreign_session = ChatSession.objects.create(user=other, title="Not yours")
         response = self.client.get(reverse("session_suggest_followups", args=[foreign_session.id]))
         self.assertEqual(response.status_code, 404)
+
+    def test_suggest_followups_uses_specified_message_not_active_leaf(self):
+        """Regression test (Sprint 2 follow-up bug): clicking "Suggest
+        Follow-ups" on an older reply that is no longer the session's active
+        leaf (e.g. after a regenerate created a newer sibling) must generate
+        suggestions from THAT reply's own content, not silently substitute
+        whatever the session's current active leaf happens to be."""
+        session = ChatSession.objects.create(user=self.user, title="Chat")
+        _user_msg, old_assistant_msg = append_turn(session, "hi", "the old reply about cats")
+        regenerate_assistant_reply(old_assistant_msg, "the new reply about dogs")
+
+        with patch("chat.services.conversation_intelligence.ai_chat") as mock_ai_chat:
+            mock_ai_chat.return_value = "Follow-up A\nFollow-up B"
+            response = self.client.get(
+                reverse("session_suggest_followups", args=[session.id]),
+                {"message_id": old_assistant_msg.id},
+            )
+        self.assertEqual(response.status_code, 200)
+        sent_messages = mock_ai_chat.call_args[0][1]
+        combined = " ".join(m["content"] for m in sent_messages)
+        self.assertIn("cats", combined)
+        self.assertNotIn("dogs", combined)
+
+    def test_suggest_followups_dedupes_repeated_suggestions(self):
+        session = ChatSession.objects.create(user=self.user, title="Chat")
+        append_turn(session, "hi", "hello there")
+        with patch("chat.services.conversation_intelligence.ai_chat") as mock_ai_chat:
+            mock_ai_chat.return_value = "Tell me more\nTell me more\nSomething else"
+            response = self.client.get(reverse("session_suggest_followups", args=[session.id]))
+        self.assertEqual(response.json()["suggestions"], ["Tell me more", "Something else"])
+
+    def test_suggest_followups_retries_on_failure_with_different_model(self):
+        """Regression test: MEMORY_MODEL_ID (nova-mind) and the default chat
+        model share the same Groq API key/daily quota, so a transient failure
+        (e.g. that quota being exhausted by ordinary chat traffic) must not
+        immediately surface as "no suggestions" - a second attempt against a
+        different model in the fallback chain must run automatically first."""
+        session = ChatSession.objects.create(user=self.user, title="Chat")
+        append_turn(session, "hi", "hello there")
+        with patch("chat.services.conversation_intelligence.ai_chat") as mock_ai_chat:
+            mock_ai_chat.side_effect = [
+                Exception("rate_limit_exceeded"),
+                "Follow-up one\nFollow-up two\nFollow-up three",
+            ]
+            response = self.client.get(reverse("session_suggest_followups", args=[session.id]))
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.json()["suggestions"]), 3)
+        self.assertEqual(mock_ai_chat.call_count, 2)
+        first_model = mock_ai_chat.call_args_list[0][0][0]
+        second_model = mock_ai_chat.call_args_list[1][0][0]
+        self.assertNotEqual(first_model, second_model)
+
+    def test_suggest_followups_never_empty_even_when_every_ai_attempt_fails(self):
+        """"No suggestions" must never reach the user while there's a real
+        reply to derive from - after both AI attempts fail (e.g. a full
+        provider outage), suggest_followups falls back to 3 suggestions
+        deterministically derived from the actual reply text."""
+        session = ChatSession.objects.create(user=self.user, title="Chat")
+        _um, am = append_turn(
+            session, "hi",
+            "Django's ORM lets you query the database using Python. "
+            "It supports filtering, joins, and aggregation. "
+            "select_related() and prefetch_related() optimize related lookups.",
+        )
+        with patch("chat.services.conversation_intelligence.ai_chat") as mock_ai_chat:
+            mock_ai_chat.side_effect = Exception("total outage")
+            response = self.client.get(
+                reverse("session_suggest_followups", args=[session.id]), {"message_id": am.id},
+            )
+        self.assertEqual(response.status_code, 200)
+        suggestions = response.json()["suggestions"]
+        self.assertEqual(len(suggestions), 3)
+        self.assertTrue(all(s.strip() for s in suggestions))
+        # Genuinely derived from the reply, not a static/generic list.
+        combined = " ".join(suggestions).lower()
+        self.assertTrue("django" in combined or "orm" in combined or "select_related" in combined)
+        self.assertEqual(mock_ai_chat.call_count, 2)
+
+    def test_suggest_followups_fallback_handles_very_short_reply(self):
+        """Even a reply too short to contain 3 distinct sentences must still
+        produce exactly 3 suggestions (by reusing real content), never fewer
+        and never a blank/generic filler."""
+        from chat.services.conversation_intelligence import _derive_followups_from_reply
+        suggestions = _derive_followups_from_reply("Yes.")
+        self.assertEqual(len(suggestions), 3)
+        self.assertTrue(all(s.strip() for s in suggestions))
+
+    def test_suggest_followups_survives_20_consecutive_cycles(self):
+        """Validation scenario from the bug report: assistant reply -> 3
+        suggestions -> click -> assistant reply -> 3 NEW suggestions,
+        repeated 20 times, must never once show zero suggestions - even
+        with every other AI attempt simulated as a total failure."""
+        session = ChatSession.objects.create(user=self.user, title="Chat")
+        for i in range(20):
+            _um, am = append_turn(
+                session, f"question {i}",
+                f"This is assistant reply number {i} about Django topic {i}. "
+                f"It covers detail A and detail B for iteration {i}.",
+            )
+            with patch("chat.services.conversation_intelligence.ai_chat") as mock_ai_chat:
+                if i % 2 == 0:
+                    mock_ai_chat.return_value = f"Follow-up A{i}\nFollow-up B{i}\nFollow-up C{i}"
+                else:
+                    mock_ai_chat.side_effect = Exception(f"simulated outage {i}")
+                response = self.client.get(
+                    reverse("session_suggest_followups", args=[session.id]), {"message_id": am.id},
+                )
+            self.assertEqual(response.status_code, 200, f"cycle {i} failed")
+            suggestions = response.json()["suggestions"]
+            self.assertEqual(len(suggestions), 3, f"cycle {i} did not return 3 suggestions: {suggestions}")
 
     def test_related_conversations_matches_on_title_word_overlap(self):
         session = ChatSession.objects.create(user=self.user, title="Django REST API design")

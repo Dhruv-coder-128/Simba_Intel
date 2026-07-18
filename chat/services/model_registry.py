@@ -25,8 +25,15 @@ class ModelConfig:
 MODEL_REGISTRY: Dict[str, ModelConfig] = {
     "cyber-max": ModelConfig(
         display_name="Cyber Max",
-        provider="groq",
-        actual_model="llama-3.3-70b-versatile"
+        # "virtual" = routed through chat/providers/virtual_provider.py's
+        # VirtualRouterProvider rather than calling a single real model
+        # directly - actual_model below isn't a real Groq model id, it's the
+        # pool key VirtualRouterProvider looks up in MODEL_POOLS. Cyber Max
+        # itself still appears as exactly one model everywhere else in the
+        # app (chat list, analytics, etc.) - only this ModelConfig and
+        # MODEL_POOLS know it's backed by more than one real model.
+        provider="virtual",
+        actual_model="cyber-max-pool"
     ),
     "nova-mind": ModelConfig(
         display_name="Nova Mind",

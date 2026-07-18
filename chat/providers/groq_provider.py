@@ -11,8 +11,20 @@ class GroqProvider(BaseProvider):
         "groq/compound-mini"
     ]
 
+    # Neither SDK client had an explicit timeout before this - an unbounded
+    # default meant one hung upstream connection could pin a gunicorn thread
+    # indefinitely, and this app has only 8 total request-handling threads
+    # (--workers 2 --threads 4, see Dockerfile). A handful of stalled calls
+    # would have been enough to make the whole server stop responding to
+    # every other concurrent user. httpx (which both the groq and openai
+    # SDKs are built on) applies a bare float to connect/read/write/pool
+    # uniformly, and - critically for a streaming response - a read timeout
+    # is measured between successive chunks, not over the whole response, so
+    # a long but steadily-streaming reply is never cut off by this.
+    REQUEST_TIMEOUT_SECONDS = 30.0
+
     def _initialize_client(self):
-        self.client = Groq(api_key=self.api_key)
+        self.client = Groq(api_key=self.api_key, timeout=self.REQUEST_TIMEOUT_SECONDS)
 
     def chat(self, messages: list[Dict[str, Any]], model: str, **kwargs) -> str:
         response = self.client.chat.completions.create(
@@ -41,7 +53,12 @@ class GroqProvider(BaseProvider):
             **kwargs
         )
         for chunk in stream:
-            if chunk.choices[0].delta.content:
+            # chunk.choices can legitimately be empty (e.g. a trailing
+            # keep-alive/usage-only chunk - see MistralProvider.chat_stream,
+            # which hits this for real via stream_options) - indexing [0]
+            # unconditionally would raise IndexError and surface as a raw
+            # error mid-stream instead of just skipping the empty chunk.
+            if chunk.choices and chunk.choices[0].delta and chunk.choices[0].delta.content:
                 yield chunk.choices[0].delta.content
 
     def vision(self, messages: list[Dict[str, Any]], model: str, **kwargs) -> str:

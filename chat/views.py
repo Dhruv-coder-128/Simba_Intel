@@ -13,6 +13,7 @@ from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
 from django.http import StreamingHttpResponse, JsonResponse
 from django.shortcuts import render, redirect, get_object_or_404
+from django.template.loader import render_to_string
 from django.conf import settings
 from django.db import models
 from django.urls import reverse
@@ -26,9 +27,9 @@ except ImportError:
     GPUtil_AVAILABLE = False
 
 from chat.models import ChatSession, Message, UserProfile, UsageEvent, RecoveryCode, Broadcast, UserSession, SecurityEvent, FeatureFlag
-from chat.services.ai_router import chat_stream, chat_stream_with_failover, vision as ai_vision
+from chat.services.ai_router import chat_stream_with_failover, vision as ai_vision
 from chat.services.image_router import generate_image
-from chat.services.memory import get_conversation_history, build_messages, messages_to_history_dicts, SYSTEM_PROMPT
+from chat.services.memory import build_messages, messages_to_history_dicts, SYSTEM_PROMPT
 from chat.services.conversation_memory import (
     build_context_messages, maybe_summarize_session, extract_and_store_facts, get_user_memory_context,
 )
@@ -164,6 +165,31 @@ def _stream_with_failover(model_id, messages, on_usage):
     return token_generator(), serving
 
 
+def _compute_folders_for_user(user):
+    """Folders shown in the sidebar = the union of (a) folder names actually
+    in use by a non-archived chat and (b) empty folders that only exist as a
+    metadata row (created but nothing filed yet). Each carries its colour
+    (from the Folder metadata row, default '' when none) and a live chat
+    count. Shared by chat_home (initial render) and folders_summary (the
+    no-reload refresh point JS calls after any folder-affecting action) so
+    the two can never drift apart."""
+    from chat.models import Folder as FolderModel
+    from django.db.models import Count as _Count
+
+    used_counts = dict(
+        ChatSession.objects.filter(user=user, is_archived=False)
+        .exclude(folder='').values_list('folder').annotate(n=_Count('id'))
+    )
+    folder_colors = dict(
+        FolderModel.objects.filter(user=user).values_list('name', 'color')
+    )
+    folder_names = sorted(set(used_counts) | set(folder_colors), key=str.lower)
+    return [
+        {'name': name, 'color': folder_colors.get(name, ''), 'count': used_counts.get(name, 0)}
+        for name in folder_names
+    ]
+
+
 @login_required
 def chat_home(request):
     profile = UserProfile.get_or_create_for(request.user)
@@ -181,45 +207,39 @@ def chat_home(request):
     # Days/Last 30 Days/Older) computed here rather than in the template -
     # Django templates have no built-in "group by relative date" filter, and
     # a custom templatetag for a one-off grouping isn't worth the indirection.
+    #
+    # Every session (pinned/favorite/other alike) gets a `.date_group`
+    # attribute stamped on it here, not just the ones landing in
+    # grouped_sessions - unpinning/unfavoriting via JS (no page reload, see
+    # Part 1) needs to know which date bucket a chat falls back into even
+    # though it's currently rendered in #pinned-chats or #favorite-chats,
+    # not in one of the date groups at all.
+    today = timezone.localdate()
+
+    def _date_group_for(session):
+        session_date = timezone.localtime(session.created_at).date()
+        if session_date == today:
+            return 'today'
+        elif session_date == today - timedelta(days=1):
+            return 'yesterday'
+        elif session_date >= today - timedelta(days=7):
+            return 'week'
+        elif session_date >= today - timedelta(days=30):
+            return 'month'
+        return 'older'
+
+    for s in sessions:
+        s.date_group = _date_group_for(s)
+
     pinned_sessions = [s for s in sessions if s.is_pinned]
     favorite_sessions = [s for s in sessions if s.is_favorite and not s.is_pinned]
     other_sessions = [s for s in sessions if not s.is_pinned and not s.is_favorite]
 
-    today = timezone.localdate()
     grouped_sessions = {'today': [], 'yesterday': [], 'week': [], 'month': [], 'older': []}
     for s in other_sessions:
-        session_date = timezone.localtime(s.created_at).date()
-        if session_date == today:
-            grouped_sessions['today'].append(s)
-        elif session_date == today - timedelta(days=1):
-            grouped_sessions['yesterday'].append(s)
-        elif session_date >= today - timedelta(days=7):
-            grouped_sessions['week'].append(s)
-        elif session_date >= today - timedelta(days=30):
-            grouped_sessions['month'].append(s)
-        else:
-            grouped_sessions['older'].append(s)
+        grouped_sessions[s.date_group].append(s)
 
-    # Folders shown in the sidebar = the union of (a) folder names actually
-    # in use by a non-archived chat and (b) empty folders that only exist as
-    # a metadata row (created but nothing filed yet). Each carries its colour
-    # (from the Folder metadata row, default '' when none) and a live chat
-    # count, so the manager can show both without a query per folder.
-    from chat.models import Folder as FolderModel
-    from django.db.models import Count as _Count
-
-    used_counts = dict(
-        ChatSession.objects.filter(user=request.user, is_archived=False)
-        .exclude(folder='').values_list('folder').annotate(n=_Count('id'))
-    )
-    folder_colors = dict(
-        FolderModel.objects.filter(user=request.user).values_list('name', 'color')
-    )
-    folder_names = sorted(set(used_counts) | set(folder_colors), key=str.lower)
-    folders = [
-        {'name': name, 'color': folder_colors.get(name, ''), 'count': used_counts.get(name, 0)}
-        for name in folder_names
-    ]
+    folders = _compute_folders_for_user(request.user)
 
     session_id = request.GET.get('session')
     messages = []
@@ -273,6 +293,11 @@ def profile_settings(request):
                 'models': list_available_models(),
                 'theme_choices': UserProfile.THEME_CHOICES,
                 'timezone_choices': AVAILABLE_TIMEZONES,
+                'accent_choices': UserProfile.ACCENT_OVERRIDE_CHOICES,
+                'density_choices': UserProfile.DENSITY_CHOICES,
+                'card_radius_choices': UserProfile.CARD_RADIUS_CHOICES,
+                'animation_choices': UserProfile.ANIMATION_LEVEL_CHOICES,
+                'glass_choices': UserProfile.GLASS_INTENSITY_CHOICES,
                 'email_verified': False,
             }, status=403)
         display_name = request.POST.get('display_name', '').strip()[:100]
@@ -292,6 +317,24 @@ def profile_settings(request):
             profile.timezone_auto = False
         profile.memory_enabled = request.POST.get('memory_enabled') == 'on'
         profile.notifications_enabled = request.POST.get('notifications_enabled') == 'on'
+
+        # --- Appearance (Part 6) ---
+        accent_override = request.POST.get('accent_override', '').strip()
+        if accent_override in {c for c, _ in UserProfile.ACCENT_OVERRIDE_CHOICES}:
+            profile.accent_override = accent_override
+        density = request.POST.get('density', '').strip()
+        if density in {c for c, _ in UserProfile.DENSITY_CHOICES}:
+            profile.density = density
+        card_radius = request.POST.get('card_radius', '').strip()
+        if card_radius in {c for c, _ in UserProfile.CARD_RADIUS_CHOICES}:
+            profile.card_radius = card_radius
+        animation_level = request.POST.get('animation_level', '').strip()
+        if animation_level in {c for c, _ in UserProfile.ANIMATION_LEVEL_CHOICES}:
+            profile.animation_level = animation_level
+        glass_intensity = request.POST.get('glass_intensity', '').strip()
+        if glass_intensity in {c for c, _ in UserProfile.GLASS_INTENSITY_CHOICES}:
+            profile.glass_intensity = glass_intensity
+
         profile.save()
         # Saving returns to the conversation the user was on before opening
         # Settings (restored client-side from sessionStorage into this hidden
@@ -312,12 +355,18 @@ def profile_settings(request):
         'models': list_available_models(),
         'theme_choices': UserProfile.THEME_CHOICES,
         'timezone_choices': AVAILABLE_TIMEZONES,
+        'accent_choices': UserProfile.ACCENT_OVERRIDE_CHOICES,
+        'density_choices': UserProfile.DENSITY_CHOICES,
+        'card_radius_choices': UserProfile.CARD_RADIUS_CHOICES,
+        'animation_choices': UserProfile.ANIMATION_LEVEL_CHOICES,
+        'glass_choices': UserProfile.GLASS_INTENSITY_CHOICES,
         'email_verified': verified,
         'user_sessions': UserSession.objects.filter(user=request.user).order_by('-created_at'),
         'current_session_key': request.session.session_key,
         'recent_logins': SecurityEvent.objects.filter(user=request.user, event_type='login').order_by('-created_at')[:10],
         'google_account': SocialAccount.objects.filter(user=request.user, provider='google').first(),
         'memory_fact_count': UserFact.objects.filter(user=request.user).count(),
+        'conversation_count': ChatSession.objects.filter(user=request.user).count(),
     })
 
 
@@ -720,7 +769,18 @@ def ask_ai(request):
                 f"Attachment: {first_name}" if attachments else "New Chat"
             )
             if not session_id or session_id in ["null", "None", ""]:
-                session = ChatSession.objects.create(user=request.user, title=session_title)
+                # A brand-new chat started while a folder is the active sidebar
+                # filter must be filed into that folder immediately - leaving
+                # this blank was the folder bug: the chat would render inside
+                # the folder optimistically (client-side, from the currently-
+                # filtered view) but revert to unfiled on the next real page
+                # load, since the DB row itself never got a folder value.
+                # Never applied to an existing session (the `else` branch
+                # below) - continuing a chat must never silently refile it
+                # just because the sidebar happens to be showing a different
+                # folder right now.
+                active_folder = request.POST.get('folder', '').strip()[:100]
+                session = ChatSession.objects.create(user=request.user, title=session_title, folder=active_folder)
             else:
                 session = ChatSession.objects.get(id=session_id, user=request.user)
 
@@ -774,7 +834,7 @@ def ask_ai(request):
                         disabled_response["X-Session-ID"] = str(session.id)
                         return disabled_response
 
-                    allowed, limit_message = check_daily_limit(request.user, "vision")
+                    allowed, limit_message = check_daily_limit(request.user, "vision", profile=profile)
                     if not allowed:
                         limit_response = JsonResponse({"type": "error", "message": limit_message}, status=429)
                         limit_response["X-Session-ID"] = str(session.id)
@@ -888,7 +948,7 @@ def ask_ai(request):
                     disabled_response["X-Session-ID"] = str(session.id)
                     return disabled_response
 
-                allowed, limit_message = check_daily_limit(request.user, "image")
+                allowed, limit_message = check_daily_limit(request.user, "image", profile=profile)
                 if not allowed:
                     limit_response = JsonResponse({"type": "error", "message": limit_message}, status=429)
                     limit_response["X-Session-ID"] = str(session.id)
@@ -973,7 +1033,7 @@ def ask_ai(request):
                 disabled_response["X-Session-ID"] = str(session.id)
                 return disabled_response
 
-            allowed, limit_message = check_daily_limit(request.user, "chat")
+            allowed, limit_message = check_daily_limit(request.user, "chat", profile=profile)
             if not allowed:
                 limit_response = JsonResponse({"type": "error", "message": limit_message}, status=429)
                 limit_response["X-Session-ID"] = str(session.id)
@@ -1011,7 +1071,12 @@ def ask_ai(request):
                         error=str(e)
                     )
                     record_failure(request.user, session, model_config.provider, model_id, "chat", latency=time.time() - start_time)
-                    yield f"\n\nError: {str(e)}"
+                    # The real exception (str(e)) is already captured above via
+                    # logger.log_request for server-side diagnosis - it must
+                    # never reach the client as-is, since provider errors can
+                    # contain internal details (hostnames, request payloads,
+                    # etc.) that aren't safe to show a user mid-stream.
+                    yield "\n\nSomething went wrong while generating a response. Please try again."
                 else:
                     latency = round(time.time() - start_time, 2)
                     actual_config = get_model_config(serving["model_id"])
@@ -1071,9 +1136,27 @@ def session_active_leaf(request, session_id):
 def session_suggest_followups(request, session_id):
     """On-demand only (see conversation_intelligence.suggest_followups'
     docstring) - the frontend calls this after a reply finishes rendering,
-    rather than it running automatically on every single turn."""
+    rather than it running automatically on every single turn.
+
+    `message_id` (Sprint 2 regression fix): the frontend passes the exact
+    reply the "Suggest Follow-ups" button is attached to, so suggestions are
+    always generated from THAT message's content. Falling back to session.
+    active_leaf unconditionally (the old behavior) was correct only for a
+    strictly linear conversation - the moment edit/regenerate/branch-switch
+    can make the active leaf diverge from an older, still-visible reply, a
+    click on that older reply's button would silently return suggestions
+    for whatever the session's current leaf happens to be instead (wrong
+    content, sometimes not even an assistant message, hence occasionally
+    empty). message_id is still validated against this session and role
+    before use, so a stale/foreign id degrades to the old fallback rather
+    than ever leaking another session's content."""
     session = get_object_or_404(ChatSession, id=session_id, user=request.user)
-    leaf = session.active_leaf
+    message_id = request.GET.get('message_id', '').strip()
+    leaf = None
+    if message_id:
+        leaf = Message.objects.filter(id=message_id, session=session, role='assistant').first()
+    if leaf is None:
+        leaf = session.active_leaf
     if not leaf or leaf.role != "assistant" or not (leaf.content or "").strip():
         return JsonResponse({"suggestions": []})
     return JsonResponse({"suggestions": suggest_followups(leaf.content)})
@@ -1093,8 +1176,11 @@ def message_siblings(request, message_id):
     and submitEditedMessage() both patch the DOM in place, so they need a
     way to learn "how many siblings does this turn have now" on demand."""
     msg = get_object_or_404(Message, id=message_id, session__user=request.user)
+    # session_id, not session: msg.session is already known by id here, so
+    # filtering on the id avoids fetching the ChatSession object just to
+    # turn around and filter by it.
     sibling_ids = list(
-        Message.objects.filter(session=msg.session, parent_id=msg.parent_id, role=msg.role)
+        Message.objects.filter(session_id=msg.session_id, parent_id=msg.parent_id, role=msg.role)
         .order_by("created_at").values_list("id", flat=True)
     )
     return JsonResponse({"sibling_ids": sibling_ids, "current_id": msg.id, "role": msg.role})
@@ -1117,7 +1203,10 @@ def regenerate_message(request, message_id):
     if not allowed:
         return JsonResponse({"type": "error", "message": limit_message}, status=429)
 
-    old_msg = get_object_or_404(Message, id=message_id, role='assistant', session__user=request.user)
+    old_msg = get_object_or_404(
+        Message.objects.select_related('session', 'parent'),
+        id=message_id, role='assistant', session__user=request.user,
+    )
     session = old_msg.session
     model_id = request.POST.get('model_id') or request.session.get('selected_model', 'cyber-max')
     user_query = old_msg.parent.content if old_msg.parent else ""
@@ -1155,7 +1244,12 @@ def regenerate_message(request, message_id):
                 error=str(e)
             )
             record_failure(request.user, session, model_config.provider, model_id, "chat", latency=time.time() - start_time)
-            yield f"\n\nError: {str(e)}"
+            # The real exception (str(e)) is already captured above via
+            # logger.log_request for server-side diagnosis - it must never
+            # reach the client as-is, since provider errors can contain
+            # internal details (hostnames, request payloads, etc.) that
+            # aren't safe to show a user mid-stream.
+            yield "\n\nSomething went wrong while generating a response. Please try again."
         else:
             latency = round(time.time() - start_time, 2)
             actual_config = get_model_config(serving["model_id"])
@@ -1195,7 +1289,10 @@ def edit_message(request, message_id):
     if not allowed:
         return JsonResponse({"type": "error", "message": limit_message}, status=429)
 
-    old_msg = get_object_or_404(Message, id=message_id, role='user', session__user=request.user)
+    old_msg = get_object_or_404(
+        Message.objects.select_related('session', 'parent'),
+        id=message_id, role='user', session__user=request.user,
+    )
     session = old_msg.session
     new_content = request.POST.get('content', '').strip()
     if not new_content:
@@ -1236,7 +1333,12 @@ def edit_message(request, message_id):
                 error=str(e)
             )
             record_failure(request.user, session, model_config.provider, model_id, "chat", latency=time.time() - start_time)
-            yield f"\n\nError: {str(e)}"
+            # The real exception (str(e)) is already captured above via
+            # logger.log_request for server-side diagnosis - it must never
+            # reach the client as-is, since provider errors can contain
+            # internal details (hostnames, request payloads, etc.) that
+            # aren't safe to show a user mid-stream.
+            yield "\n\nSomething went wrong while generating a response. Please try again."
         else:
             latency = round(time.time() - start_time, 2)
             actual_config = get_model_config(serving["model_id"])
@@ -1269,7 +1371,7 @@ def switch_branch(request, message_id):
     if request.method != "POST":
         return JsonResponse({"error": "Invalid request"}, status=400)
 
-    msg = get_object_or_404(Message, id=message_id, session__user=request.user)
+    msg = get_object_or_404(Message.objects.select_related('session'), id=message_id, session__user=request.user)
     session = msg.session
 
     if msg.role == "assistant":
@@ -1534,7 +1636,7 @@ def delete_message(request, message_id):
     recently created in this session, or None if the tree is now empty."""
     if request.method != "POST":
         return JsonResponse({"error": "Invalid request"}, status=400)
-    msg = get_object_or_404(Message, id=message_id, session__user=request.user)
+    msg = get_object_or_404(Message.objects.select_related('session'), id=message_id, session__user=request.user)
     session = msg.session
     msg.delete()
 
@@ -1569,7 +1671,10 @@ def continue_message(request, message_id):
     if not allowed:
         return JsonResponse({"type": "error", "message": limit_message}, status=429)
 
-    old_msg = get_object_or_404(Message, id=message_id, role='assistant', session__user=request.user)
+    old_msg = get_object_or_404(
+        Message.objects.select_related('session', 'parent'),
+        id=message_id, role='assistant', session__user=request.user,
+    )
     session = old_msg.session
     model_id = request.POST.get('model_id') or request.session.get('selected_model', 'cyber-max')
     user_query = old_msg.parent.content if old_msg.parent else ""
@@ -1607,7 +1712,12 @@ def continue_message(request, message_id):
                 error=str(e)
             )
             record_failure(request.user, session, model_config.provider, model_id, "chat", latency=time.time() - start_time)
-            yield f"\n\nError: {str(e)}"
+            # The real exception (str(e)) is already captured above via
+            # logger.log_request for server-side diagnosis - it must never
+            # reach the client as-is, since provider errors can contain
+            # internal details (hostnames, request payloads, etc.) that
+            # aren't safe to show a user mid-stream.
+            yield "\n\nSomething went wrong while generating a response. Please try again."
         else:
             latency = round(time.time() - start_time, 2)
             actual_config = get_model_config(serving["model_id"])
@@ -1653,8 +1763,8 @@ def pin_session(request, session_id):
     if request.method == "POST":
         session = get_object_or_404(ChatSession, id=session_id, user=request.user)
         session.is_pinned = not session.is_pinned
-        session.save()
-        return JsonResponse({"status": "success"})
+        session.save(update_fields=["is_pinned"])
+        return JsonResponse({"status": "success", "is_pinned": session.is_pinned})
 
 
 @login_required
@@ -1711,7 +1821,16 @@ def duplicate_session(request, session_id):
     if new_active_leaf:
         new_session.active_leaf = new_active_leaf
         new_session.save(update_fields=["active_leaf"])
-    return JsonResponse({"status": "success", "session_id": new_session.id})
+
+    # Rendered server-side and handed back as HTML (Part 1 - no reload):
+    # the sidebar row needs the exact same structure/dropdown every other
+    # row has, and re-deriving that in JS would just be a second copy of
+    # partials/_chat_row.html drifting out of sync with the first.
+    new_session.date_group = 'today'
+    row_html = render_to_string(
+        'partials/_chat_row.html', {'s': new_session, 'current_session': None}, request=request,
+    )
+    return JsonResponse({"status": "success", "session_id": new_session.id, "row_html": row_html})
 
 
 @login_required
@@ -1725,8 +1844,12 @@ def bulk_session_action(request):
     session_ids = request.POST.getlist('session_ids')
     sessions = ChatSession.objects.filter(id__in=session_ids, user=request.user)
     if action == 'delete':
-        count = sessions.count()
-        sessions.delete()
+        # QuerySet.delete() already returns how many rows it removed per
+        # model - reading ChatSession's own count from that instead of a
+        # separate .count() call beforehand saves a query without changing
+        # what "count" means here (deleted sessions, not cascaded messages).
+        _total_deleted, deleted_by_model = sessions.delete()
+        count = deleted_by_model.get('chat.ChatSession', 0)
     elif action == 'archive':
         count = sessions.update(is_archived=True)
     elif action == 'unarchive':
@@ -1753,6 +1876,15 @@ def set_session_folder(request, session_id):
     if folder_name:
         Folder.objects.get_or_create(user=request.user, name=folder_name)
     return JsonResponse({"status": "success", "folder": session.folder})
+
+
+@login_required
+def folders_summary(request):
+    """Read-only refresh point for the sidebar's folder chips (Part 1 - no
+    reload) - a folder create/rename/delete/recolor or a chat's folder
+    changing calls this to re-render just the chip strip via JS instead of
+    a full page reload."""
+    return JsonResponse({'folders': _compute_folders_for_user(request.user)})
 
 
 @login_required

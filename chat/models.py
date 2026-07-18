@@ -140,6 +140,54 @@ class UserProfile(models.Model):
         ("minimal-dark", "Minimal Dark"),
         ("graphite", "Graphite"),
         ("light", "Light"),
+        # Part 5 (Settings redesign task) - expanded theme set.
+        ("cyber-orange", "Cyber Orange"),
+        ("neon-green", "Neon Green"),
+        ("midnight-blue", "Midnight Blue"),
+        ("purple-matrix", "Purple Matrix"),
+        ("crimson-red", "Crimson Red"),
+        ("arctic-white", "Arctic White"),
+        ("oled-black", "OLED Black"),
+        ("emerald", "Emerald"),
+        ("royal-gold", "Royal Gold"),
+    ]
+
+    # --- Appearance (Part 6) --- each rendered as a data-* attribute on
+    # <html> (same mechanism as data-theme already uses) so plain CSS rules
+    # do the actual work - no per-page JS is needed to make these apply.
+    # Blank accent_override means "use the active theme's own accent",
+    # letting a user layer a personal accent on top of any theme instead of
+    # only ever getting the theme's built-in one.
+    ACCENT_OVERRIDE_CHOICES = [
+        ("", "Theme default"),
+        ("cyan", "Cyan"),
+        ("green", "Green"),
+        ("blue", "Blue"),
+        ("purple", "Purple"),
+        ("pink", "Pink"),
+        ("orange", "Orange"),
+        ("red", "Red"),
+        ("gold", "Gold"),
+    ]
+    DENSITY_CHOICES = [
+        ("comfortable", "Comfortable"),
+        ("compact", "Compact"),
+    ]
+    CARD_RADIUS_CHOICES = [
+        ("sharp", "Sharp"),
+        ("rounded", "Rounded (default)"),
+        ("soft", "Soft"),
+    ]
+    ANIMATION_LEVEL_CHOICES = [
+        ("full", "Full (default)"),
+        ("reduced", "Reduced"),
+        ("none", "None"),
+    ]
+    GLASS_INTENSITY_CHOICES = [
+        ("off", "Off"),
+        ("light", "Light"),
+        ("medium", "Medium (default)"),
+        ("high", "High"),
     ]
 
     REGISTRATION_SOURCE_CHOICES = [
@@ -152,6 +200,11 @@ class UserProfile(models.Model):
     avatar_url = models.URLField(blank=True)
     default_model = models.CharField(max_length=50, default='cyber-max')
     theme = models.CharField(max_length=20, choices=THEME_CHOICES, default='cyberpunk')
+    accent_override = models.CharField(max_length=20, choices=ACCENT_OVERRIDE_CHOICES, blank=True, default='')
+    density = models.CharField(max_length=20, choices=DENSITY_CHOICES, default='comfortable')
+    card_radius = models.CharField(max_length=20, choices=CARD_RADIUS_CHOICES, default='rounded')
+    animation_level = models.CharField(max_length=20, choices=ANIMATION_LEVEL_CHOICES, default='full')
+    glass_intensity = models.CharField(max_length=20, choices=GLASS_INTENSITY_CHOICES, default='medium')
     memory_enabled = models.BooleanField(default=False)
     notifications_enabled = models.BooleanField(default=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -233,9 +286,18 @@ class UserProfile(models.Model):
         only ever applies to a profile's initial creation - it never
         touches role on an existing row, so it can't undo a deliberate
         demotion made through the admin console afterward."""
-        profile = cls.objects.filter(user=user).first()
-        if profile is not None:
-            return profile
+        # Tries the reverse accessor first rather than a fresh `filter(user=
+        # user).first()` query: if anything earlier in this same request
+        # (TimezoneMiddleware, a permissions check, this same method called
+        # twice) already touched `user.profile`, Django cached it on `user`
+        # and this is a free in-memory hit - a real, common case, since
+        # TimezoneMiddleware reads it on every authenticated request before
+        # any view runs. Falls through to the same query as before on a
+        # genuine cache miss, so nothing gets slower.
+        try:
+            return user.profile
+        except cls.DoesNotExist:
+            pass
         if user.is_superuser:
             initial_role = Role.SUPER_ADMIN
         elif user.is_staff:
@@ -243,6 +305,11 @@ class UserProfile(models.Model):
         else:
             initial_role = Role.USER
         profile, _ = cls.objects.get_or_create(user=user, defaults={"role": initial_role})
+        # Primes the same cache for the rest of this request - the RBAC/
+        # timezone context processors and any later code on `user` (not
+        # necessarily calling get_or_create_for again) all read `user.
+        # profile` too, and would otherwise re-query for the exact same row.
+        user.profile = profile
         return profile
 
     @property

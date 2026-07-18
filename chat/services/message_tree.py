@@ -6,6 +6,32 @@ from typing import List, Optional
 from chat.models import ChatSession, Message
 
 
+def _fetch_session_messages_by_id(session_id):
+    """A session's full message set as an {id: Message} map, ordered by
+    created_at (dict insertion order preserves this, same as an explicit
+    list) - the shared fetch behind walk_chain_from and build_display_
+    messages, so a session with a long history is never queried for its
+    whole message set twice in the same call. select_related('parent') so
+    messages_to_history_dicts' `msg.parent.content` fallback (empty-content
+    image turns) doesn't cost one extra query per occurrence either."""
+    return {
+        m.id: m
+        for m in Message.objects.filter(session_id=session_id).select_related('parent').order_by('created_at')
+    }
+
+
+def _walk_chain(node: Optional[Message], by_id: dict) -> List[Message]:
+    if node is None:
+        return []
+    chain = []
+    current = by_id.get(node.id, node)
+    while current is not None:
+        chain.append(current)
+        current = by_id.get(current.parent_id)
+    chain.reverse()
+    return chain
+
+
 def walk_chain_from(node: Optional[Message]) -> List[Message]:
     """Walk from an arbitrary node back to the root, returning nodes in
     chronological (oldest-first) order. This is the single source of truth
@@ -21,24 +47,24 @@ def walk_chain_from(node: Optional[Message]) -> List[Message]:
     chain just to assemble context."""
     if node is None:
         return []
-
-    by_id = {m.id: m for m in Message.objects.filter(session_id=node.session_id)}
-
-    chain = []
-    current = by_id.get(node.id, node)
-    while current is not None:
-        chain.append(current)
-        current = by_id.get(current.parent_id)
-    chain.reverse()
-    return chain
+    by_id = _fetch_session_messages_by_id(node.session_id)
+    return _walk_chain(node, by_id)
 
 
 def walk_active_chain(session: ChatSession) -> List[Message]:
     """Walk from the session's active leaf back to the root. This is what's
-    "on the currently-visible branch" - memory.py's context assembly,
-    chat_home's page render, and every later context-injection feature all
-    walk the same way."""
-    return walk_chain_from(session.active_leaf)
+    "on the currently-visible branch" - memory.py's context assembly (run on
+    every single AI request), chat_home's page render, and every later
+    context-injection feature all walk the same way.
+
+    Goes by session.id/session.active_leaf_id (both already-loaded plain
+    columns, zero queries) rather than session.active_leaf (the actual
+    related Message object, which - if not already cached on `session` -
+    would cost its own separate query before the walk even starts)."""
+    if session.active_leaf_id is None:
+        return []
+    by_id = _fetch_session_messages_by_id(session.id)
+    return _walk_chain(by_id.get(session.active_leaf_id), by_id)
 
 
 def build_display_messages(session: ChatSession) -> List[SimpleNamespace]:
@@ -55,16 +81,23 @@ def build_display_messages(session: ChatSession) -> List[SimpleNamespace]:
 
     Also attaches sibling-branch info (assistant_sibling_ids/index/count,
     user_sibling_ids/index/count) so the template can render a "1/3" switcher
-    wherever regenerate/edit created alternate branches - computed from one
-    extra query over the whole session's tree rather than per-turn, since a
-    long conversation would otherwise mean one query per displayed message.
+    wherever regenerate/edit created alternate branches - computed from the
+    same one fetch of the whole session's tree the active chain itself
+    already needed (not a second query over the same rows, and not one
+    query per displayed message either).
     """
-    chain = walk_active_chain(session)
+    if session.active_leaf_id is None:
+        return []
+    by_id = _fetch_session_messages_by_id(session.id)
+    # by_id.get(...) instead of session.active_leaf: the leaf is guaranteed
+    # to already be in by_id (it belongs to this same session), so this
+    # avoids yet another query just to fetch that one row on its own.
+    chain = _walk_chain(by_id.get(session.active_leaf_id), by_id)
     if not chain:
         return []
 
     children_by_parent = defaultdict(list)
-    for msg in Message.objects.filter(session=session).order_by("created_at"):
+    for msg in by_id.values():
         children_by_parent[msg.parent_id].append(msg)
 
     display = []

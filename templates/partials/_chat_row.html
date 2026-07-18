@@ -1,11 +1,17 @@
 {% load l10n %}
 <div class="chat-item-container {% if s.id|stringformat:'s' == current_session.id|stringformat:'s' %}active-chat{% endif %}"
-     data-session-id="{{ s.id }}">
-    
+     data-session-id="{{ s.id }}"
+     data-date-group="{{ s.date_group|default:'today' }}"
+     data-pinned="{{ s.is_pinned|yesno:'1,0' }}"
+     data-favorite="{{ s.is_favorite|yesno:'1,0' }}"
+     data-archived="{{ s.is_archived|yesno:'1,0' }}"
+     data-folder="{{ s.folder }}"
+     data-color="{{ s.color_label }}"
+     data-title="{{ s.title }}">
+
     <input type="checkbox" class="chat-bulk-checkbox" data-session-id="{{ s.id }}" onclick="event.stopPropagation(); onBulkCheckboxChange();" aria-label="Select conversation">
 
     <a href="/?session={{ s.id }}{% if s.is_archived %}&view=archived{% endif %}" class="chat-link">
-        
         <span class="chat-row-icons">
             {% if s.color_label %}<span class="chat-color-dot chat-color-{{ s.color_label }}"></span>{% endif %}
             {% if s.is_pinned %}<i class="fa-solid fa-thumbtack chat-pin-icon" title="Pinned"></i>{% endif %}
@@ -17,36 +23,48 @@
     </a>
 
     <div class="side-menu">
-        <button class="side-menu-btn" onclick="toggleMenu(event, 'drop-{{ s.id }}')" aria-label="Conversation options">
+        <button class="side-menu-btn" onclick="toggleMenu(event, 'drop-{{ s.id }}')" aria-haspopup="true" aria-expanded="false" aria-label="Conversation options">
             <i class="fa-solid fa-ellipsis-vertical"></i>
         </button>
-        <div id="drop-{{ s.id }}" class="side-dropdown">
-            <a href="javascript:void(0)" onclick="togglePin('{{ s.id }}')">
-                <i class="fa-solid fa-thumbtack"></i> {% if s.is_pinned %}Unpin{% else %}Pin{% endif %}
-            </a>
-            <a href="javascript:void(0)" onclick="toggleFavoriteSession('{{ s.id }}')">
-                <i class="fa-solid fa-star"></i> {% if s.is_favorite %}Unfavorite{% else %}Favorite{% endif %}
-            </a>
-            <a href="javascript:void(0)" onclick="renameChat('{{ s.id }}', '{{ s.title|escapejs }}')">
-                <i class="fa-solid fa-pen"></i> Rename
-            </a>
-            <a href="javascript:void(0)" onclick="duplicateChat('{{ s.id }}')">
-                <i class="fa-solid fa-copy"></i> Duplicate
-            </a>
-            <a href="javascript:void(0)" onclick="promptSetFolder('{{ s.id }}', '{{ s.folder|escapejs }}')">
-                <i class="fa-solid fa-folder"></i> Set Folder
-            </a>
-            <div class="side-dropdown-colors">
-                {% for value, label in s.COLOR_CHOICES %}
-                <button type="button" class="color-swatch {% if value %}color-swatch-{{ value }}{% else %}color-swatch-none{% endif %}" title="{{ label }}" onclick="setSessionColor('{{ s.id }}', '{{ value }}')"></button>
-                {% endfor %}
+        <div id="drop-{{ s.id }}" class="side-dropdown" role="menu">
+            <div class="side-dropdown-group">
+                <a href="javascript:void(0)" role="menuitem" tabindex="-1" class="js-pin-item" onclick="togglePin('{{ s.id }}')">
+                    <i class="fa-solid fa-thumbtack"></i> <span class="js-pin-label">{% if s.is_pinned %}Unpin{% else %}Pin{% endif %}</span>
+                </a>
+                <a href="javascript:void(0)" role="menuitem" tabindex="-1" class="js-favorite-item" onclick="toggleFavoriteSession('{{ s.id }}')">
+                    <i class="fa-solid fa-star"></i> <span class="js-favorite-label">{% if s.is_favorite %}Unfavorite{% else %}Favorite{% endif %}</span>
+                </a>
+                <a href="javascript:void(0)" role="menuitem" tabindex="-1" onclick="renameChat('{{ s.id }}', '{{ s.title|escapejs }}')">
+                    <i class="fa-solid fa-pen"></i> Rename
+                </a>
+                <a href="javascript:void(0)" role="menuitem" tabindex="-1" onclick="duplicateChat('{{ s.id }}')">
+                    <i class="fa-solid fa-copy"></i> Duplicate
+                </a>
+                <a href="javascript:void(0)" role="menuitem" tabindex="-1" onclick="promptSetFolder('{{ s.id }}', '{{ s.folder|escapejs }}')">
+                    <i class="fa-solid fa-folder"></i> Set Folder
+                </a>
             </div>
-            <a href="javascript:void(0)" onclick="toggleArchiveSession('{{ s.id }}')">
-                <i class="fa-solid fa-box-archive"></i> {% if s.is_archived %}Unarchive{% else %}Archive{% endif %}
-            </a>
-            <a href="javascript:void(0)" onclick="deleteChat('{{ s.id }}')" class="side-dropdown-danger">
-                <i class="fa-solid fa-trash"></i> Delete
-            </a>
+            <div class="side-dropdown-divider"></div>
+            <div class="side-dropdown-group">
+                <div class="side-dropdown-label">Color</div>
+                <div class="side-dropdown-colors">
+                    {% for value, label in s.COLOR_CHOICES %}
+                    <button type="button" role="menuitem" tabindex="-1" class="color-swatch {% if value %}color-swatch-{{ value }}{% else %}color-swatch-none{% endif %}" title="{{ label }}" onclick="setSessionColor('{{ s.id }}', '{{ value }}')"></button>
+                    {% endfor %}
+                </div>
+            </div>
+            <div class="side-dropdown-divider"></div>
+            <div class="side-dropdown-group">
+                <a href="javascript:void(0)" role="menuitem" tabindex="-1" class="js-archive-item" onclick="toggleArchiveSession('{{ s.id }}')">
+                    <i class="fa-solid fa-box-archive"></i> <span class="js-archive-label">{% if s.is_archived %}Unarchive{% else %}Archive{% endif %}</span>
+                </a>
+            </div>
+            <div class="side-dropdown-divider"></div>
+            <div class="side-dropdown-group">
+                <a href="javascript:void(0)" role="menuitem" tabindex="-1" onclick="deleteChat('{{ s.id }}')" class="side-dropdown-danger">
+                    <i class="fa-solid fa-trash"></i> Delete
+                </a>
+            </div>
         </div>
     </div>
 </div>

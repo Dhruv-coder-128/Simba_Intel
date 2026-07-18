@@ -319,10 +319,10 @@
             <div class="admin-nav-section">Operations</div>
             <a href="{% url 'admin_reports' %}" class="{% if active_nav == 'reports' %}active{% endif %}"><i class="fa-solid fa-file-lines"></i> Reports</a>
             <a href="{% url 'admin_settings' %}" class="{% if active_nav == 'settings' %}active{% endif %}"><i class="fa-solid fa-gear"></i> Settings</a>
+            <div class="admin-nav-section admin-nav-footer">
+                <a href="/"><i class="fa-solid fa-arrow-left"></i> Back to app</a>
+            </div>
         </nav>
-        <div class="admin-nav-footer">
-            <a href="/"><i class="fa-solid fa-arrow-left"></i> Back to app</a>
-        </div>
     </div>
     <div class="admin-main">
         <div class="admin-topbar">

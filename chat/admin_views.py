@@ -54,6 +54,27 @@ def _log(request, action, target_user=None, detail="", success=True):
     )
 
 
+# Cell values starting with any of these are interpreted as formulas by
+# Excel/LibreOffice/Google Sheets when the CSV is opened, not as plain text.
+_CSV_FORMULA_TRIGGER_CHARS = ('=', '+', '-', '@', '\t', '\r')
+
+
+def _csv_safe_row(row):
+    """Neutralizes CSV/spreadsheet formula injection (OWASP CSV Injection)
+    before writing a data row: Django's default username validator allows a
+    username to start with +, -, or @ (only = is disallowed), so a
+    self-chosen username - or free-text fields like an audit log's detail
+    or a security event's detail - can end up starting with a formula
+    trigger character undetected until an operator opens the exported CSV
+    in a spreadsheet app. Prefixing such a value with a single quote is the
+    standard mitigation: it forces the cell to be read as text while
+    leaving every normal value completely unchanged."""
+    return [
+        "'" + v if isinstance(v, str) and v.startswith(_CSV_FORMULA_TRIGGER_CHARS) else v
+        for v in row
+    ]
+
+
 def _force_logout_user(user):
     """Django keeps no per-user session index, so this decodes every active
     session to find the ones belonging to this user - O(active sessions),
@@ -668,11 +689,11 @@ def admin_users_export_csv(request):
                 'suspended' if profile.is_suspended else 'blocked' if not u.is_active else 'active'
         else:
             status = 'active' if u.is_active else 'blocked'
-        writer.writerow([
+        writer.writerow(_csv_safe_row([
             u.id, u.username, u.email, role, status,
             'yes' if u.id in verified_ids else 'no',
             u.date_joined.isoformat(), u.last_login.isoformat() if u.last_login else '',
-        ])
+        ]))
     _log(request, 'export_users_csv', None, f"{len(rows)} user(s), filters={dict(request.GET)}")
     return response
 
@@ -1059,13 +1080,13 @@ def admin_audit_log_export_csv(request):
     writer = csv.writer(response)
     writer.writerow(['when', 'actor', 'action', 'target', 'detail', 'ip_address', 'browser', 'success'])
     for log in rows:
-        writer.writerow([
+        writer.writerow(_csv_safe_row([
             log.created_at.isoformat(),
             log.actor.username if log.actor else '',
             log.action,
             log.target_user.username if log.target_user else '',
             log.detail, log.ip_address or '', log.browser, 'yes' if log.success else 'no',
-        ])
+        ]))
     _log(request, 'export_audit_log_csv', None, f"{len(rows)} row(s), filters={dict(request.GET)}")
     return response
 
@@ -1215,7 +1236,7 @@ def admin_report_download(request, report_type):
             ).order_by('day')
         )
         for row in rows:
-            writer.writerow([row['day'], row['provider'], row['model_id'], row['event_type'], row['requests'], row['tokens'] or 0, float(row['cost'] or 0)])
+            writer.writerow(_csv_safe_row([row['day'], row['provider'], row['model_id'], row['event_type'], row['requests'], row['tokens'] or 0, float(row['cost'] or 0)]))
 
     elif report_type == 'images':
         response['Content-Disposition'] = f'attachment; filename="simba_intel_images_{period}.csv"'
@@ -1224,21 +1245,21 @@ def admin_report_download(request, report_type):
             event_type='image', created_at__gte=cutoff
         ).select_related('user').order_by('-created_at')[:5000]
         for row in rows:
-            writer.writerow([row.created_at.isoformat(), row.user.username if row.user else '', row.model_id, row.latency or '', float(row.estimated_cost_usd or 0)])
+            writer.writerow(_csv_safe_row([row.created_at.isoformat(), row.user.username if row.user else '', row.model_id, row.latency or '', float(row.estimated_cost_usd or 0)]))
 
     elif report_type == 'security':
         response['Content-Disposition'] = f'attachment; filename="simba_intel_security_{period}.csv"'
         writer.writerow(['when', 'user', 'event_type', 'severity', 'ip_address', 'detail'])
         rows = SecurityEvent.objects.filter(created_at__gte=cutoff).select_related('user').order_by('-created_at')[:5000]
         for row in rows:
-            writer.writerow([row.created_at.isoformat(), row.user.username if row.user else '', row.event_type, row.severity, row.ip_address or '', row.detail])
+            writer.writerow(_csv_safe_row([row.created_at.isoformat(), row.user.username if row.user else '', row.event_type, row.severity, row.ip_address or '', row.detail]))
 
     elif report_type == 'errors':
         response['Content-Disposition'] = f'attachment; filename="simba_intel_errors_{period}.csv"'
         writer.writerow(['category', 'message', 'count', 'first_seen', 'last_seen', 'resolved'])
         rows = ErrorLog.objects.filter(last_seen__gte=cutoff).order_by('-last_seen')[:5000]
         for row in rows:
-            writer.writerow([row.category, row.message, row.count, row.first_seen.isoformat(), row.last_seen.isoformat(), 'yes' if row.resolved else 'no'])
+            writer.writerow(_csv_safe_row([row.category, row.message, row.count, row.first_seen.isoformat(), row.last_seen.isoformat(), 'yes' if row.resolved else 'no']))
 
     else:
         return HttpResponseForbidden("Unknown report type.")

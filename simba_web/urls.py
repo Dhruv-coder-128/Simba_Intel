@@ -71,6 +71,7 @@ urlpatterns = [
     path('sessions/<int:session_id>/favorite/', views.toggle_favorite_session, name='toggle_favorite_session'),
     path('sessions/<int:session_id>/duplicate/', views.duplicate_session, name='duplicate_session'),
     path('sessions/<int:session_id>/folder/', views.set_session_folder, name='set_session_folder'),
+    path('folders/summary/', views.folders_summary, name='folders_summary'),
     path('folders/create/', views.create_folder, name='create_folder'),
     path('folders/rename/', views.rename_folder, name='rename_folder'),
     path('folders/delete/', views.delete_folder, name='delete_folder'),

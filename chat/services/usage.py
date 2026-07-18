@@ -102,14 +102,19 @@ def check_rate_limit(user) -> bool:
     return count < RATE_LIMIT_MAX_REQUESTS
 
 
-def check_daily_limit(user, event_type: str) -> Tuple[bool, Optional[str]]:
+def check_daily_limit(user, event_type: str, profile=None) -> Tuple[bool, Optional[str]]:
     """(allowed, reason). A separate, complementary check from
     check_rate_limit: that one guards against short bursts (30/minute)
     regardless of daily totals; this one enforces the per-user daily quota
     (chat/image/vision counts and a combined token cap) admins configure on
     UserProfile, reset at local midnight. Returns (True, None) immediately
-    for unlimited_usage accounts without running any of the count queries."""
-    profile = UserProfile.get_or_create_for(user)
+    for unlimited_usage accounts without running any of the count queries.
+
+    Pass `profile` when the caller already fetched it (e.g. ask_ai, which
+    needs it anyway for default_model/memory_enabled) to skip a second,
+    redundant UserProfile lookup for the exact same row."""
+    if profile is None:
+        profile = UserProfile.get_or_create_for(user)
     if profile.unlimited_usage:
         return True, None
 

@@ -1,6 +1,6 @@
 {% load static %}
 <!DOCTYPE html>
-<html lang="en" data-theme="{{ profile.theme|default:'cyberpunk' }}" data-notifications="{{ profile.notifications_enabled|yesno:'on,off' }}">
+<html lang="en" data-theme="{{ profile.theme|default:'cyberpunk' }}" data-notifications="{{ profile.notifications_enabled|yesno:'on,off' }}" data-accent="{{ profile.accent_override }}" data-density="{{ profile.density|default:'comfortable' }}" data-radius="{{ profile.card_radius|default:'rounded' }}" data-animation="{{ profile.animation_level|default:'full' }}" data-glass="{{ profile.glass_intensity|default:'medium' }}">
 
 <head>
     <meta charset="UTF-8">
@@ -213,6 +213,290 @@
             --text: #e8e4df;
             --text-dim: #9c948a;
             --shadow-glow: 0 0 0 1px rgba(240, 168, 104, 0.12), 0 8px 24px rgba(0, 0, 0, 0.5);
+        }
+
+        /* --- Part 5 (Settings redesign task): expanded theme set --- */
+        html[data-theme="cyber-orange"] {
+            --bg: #120a05;
+            --sidebar: #1a0f08;
+            --accent: #ff9d3d;
+            --accent-rgb: 255, 157, 61;
+            --bg-rgb: 18, 10, 5;
+            --border: #2e1c0f;
+            --user-bubble: #211408;
+            --card: rgba(255, 255, 255, 0.025);
+            --surface: #170e07;
+            --composer-bg: rgba(23, 14, 7, 0.95);
+            --workspace-bg: #0f0904;
+            --grid-line-1: rgba(255, 157, 61, 0.09);
+            --grid-line-2: rgba(255, 157, 61, 0.05);
+            --text: #ffe9d1;
+            --text-dim: #b89a7d;
+            --shadow-glow: 0 0 0 1px rgba(255, 157, 61, 0.14), 0 8px 24px rgba(0, 0, 0, 0.5);
+        }
+
+        html[data-theme="neon-green"] {
+            --bg: #060806;
+            --sidebar: #0b100b;
+            --accent: #39ff14;
+            --accent-rgb: 57, 255, 20;
+            --bg-rgb: 6, 8, 6;
+            --border: #16220f;
+            --user-bubble: #0e1a0e;
+            --card: rgba(255, 255, 255, 0.02);
+            --surface: #0a0f0a;
+            --composer-bg: rgba(10, 15, 10, 0.95);
+            --workspace-bg: #050705;
+            --grid-line-1: rgba(57, 255, 20, 0.08);
+            --grid-line-2: rgba(57, 255, 20, 0.05);
+            --text: #e6ffe6;
+            --text-dim: #86c98a;
+            --shadow-glow: 0 0 0 1px rgba(57, 255, 20, 0.14), 0 8px 24px rgba(0, 0, 0, 0.5);
+        }
+
+        html[data-theme="midnight-blue"] {
+            --bg: #060b18;
+            --sidebar: #0a1226;
+            --accent: #3b82f6;
+            --accent-rgb: 59, 130, 246;
+            --bg-rgb: 6, 11, 24;
+            --border: #16224a;
+            --user-bubble: #0e1a38;
+            --card: rgba(255, 255, 255, 0.02);
+            --surface: #0a1530;
+            --composer-bg: rgba(10, 21, 48, 0.95);
+            --workspace-bg: #050a16;
+            --grid-line-1: rgba(59, 130, 246, 0.08);
+            --grid-line-2: rgba(59, 130, 246, 0.05);
+            --text: #e3ecff;
+            --text-dim: #8ba0c9;
+            --shadow-glow: 0 0 0 1px rgba(59, 130, 246, 0.14), 0 8px 24px rgba(0, 0, 0, 0.5);
+        }
+
+        html[data-theme="purple-matrix"] {
+            --bg: #0b0714;
+            --sidebar: #120b20;
+            --accent: #9d4edd;
+            --accent-rgb: 157, 78, 221;
+            --bg-rgb: 11, 7, 20;
+            --border: #241238;
+            --user-bubble: #180f2a;
+            --card: rgba(255, 255, 255, 0.025);
+            --surface: #0f0a1c;
+            --composer-bg: rgba(15, 10, 28, 0.95);
+            --workspace-bg: #090614;
+            --grid-line-1: rgba(157, 78, 221, 0.1);
+            --grid-line-2: rgba(157, 78, 221, 0.06);
+            --text: #ede4ff;
+            --text-dim: #a695c4;
+            --shadow-glow: 0 0 0 1px rgba(157, 78, 221, 0.15), 0 8px 24px rgba(0, 0, 0, 0.5);
+        }
+
+        html[data-theme="crimson-red"] {
+            --bg: #140505;
+            --sidebar: #1e0808;
+            --accent: #ef4444;
+            --accent-rgb: 239, 68, 68;
+            --bg-rgb: 20, 5, 5;
+            --border: #3a1414;
+            --user-bubble: #240c0c;
+            --card: rgba(255, 255, 255, 0.025);
+            --surface: #1a0707;
+            --composer-bg: rgba(26, 7, 7, 0.95);
+            --workspace-bg: #100404;
+            --grid-line-1: rgba(239, 68, 68, 0.09);
+            --grid-line-2: rgba(239, 68, 68, 0.05);
+            --text: #ffe4e4;
+            --text-dim: #c48a8a;
+            --shadow-glow: 0 0 0 1px rgba(239, 68, 68, 0.14), 0 8px 24px rgba(0, 0, 0, 0.5);
+        }
+
+        html[data-theme="arctic-white"] {
+            --bg: #f7fafc;
+            --sidebar: #ffffff;
+            --accent: #0ea5e9;
+            --accent-rgb: 14, 165, 233;
+            --bg-rgb: 247, 250, 252;
+            --accent-soft: rgba(14, 165, 233, 0.55);
+            --accent-dim: rgba(14, 165, 233, 0.08);
+            --border: #dce6ee;
+            --border-soft: rgba(14, 40, 60, 0.06);
+            --user-bubble: #eef6fb;
+            --card: rgba(14, 60, 90, 0.02);
+            --surface: #ffffff;
+            --composer-bg: rgba(255, 255, 255, 0.95);
+            --workspace-bg: #eef4f9;
+            --grid-line-1: rgba(14, 165, 233, 0.05);
+            --grid-line-2: rgba(14, 165, 233, 0.03);
+            --ring-track: rgba(14, 40, 60, 0.08);
+            --text: #16232e;
+            --text-dim: #587085;
+            --shadow-sm: 0 1px 2px rgba(20, 50, 70, 0.06);
+            --shadow-md: 0 4px 16px rgba(20, 50, 70, 0.08);
+            --shadow-lg: 0 12px 32px rgba(20, 50, 70, 0.12);
+            --shadow-glow: 0 0 0 1px rgba(14, 165, 233, 0.15), 0 8px 24px rgba(20, 50, 70, 0.1);
+        }
+
+        html[data-theme="oled-black"] {
+            --bg: #000000;
+            --sidebar: #000000;
+            --accent: #00e5ff;
+            --accent-rgb: 0, 229, 255;
+            --bg-rgb: 0, 0, 0;
+            --border: #161616;
+            --user-bubble: #0a0a0a;
+            --card: rgba(255, 255, 255, 0.02);
+            --surface: #050505;
+            --composer-bg: rgba(0, 0, 0, 0.95);
+            --workspace-bg: #000000;
+            --grid-line-1: rgba(0, 229, 255, 0.06);
+            --grid-line-2: rgba(0, 229, 255, 0.04);
+            --ring-track: rgba(255, 255, 255, 0.06);
+            --text: #f0f0f0;
+            --text-dim: #7a7a7a;
+            --shadow-glow: 0 0 0 1px rgba(0, 229, 255, 0.12), 0 8px 24px rgba(0, 0, 0, 0.6);
+        }
+
+        html[data-theme="emerald"] {
+            --bg: #05120d;
+            --sidebar: #081a13;
+            --accent: #10b981;
+            --accent-rgb: 16, 185, 129;
+            --bg-rgb: 5, 18, 13;
+            --border: #123626;
+            --user-bubble: #0b2318;
+            --card: rgba(255, 255, 255, 0.02);
+            --surface: #071f16;
+            --composer-bg: rgba(7, 31, 22, 0.95);
+            --workspace-bg: #040f0b;
+            --grid-line-1: rgba(16, 185, 129, 0.08);
+            --grid-line-2: rgba(16, 185, 129, 0.05);
+            --text: #e3fff3;
+            --text-dim: #83baa4;
+            --shadow-glow: 0 0 0 1px rgba(16, 185, 129, 0.14), 0 8px 24px rgba(0, 0, 0, 0.5);
+        }
+
+        html[data-theme="royal-gold"] {
+            --bg: #120e05;
+            --sidebar: #1b1508;
+            --accent: #d4af37;
+            --accent-rgb: 212, 175, 55;
+            --bg-rgb: 18, 14, 5;
+            --border: #372c11;
+            --user-bubble: #211a0a;
+            --card: rgba(255, 255, 255, 0.025);
+            --surface: #171207;
+            --composer-bg: rgba(23, 18, 7, 0.95);
+            --workspace-bg: #0f0b04;
+            --grid-line-1: rgba(212, 175, 55, 0.09);
+            --grid-line-2: rgba(212, 175, 55, 0.05);
+            --text: #fdf3d9;
+            --text-dim: #b8a878;
+            --shadow-glow: 0 0 0 1px rgba(212, 175, 55, 0.15), 0 8px 24px rgba(0, 0, 0, 0.5);
+        }
+
+        /* ================= APPEARANCE CONTROLS (Part 6) =================
+           These read data-accent/data-density/data-radius/data-animation/data-glass
+           off <html> (set from profile.accent_override etc in Settings) and are
+           placed after every theme block above so they always win the cascade
+           regardless of which data-theme is also active - each block restates
+           every derived variable explicitly (--accent-soft/--accent-dim/--shadow-glow)
+           rather than relying on var(--accent-rgb) re-resolution, since several
+           older theme blocks above hardcode those as literals instead of vars. */
+        html[data-accent="cyan"] {
+            --accent: #00e5ff; --accent-rgb: 0, 229, 255;
+            --accent-soft: rgba(0, 229, 255, 0.55); --accent-dim: rgba(0, 229, 255, 0.08);
+            --shadow-glow: 0 0 0 1px rgba(0, 229, 255, 0.12), 0 8px 24px rgba(0, 0, 0, 0.5);
+        }
+        html[data-accent="green"] {
+            --accent: #39ff88; --accent-rgb: 57, 255, 136;
+            --accent-soft: rgba(57, 255, 136, 0.55); --accent-dim: rgba(57, 255, 136, 0.08);
+            --shadow-glow: 0 0 0 1px rgba(57, 255, 136, 0.12), 0 8px 24px rgba(0, 0, 0, 0.5);
+        }
+        html[data-accent="blue"] {
+            --accent: #3b82f6; --accent-rgb: 59, 130, 246;
+            --accent-soft: rgba(59, 130, 246, 0.55); --accent-dim: rgba(59, 130, 246, 0.08);
+            --shadow-glow: 0 0 0 1px rgba(59, 130, 246, 0.12), 0 8px 24px rgba(0, 0, 0, 0.5);
+        }
+        html[data-accent="purple"] {
+            --accent: #b084f5; --accent-rgb: 176, 132, 245;
+            --accent-soft: rgba(176, 132, 245, 0.55); --accent-dim: rgba(176, 132, 245, 0.08);
+            --shadow-glow: 0 0 0 1px rgba(176, 132, 245, 0.12), 0 8px 24px rgba(0, 0, 0, 0.5);
+        }
+        html[data-accent="pink"] {
+            --accent: #ff6ec7; --accent-rgb: 255, 110, 199;
+            --accent-soft: rgba(255, 110, 199, 0.55); --accent-dim: rgba(255, 110, 199, 0.08);
+            --shadow-glow: 0 0 0 1px rgba(255, 110, 199, 0.12), 0 8px 24px rgba(0, 0, 0, 0.5);
+        }
+        html[data-accent="orange"] {
+            --accent: #ff8c42; --accent-rgb: 255, 140, 66;
+            --accent-soft: rgba(255, 140, 66, 0.55); --accent-dim: rgba(255, 140, 66, 0.08);
+            --shadow-glow: 0 0 0 1px rgba(255, 140, 66, 0.12), 0 8px 24px rgba(0, 0, 0, 0.5);
+        }
+        html[data-accent="red"] {
+            --accent: #ff4d4d; --accent-rgb: 255, 77, 77;
+            --accent-soft: rgba(255, 77, 77, 0.55); --accent-dim: rgba(255, 77, 77, 0.08);
+            --shadow-glow: 0 0 0 1px rgba(255, 77, 77, 0.12), 0 8px 24px rgba(0, 0, 0, 0.5);
+        }
+        html[data-accent="gold"] {
+            --accent: #d4af37; --accent-rgb: 212, 175, 55;
+            --accent-soft: rgba(212, 175, 55, 0.55); --accent-dim: rgba(212, 175, 55, 0.08);
+            --shadow-glow: 0 0 0 1px rgba(212, 175, 55, 0.12), 0 8px 24px rgba(0, 0, 0, 0.5);
+        }
+
+        /* Density: rescales the existing --space-* scale that layout/spacing
+           rules already consume - "comfortable" needs no override since it
+           matches the :root defaults. */
+        html[data-density="compact"] {
+            --space-1: 2px; --space-2: 5px; --space-3: 8px;
+            --space-4: 11px; --space-5: 16px; --space-6: 22px;
+        }
+
+        /* Card radius: rescales the existing --radius-* scale - "rounded" is
+           the :root default and needs no override. */
+        html[data-radius="sharp"] {
+            --radius-sm: 2px; --radius-md: 4px; --radius-lg: 6px;
+        }
+        html[data-radius="soft"] {
+            --radius-sm: 10px; --radius-md: 16px; --radius-lg: 24px;
+        }
+
+        /* Glass intensity: drives the frosted-glass surfaces (side menu,
+           composer, attachment chips) via --glass-blur/--glass-saturate/
+           --glass-bg-alpha instead of the hardcoded blur() values they used
+           to carry. "medium" matches the previous fixed look. */
+        :root {
+            --glass-blur: 18px;
+            --glass-saturate: 160%;
+            --glass-bg-alpha: 0.82;
+        }
+        html[data-glass="off"] {
+            --glass-blur: 0px; --glass-saturate: 100%; --glass-bg-alpha: 0.97;
+        }
+        html[data-glass="light"] {
+            --glass-blur: 8px; --glass-saturate: 120%; --glass-bg-alpha: 0.9;
+        }
+        html[data-glass="high"] {
+            --glass-blur: 28px; --glass-saturate: 180%; --glass-bg-alpha: 0.68;
+        }
+
+        /* Animation level: "full" is the existing authored timing on every
+           rule below. "reduced" compresses every transition/animation to a
+           near-instant duration instead of removing them outright; "none"
+           turns them off completely (also honored by prefers-reduced-motion
+           users who explicitly pick it in Settings rather than relying on OS
+           detection alone). */
+        html[data-animation="reduced"] *,
+        html[data-animation="reduced"] *::before,
+        html[data-animation="reduced"] *::after {
+            transition-duration: 0.06s !important;
+            animation-duration: 0.06s !important;
+        }
+        html[data-animation="none"] *,
+        html[data-animation="none"] *::before,
+        html[data-animation="none"] *::after {
+            transition: none !important;
+            animation: none !important;
         }
 
         /* Global box-sizing (safe for all layouts) */
@@ -721,23 +1005,79 @@
             color: var(--accent);
         }
 
+        /* ==================================================================
+           Context menu (Part 2 rebuild) - Cursor/VS Code/Notion-style
+           popover: glass surface, fixed width, smooth open AND close
+           animation (via opacity/transform/visibility rather than
+           display:none, so closing can animate instead of snapping away),
+           auto-flips above the button when it would overflow the viewport
+           bottom (see positionSideDropdown in the JS). ================== */
         .side-dropdown {
-            display: none;
             position: absolute;
+            top: 100%;
             right: 0;
-            background: var(--sidebar);
-            min-width: 150px;
-            border: 1px solid var(--border);
+            margin-top: 6px;
+            width: 196px;
+            background: rgba(16, 18, 23, var(--glass-bg-alpha));
+            backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+            -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+            border: 1px solid var(--border-soft);
             z-index: 1000;
             border-radius: var(--radius-md);
-            box-shadow: var(--shadow-lg);
-            padding: 5px;
-            overflow: hidden;
+            box-shadow: var(--shadow-lg), 0 0 0 1px rgba(0, 0, 0, 0.2);
+            padding: 6px;
+            box-sizing: border-box;
+            opacity: 0;
+            visibility: hidden;
+            transform: scale(0.95) translateY(-6px);
+            transform-origin: top right;
+            transition: opacity 0.16s ease, transform 0.16s cubic-bezier(0.2, 0.8, 0.2, 1), visibility 0s linear 0.16s;
+        }
+
+        html[data-theme="light"] .side-dropdown {
+            background: rgba(255, 255, 255, 0.88);
+        }
+
+        .side-dropdown.flip-up {
+            top: auto;
+            bottom: 100%;
+            margin-top: 0;
+            margin-bottom: 6px;
+            transform-origin: bottom right;
         }
 
         .side-dropdown.show {
-            display: block;
-            animation: dropdownFade 0.14s ease;
+            opacity: 1;
+            visibility: visible;
+            transform: scale(1) translateY(0);
+            transition: opacity 0.16s ease, transform 0.16s cubic-bezier(0.2, 0.8, 0.2, 1), visibility 0s linear 0s;
+        }
+
+        .side-dropdown-group {
+            display: flex;
+            flex-direction: column;
+            gap: 1px;
+        }
+
+        .side-dropdown-divider {
+            height: 1px;
+            background: var(--border-soft);
+            margin: 5px 4px;
+        }
+
+        .side-dropdown-label {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 9.5px;
+            letter-spacing: 0.8px;
+            text-transform: uppercase;
+            color: var(--text-dim);
+            opacity: 0.7;
+            padding: 4px 8px 3px;
+        }
+
+        .side-dropdown a,
+        .side-dropdown button.color-swatch {
+            outline: none;
         }
 
         .side-dropdown a {
@@ -746,24 +1086,56 @@
             text-decoration: none;
             display: flex;
             align-items: center;
-            gap: 9px;
-            font-size: 12px;
+            gap: 10px;
+            font-size: 12.5px;
             border-radius: var(--radius-sm);
-            transition: background 0.12s ease, color 0.12s ease;
+            transition: background 0.12s ease, color 0.12s ease, transform 0.12s ease;
         }
 
-        .side-dropdown a i { width: 14px; text-align: center; color: var(--text-dim); }
+        .side-dropdown a i {
+            width: 14px;
+            flex-shrink: 0;
+            text-align: center;
+            color: var(--text-dim);
+            transition: color 0.12s ease;
+        }
 
-        .side-dropdown a:hover {
+        .side-dropdown a:hover,
+        .side-dropdown a:focus-visible,
+        .side-dropdown a.menu-item-active {
             background: var(--accent-dim);
+            color: var(--accent);
+            transform: translateX(1px);
+        }
+
+        .side-dropdown a:hover i,
+        .side-dropdown a:focus-visible i,
+        .side-dropdown a.menu-item-active i {
             color: var(--accent);
         }
 
-        .side-dropdown a:hover i { color: var(--accent); }
-
         .side-dropdown-danger { color: #ff6b6b !important; }
         .side-dropdown-danger i { color: #ff6b6b !important; }
-        .side-dropdown-danger:hover { background: rgba(255, 75, 43, 0.1) !important; color: #ff6b6b !important; }
+        .side-dropdown-danger:hover,
+        .side-dropdown-danger:focus-visible,
+        .side-dropdown-danger.menu-item-active {
+            background: rgba(255, 75, 43, 0.12) !important;
+            color: #ff6b6b !important;
+        }
+        .side-dropdown-danger:hover i,
+        .side-dropdown-danger:focus-visible i,
+        .side-dropdown-danger.menu-item-active i { color: #ff6b6b !important; }
+
+        .side-dropdown-colors .color-swatch {
+            transition: transform 0.12s ease, box-shadow 0.12s ease;
+        }
+
+        .side-dropdown-colors .color-swatch:hover,
+        .side-dropdown-colors .color-swatch:focus-visible,
+        .side-dropdown-colors .color-swatch.menu-item-active {
+            transform: scale(1.18);
+            box-shadow: 0 0 0 2px rgba(var(--accent-rgb), 0.4);
+        }
 
         /* --- Conversation list pagination --- */
         .chat-pagination {
@@ -1378,10 +1750,8 @@
 
         .side-dropdown-colors {
             display: flex;
-            gap: 5px;
-            padding: 8px 12px;
-            border-top: 1px solid var(--border-soft);
-            border-bottom: 1px solid var(--border-soft);
+            gap: 6px;
+            padding: 2px 8px 4px;
         }
 
         .color-swatch {
@@ -2343,7 +2713,7 @@
             /* true center */
 
             background: var(--composer-bg);
-            backdrop-filter: blur(12px);
+            backdrop-filter: blur(var(--glass-blur));
             border: 1px solid var(--border-soft);
             border-radius: 18px;
 
@@ -2389,7 +2759,7 @@
             padding: 6px 10px;
             max-width: 220px;
             background: var(--composer-bg);
-            backdrop-filter: blur(8px);
+            backdrop-filter: blur(var(--glass-blur));
             border: 1px solid rgba(var(--accent-rgb), 0.2);
             border-radius: var(--radius-md);
             box-shadow: var(--shadow-md);
@@ -4850,6 +5220,251 @@
 
         const csrfToken = document.getElementById("csrf-token").value;
 
+        // ================= No-reload chat-list actions (Part 1) =================
+        // What page we're currently looking at - every sidebar mutation
+        // (pin/favorite/archive/folder change) needs this to decide whether
+        // a chat still belongs where it's currently rendered, without ever
+        // asking the server via a reload.
+        const CHAT_VIEW_MODE = "{{ view_mode|default:'active' }}";
+        const CHAT_FOLDER_FILTER = "{{ folder_filter|escapejs }}";
+        const CHAT_DATE_GROUP_LABELS = { today: 'Today', yesterday: 'Yesterday', week: 'Last 7 Days', month: 'Last 30 Days', older: 'Older' };
+        const CHAT_DATE_GROUP_ORDER = ['today', 'yesterday', 'week', 'month', 'older'];
+
+        function getChatRow(id) {
+            return document.querySelector(`.chat-item-container[data-session-id="${id}"]`);
+        }
+
+        function chatRowBelongsInCurrentView(row) {
+            const archived = row.dataset.archived === '1';
+            const wantArchived = CHAT_VIEW_MODE === 'archived';
+            if (archived !== wantArchived) return false;
+            if (CHAT_FOLDER_FILTER && row.dataset.folder !== CHAT_FOLDER_FILTER) return false;
+            return true;
+        }
+
+        // Lazily creates the "FAVORITES" label + container the first time a
+        // chat is favorited in a session that started with none - both are
+        // conditionally rendered server-side (only when favorite_sessions
+        // is non-empty), so they may simply not exist in the DOM yet.
+        function ensureFavoritesSection() {
+            let container = document.getElementById('favorite-chats');
+            if (container) return container;
+            const liveList = document.getElementById('live-chat-list');
+            if (!liveList || !liveList.parentNode) return null;
+            const label = document.createElement('div');
+            label.className = 'chat-section-label';
+            label.id = 'favorites-section-label';
+            label.innerHTML = '<i class="fa-solid fa-star"></i> FAVORITES';
+            container = document.createElement('div');
+            container.id = 'favorite-chats';
+            liveList.parentNode.insertBefore(label, liveList);
+            liveList.parentNode.insertBefore(container, liveList);
+            return container;
+        }
+
+        // Same idea for a date-group bucket that's currently empty/absent
+        // (e.g. the first "Today" chat of the day, or unpinning a chat back
+        // into a group that isn't rendered yet) - created in the right sort
+        // position among whichever other groups already exist.
+        function getDateGroupContainer(groupKey) {
+            const list = document.getElementById('live-chat-list');
+            if (!list) return null;
+            let group = list.querySelector(`.chat-date-group[data-group="${groupKey}"]`);
+            if (group) return group;
+            group = document.createElement('div');
+            group.className = 'chat-date-group';
+            group.dataset.group = groupKey;
+            const header = document.createElement('div');
+            header.className = 'chat-date-header';
+            header.textContent = CHAT_DATE_GROUP_LABELS[groupKey] || groupKey;
+            group.appendChild(header);
+            const idx = CHAT_DATE_GROUP_ORDER.indexOf(groupKey);
+            let inserted = false;
+            for (const existing of Array.from(list.querySelectorAll('.chat-date-group'))) {
+                if (CHAT_DATE_GROUP_ORDER.indexOf(existing.dataset.group) > idx) {
+                    list.insertBefore(group, existing);
+                    inserted = true;
+                    break;
+                }
+            }
+            if (!inserted) list.appendChild(group);
+            return group;
+        }
+
+        function ensureChatListEmptyState() {
+            const list = document.getElementById('live-chat-list');
+            if (!list) return;
+            const hasAny = document.querySelectorAll(
+                '#pinned-chats .chat-item-container, #favorite-chats .chat-item-container, #live-chat-list .chat-item-container'
+            ).length > 0;
+            let empty = list.querySelector('.chat-list-empty');
+            if (!hasAny && !empty) {
+                const isArchivedView = CHAT_VIEW_MODE === 'archived';
+                empty = document.createElement('div');
+                empty.className = 'chat-list-empty';
+                empty.innerHTML = `<i class="fa-solid ${isArchivedView ? 'fa-box-open' : 'fa-comments'}"></i><span>${isArchivedView ? 'No archived conversations.' : 'No conversations yet - start one below.'}</span>`;
+                list.appendChild(empty);
+            } else if (hasAny && empty) {
+                empty.remove();
+            }
+        }
+
+        // Call after ANY structural change to the chat list (move/remove/
+        // insert a row) - prunes now-empty sections, keeps pagination and
+        // the empty-state message in sync. Idempotent, cheap to call often.
+        function refreshChatListChrome() {
+            const favContainer = document.getElementById('favorite-chats');
+            if (favContainer && favContainer.children.length === 0) {
+                document.getElementById('favorites-section-label')?.remove();
+                favContainer.remove();
+            }
+            document.querySelectorAll('#live-chat-list .chat-date-group').forEach(group => {
+                if (group.querySelectorAll('.chat-item-container').length === 0) group.remove();
+            });
+            ensureChatListEmptyState();
+            if (typeof updateChatListDisplay === 'function') updateChatListDisplay();
+        }
+
+        // Moves a row into whichever section its CURRENT data attributes say
+        // it belongs in (pinned > favorite > date group), or removes it
+        // entirely if it no longer belongs in the current view/folder at
+        // all. Every toggle function below updates the row's dataset FIRST,
+        // then calls this - one place decides placement, so the rules for
+        // "where does this row go" only ever exist once.
+        function moveRowToCorrectSection(row) {
+            if (!chatRowBelongsInCurrentView(row)) {
+                row.remove();
+                refreshChatListChrome();
+                return;
+            }
+            const pinned = row.dataset.pinned === '1';
+            const favorite = row.dataset.favorite === '1';
+            let target;
+            if (pinned) {
+                target = document.getElementById('pinned-chats');
+            } else if (favorite) {
+                target = ensureFavoritesSection();
+            } else {
+                target = getDateGroupContainer(row.dataset.dateGroup || 'today');
+            }
+            if (target && target !== row.parentElement) {
+                target.prepend(row);
+            }
+            refreshChatListChrome();
+        }
+
+        // Rebuilds a row's status-icon cluster + dropdown menu labels from
+        // its OWN data attributes - the single source of truth every toggle
+        // function updates first, so the visible icons/menu text can never
+        // drift out of sync with what the row's dataset says is true.
+        function refreshRowFromData(row) {
+            const pinned = row.dataset.pinned === '1';
+            const favorite = row.dataset.favorite === '1';
+            const archived = row.dataset.archived === '1';
+            const color = row.dataset.color;
+            const folder = row.dataset.folder;
+
+            const iconsEl = row.querySelector('.chat-row-icons');
+            if (iconsEl) {
+                let html = '';
+                if (color) html += `<span class="chat-color-dot chat-color-${color}"></span>`;
+                if (pinned) html += `<i class="fa-solid fa-thumbtack chat-pin-icon" title="Pinned"></i>`;
+                if (favorite) html += `<i class="fa-solid fa-star chat-favorite-icon" title="Favorite"></i>`;
+                if (folder) html += `<i class="fa-solid fa-folder chat-folder-icon" title="${escapeHtml(folder)}"></i>`;
+                iconsEl.innerHTML = html;
+            }
+
+            const pinLabel = row.querySelector('.js-pin-label');
+            if (pinLabel) pinLabel.textContent = pinned ? 'Unpin' : 'Pin';
+            const favLabel = row.querySelector('.js-favorite-label');
+            if (favLabel) favLabel.textContent = favorite ? 'Unfavorite' : 'Favorite';
+            const archLabel = row.querySelector('.js-archive-label');
+            if (archLabel) archLabel.textContent = archived ? 'Unarchive' : 'Archive';
+
+            const link = row.querySelector('.chat-link');
+            if (link) link.setAttribute('href', `/?session=${row.dataset.sessionId}${archived ? '&view=archived' : ''}`);
+
+            const folderMenuLink = row.querySelector(`#drop-${row.dataset.sessionId} a[onclick^="promptSetFolder"]`);
+            if (folderMenuLink) {
+                folderMenuLink.setAttribute('onclick', `promptSetFolder('${row.dataset.sessionId}', '${(folder || '').replace(/'/g, "\\'")}')`);
+            }
+        }
+
+        // Re-renders the folder chip strip from the server (Part 1) - the
+        // count/colour/existence of a folder can be affected by an action
+        // on ANY chat, so recomputing it in JS would just be a second,
+        // easy-to-drift copy of _compute_folders_for_user's own logic.
+        function renderFolderChipHTML(f) {
+            const activeClass = CHAT_FOLDER_FILTER === f.name ? 'active' : '';
+            const dotClass = f.color ? `chat-color-${f.color}` : 'folder-chip-dot-none';
+            const nameEsc = escapeHtml(f.name);
+            return `
+                <div class="folder-chip-wrap">
+                    <a href="/?view=${CHAT_VIEW_MODE}&folder=${encodeURIComponent(f.name)}" class="folder-chip ${activeClass}"
+                       oncontextmenu="return openFolderMenu(event, '${nameEsc}', '${f.color}')">
+                        <span class="folder-chip-dot ${dotClass}"></span>
+                        ${nameEsc}
+                        ${f.count ? `<span class="folder-chip-count">${f.count}</span>` : ''}
+                    </a>
+                    <button type="button" class="folder-chip-menu-btn" onclick="openFolderMenuFromBtn(event, this, '${nameEsc}', '${f.color}')" title="Folder options"><i class="fa-solid fa-ellipsis"></i></button>
+                </div>`;
+        }
+
+        function refreshFolderChipsFromServer() {
+            fetch("{% url 'folders_summary' %}", { signal: AbortSignal.timeout(8000) })
+                .then(res => res.json())
+                .then(data => {
+                    const section = document.querySelector('.folder-section');
+                    if (!section) return;
+                    const folders = data.folders || [];
+                    let chipsContainer = section.querySelector('.folder-chips');
+                    let emptyHint = section.querySelector('.folder-empty-hint');
+                    if (!folders.length) {
+                        chipsContainer?.remove();
+                        if (!emptyHint) {
+                            emptyHint = document.createElement('div');
+                            emptyHint.className = 'folder-empty-hint';
+                            emptyHint.textContent = "No folders yet. Use a chat's menu → Set Folder, or the + above.";
+                            section.appendChild(emptyHint);
+                        }
+                        return;
+                    }
+                    emptyHint?.remove();
+                    if (!chipsContainer) {
+                        chipsContainer = document.createElement('div');
+                        chipsContainer.className = 'folder-chips';
+                        section.appendChild(chipsContainer);
+                    }
+                    const allActive = !CHAT_FOLDER_FILTER ? 'active' : '';
+                    chipsContainer.innerHTML =
+                        `<a href="/?view=${CHAT_VIEW_MODE}" class="folder-chip ${allActive}"><i class="fa-solid fa-layer-group"></i> All</a>` +
+                        folders.map(renderFolderChipHTML).join('');
+                })
+                .catch(() => {});
+        }
+
+        // Updates every row currently filed under `oldName` to `newName` -
+        // used after a folder rename, which can affect many chats at once.
+        function relabelRowsInFolder(oldName, newName) {
+            document.querySelectorAll('.chat-item-container').forEach(row => {
+                if (row.dataset.folder !== oldName) return;
+                row.dataset.folder = newName;
+                refreshRowFromData(row);
+            });
+        }
+
+        // Unfiles every row currently in `name` - used after a folder
+        // delete, which never deletes the chats themselves (see
+        // delete_folder's own docstring), only their folder membership.
+        function unfileRowsInFolder(name) {
+            document.querySelectorAll('.chat-item-container').forEach(row => {
+                if (row.dataset.folder !== name) return;
+                row.dataset.folder = '';
+                refreshRowFromData(row);
+                moveRowToCorrectSection(row);
+            });
+        }
+
         // ================= Sidebar conversation search (client-side filter) =================
         // ================= Conversation list: search + pagination =================
         // Pinned chats are always shown in full (they're meant to be a small
@@ -4940,8 +5555,13 @@
         // is legitimately empty here, not just omitted.
         function buildOptimisticChatRowHTML(sessionId, rawTitle) {
             const displayTitle = escapeHtml(rawTitle.length > 20 ? rawTitle.substring(0, 20) + "..." : rawTitle);
+            // data-folder mirrors what the backend just persisted this brand-
+            // new session with (see ask_ai's `folder` param, sourced from this
+            // same CHAT_FOLDER_FILTER) - without it, a chat created while a
+            // folder view is active would show correctly here but read back
+            // as unfiled from the DOM until the next full page load.
             return `
-    <div class="chat-item-container active-chat" style="animation: slideIn 0.3s ease;">
+    <div class="chat-item-container active-chat" style="animation: slideIn 0.3s ease;" data-session-id="${sessionId}" data-folder="${escapeHtml(CHAT_FOLDER_FILTER)}" data-date-group="today" data-pinned="0" data-favorite="0" data-archived="0">
         <input type="checkbox" class="chat-bulk-checkbox" data-session-id="${sessionId}" onclick="event.stopPropagation(); onBulkCheckboxChange();" aria-label="Select conversation">
         <a href="/?session=${sessionId}" class="chat-link">
             <span class="chat-row-icons"></span>
@@ -5453,85 +6073,261 @@
         })();
 
         // ================= MENU, PIN, DELETE, RENAME, COPY, SHARE =================
+        // ================= Context menu (Part 2 rebuild) =================
+        // Shared close routine: clears .show/.flip-up on every open dropdown
+        // and resets the triggering button's aria-expanded, so opening a
+        // different row's menu (or clicking away, or Escape) always leaves
+        // things in a consistent state.
+        function closeAllSideDropdowns() {
+            document.querySelectorAll('.side-dropdown.show').forEach(d => {
+                d.classList.remove('show', 'flip-up');
+                d.querySelectorAll('.menu-item-active').forEach(el => el.classList.remove('menu-item-active'));
+            });
+            document.querySelectorAll('.side-menu-btn[aria-expanded="true"]').forEach(btn => {
+                btn.setAttribute('aria-expanded', 'false');
+            });
+        }
+
+        // Flips the menu above its button instead of below, only when it
+        // would otherwise overflow the viewport bottom - measured against
+        // the real rendered box, not an estimate, so it's correct at any
+        // zoom level or viewport size.
+        function positionSideDropdown(menu, btn) {
+            menu.classList.remove('flip-up');
+            const btnRect = btn.getBoundingClientRect();
+            const menuRect = menu.getBoundingClientRect();
+            const overflowsBottom = btnRect.bottom + menuRect.height > window.innerHeight - 8;
+            const fitsAbove = btnRect.top - menuRect.height > 8;
+            if (overflowsBottom && fitsAbove) {
+                menu.classList.add('flip-up');
+            }
+        }
+
+        function getMenuItems(menu) {
+            return Array.from(menu.querySelectorAll('[role="menuitem"]'));
+        }
+
         function toggleMenu(event, id) {
             event.stopPropagation();
-            document.querySelectorAll('.side-dropdown').forEach(d => d.classList.remove('show'));
-            document.getElementById(id).classList.toggle('show');
+            const menu = document.getElementById(id);
+            const btn = event.currentTarget || (event.target.closest ? event.target.closest('.side-menu-btn') : null);
+            const wasOpen = menu.classList.contains('show');
+            closeAllSideDropdowns();
+            if (wasOpen) return;
+
+            menu.classList.add('show');
+            if (btn) btn.setAttribute('aria-expanded', 'true');
+            // Measure on the next frame - the menu must already be laid out
+            // (display/visibility resolved) for getBoundingClientRect to
+            // reflect its real height.
+            requestAnimationFrame(() => positionSideDropdown(menu, btn || menu.parentElement.querySelector('.side-menu-btn')));
         }
 
         window.addEventListener("click", function (e) {
             if (!e.target.closest('.side-menu')) {
-                document.querySelectorAll('.side-dropdown').forEach(d => d.classList.remove('show'));
+                closeAllSideDropdowns();
             }
         });
 
+        // Escape closes an open context menu; Arrow Up/Down move between
+        // items; Enter/Space activate the focused-or-highlighted one - the
+        // same keyboard model as a native OS menu.
+        document.addEventListener('keydown', (e) => {
+            const openMenu = document.querySelector('.side-dropdown.show');
+            if (!openMenu) return;
+
+            if (e.key === 'Escape') {
+                e.preventDefault();
+                const btn = openMenu.closest('.side-menu')?.querySelector('.side-menu-btn');
+                closeAllSideDropdowns();
+                btn?.focus();
+                return;
+            }
+
+            const items = getMenuItems(openMenu);
+            if (!items.length) return;
+            const currentIndex = items.findIndex(i => i.classList.contains('menu-item-active'));
+
+            if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+                e.preventDefault();
+                const delta = e.key === 'ArrowDown' ? 1 : -1;
+                const nextIndex = currentIndex === -1
+                    ? (delta === 1 ? 0 : items.length - 1)
+                    : (currentIndex + delta + items.length) % items.length;
+                items.forEach(i => i.classList.remove('menu-item-active'));
+                items[nextIndex].classList.add('menu-item-active');
+                items[nextIndex].focus();
+            } else if (e.key === 'Enter' || e.key === ' ') {
+                if (currentIndex !== -1) {
+                    e.preventDefault();
+                    items[currentIndex].click();
+                }
+            }
+        });
+
+        // Guards the fetch-straight-to-the-network sidebar actions below
+        // against a double-click/double-tap firing the same toggle twice
+        // (e.g. Pin then Unpin racing back to the original state before the
+        // user's second click even registers as intentional) - the dropdown
+        // menu item stayed open and clickable for the whole in-flight
+        // request otherwise, since closeAllSideDropdowns() used to run only
+        // after the fetch resolved instead of the instant the click fired.
+        const _inFlightSessionActions = new Set();
+
         async function togglePin(id) {
+            const key = 'pin-' + id;
+            if (_inFlightSessionActions.has(key)) return;
+            _inFlightSessionActions.add(key);
+            closeAllSideDropdowns();
+            const row = getChatRow(id);
             try {
                 const res = await fetch(`/pin_session/${id}/`, {
                     method: "POST",
-                    headers: {
-                        "Content-Type": "application/x-www-form-urlencoded",
-                        "X-CSRFToken": csrfToken
-                    }
+                    headers: { "Content-Type": "application/x-www-form-urlencoded", "X-CSRFToken": csrfToken }
                 });
-                if (res.ok) location.reload();
-                else alert("Pin failed");
-            } catch (err) { console.error(err); }
+                if (!res.ok) { showToast("Could not update pin.", 'error'); return; }
+                const data = await res.json();
+                if (row) {
+                    row.dataset.pinned = data.is_pinned ? '1' : '0';
+                    refreshRowFromData(row);
+                    moveRowToCorrectSection(row);
+                }
+            } catch (err) { console.error(err); showToast("Network error - please try again.", 'error'); }
+            finally { _inFlightSessionActions.delete(key); }
         }
 
-        async function deleteChat(id) {
-            if (!confirm("DELETE_SESSION?")) return;
-            const res = await fetch(`/delete_session/${id}/`, {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/x-www-form-urlencoded",
-                    "X-CSRFToken": csrfToken
-                }
+        function deleteChat(id) {
+            showConfirm({
+                title: 'Delete this conversation?',
+                message: 'This permanently removes the conversation and everything in it. This cannot be undone.',
+                confirmLabel: 'Delete',
+                danger: true,
+                onConfirm: async () => {
+                    try {
+                        const res = await fetch(`/delete_session/${id}/`, {
+                            method: "POST",
+                            headers: { "Content-Type": "application/x-www-form-urlencoded", "X-CSRFToken": csrfToken }
+                        });
+                        if (!res.ok) { showToast("Could not delete chat.", 'error'); return; }
+                        const wasCurrent = new URLSearchParams(window.location.search).get('session') === String(id);
+                        getChatRow(id)?.remove();
+                        refreshChatListChrome();
+                        if (wasCurrent) {
+                            // The open conversation was just deleted out from
+                            // under the user - there's nothing left to patch
+                            // in place, so this is the one case where landing
+                            // back on a blank workspace genuinely needs a
+                            // real navigation.
+                            window.location.href = '/';
+                        } else {
+                            showToast('Chat deleted', 'info');
+                        }
+                    } catch (err) { console.error(err); showToast("Network error - please try again.", 'error'); }
+                },
             });
-            if (res.ok) location.href = "/";
         }
 
         async function renameChat(id, oldTitle) {
             const newTitle = prompt("New Title:", oldTitle);
             if (!newTitle || newTitle === oldTitle) return;
-            await fetch(`/rename_session/${id}/`, {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/x-www-form-urlencoded",
-                    "X-CSRFToken": csrfToken
-                },
-                body: `title=${encodeURIComponent(newTitle)}`
-            });
-            location.reload();
+            try {
+                const res = await fetch(`/rename_session/${id}/`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/x-www-form-urlencoded", "X-CSRFToken": csrfToken },
+                    body: `title=${encodeURIComponent(newTitle)}`
+                });
+                if (!res.ok) { showToast("Could not rename chat.", 'error'); return; }
+                const row = getChatRow(id);
+                if (row) {
+                    row.dataset.title = newTitle;
+                    const titleEl = row.querySelector('.chat-link-title');
+                    if (titleEl) titleEl.textContent = newTitle;
+                    const renameLink = row.querySelector(`#drop-${id} a[onclick^="renameChat"]`);
+                    if (renameLink) renameLink.setAttribute('onclick', `renameChat('${id}', '${newTitle.replace(/'/g, "\\'")}')`);
+                }
+                // The currently-open chat's title also drives the PDF export
+                // button's filename - keep that in sync too.
+                const exportBtn = document.querySelector('.new-chat[data-chat-title]');
+                if (exportBtn && new URLSearchParams(window.location.search).get('session') === String(id)) {
+                    exportBtn.dataset.chatTitle = newTitle;
+                }
+                closeAllSideDropdowns();
+                showToast('Chat renamed', 'success');
+            } catch (err) { console.error(err); showToast("Network error - please try again.", 'error'); }
         }
 
         async function toggleFavoriteSession(id) {
-            const res = await fetch(`/sessions/${id}/favorite/`, {
-                method: "POST",
-                headers: { "Content-Type": "application/x-www-form-urlencoded", "X-CSRFToken": csrfToken }
-            });
-            if (res.ok) location.reload();
-            else alert("Favorite failed");
+            const key = 'favorite-' + id;
+            if (_inFlightSessionActions.has(key)) return;
+            _inFlightSessionActions.add(key);
+            closeAllSideDropdowns();
+            const row = getChatRow(id);
+            try {
+                const res = await fetch(`/sessions/${id}/favorite/`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/x-www-form-urlencoded", "X-CSRFToken": csrfToken }
+                });
+                if (!res.ok) { showToast("Could not update favorite.", 'error'); return; }
+                const data = await res.json();
+                if (row) {
+                    row.dataset.favorite = data.is_favorite ? '1' : '0';
+                    refreshRowFromData(row);
+                    moveRowToCorrectSection(row);
+                }
+            } catch (err) { console.error(err); showToast("Network error - please try again.", 'error'); }
+            finally { _inFlightSessionActions.delete(key); }
         }
 
         async function toggleArchiveSession(id) {
-            const res = await fetch(`/sessions/${id}/archive/`, {
-                method: "POST",
-                headers: { "Content-Type": "application/x-www-form-urlencoded", "X-CSRFToken": csrfToken }
-            });
-            if (res.ok) location.reload();
-            else alert("Archive failed");
+            const key = 'archive-' + id;
+            if (_inFlightSessionActions.has(key)) return;
+            _inFlightSessionActions.add(key);
+            closeAllSideDropdowns();
+            const row = getChatRow(id);
+            try {
+                const res = await fetch(`/sessions/${id}/archive/`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/x-www-form-urlencoded", "X-CSRFToken": csrfToken }
+                });
+                if (!res.ok) { showToast("Could not update archive state.", 'error'); return; }
+                const data = await res.json();
+                if (row) {
+                    row.dataset.archived = data.is_archived ? '1' : '0';
+                    refreshRowFromData(row);
+                    moveRowToCorrectSection(row);
+                }
+                showToast(data.is_archived ? 'Chat archived' : 'Chat unarchived', 'info');
+            } catch (err) { console.error(err); showToast("Network error - please try again.", 'error'); }
+            finally { _inFlightSessionActions.delete(key); }
         }
 
         async function duplicateChat(id) {
-            const res = await fetch(`/sessions/${id}/duplicate/`, {
-                method: "POST",
-                headers: { "Content-Type": "application/x-www-form-urlencoded", "X-CSRFToken": csrfToken }
-            });
-            if (res.ok) {
+            const key = 'duplicate-' + id;
+            if (_inFlightSessionActions.has(key)) return;
+            _inFlightSessionActions.add(key);
+            closeAllSideDropdowns();
+            try {
+                const res = await fetch(`/sessions/${id}/duplicate/`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/x-www-form-urlencoded", "X-CSRFToken": csrfToken }
+                });
+                if (!res.ok) { showToast("Could not duplicate chat.", 'error'); return; }
                 const data = await res.json();
-                location.href = `/?session=${data.session_id}`;
-            } else alert("Duplicate failed");
+                // Inserted as its own row rather than navigated to - a
+                // duplicate shouldn't interrupt whatever the user is
+                // currently looking at. Only shown here if it actually
+                // belongs in the current view/folder (it inherits the
+                // original's folder, which might not match a folder filter
+                // that's currently active).
+                if (CHAT_VIEW_MODE !== 'archived' && (!CHAT_FOLDER_FILTER || CHAT_FOLDER_FILTER === (data.folder || ''))) {
+                    const group = getDateGroupContainer('today');
+                    group.insertAdjacentHTML('afterbegin', data.row_html);
+                    refreshChatListChrome();
+                }
+                if (data.folder) refreshFolderChipsFromServer();
+                showToast('Chat duplicated', 'success');
+            } catch (err) { console.error(err); showToast("Network error - please try again.", 'error'); }
+            finally { _inFlightSessionActions.delete(key); }
         }
 
         // ================= Generic confirmation dialog (Part 3/10) =================
@@ -5588,7 +6384,7 @@
                 .then(({ ok, data }) => {
                     if (!ok) { showToast(data.error || 'Could not create folder.', 'error'); return; }
                     showToast('Folder created', 'success');
-                    location.reload();
+                    refreshFolderChipsFromServer();
                 })
                 .catch(() => showToast('Network error - please try again.', 'error'));
         }
@@ -5659,8 +6455,14 @@
                 .then(res => res.json().then(data => ({ ok: res.ok, data })))
                 .then(({ ok, data }) => {
                     if (!ok) { showToast(data.error || 'Could not rename folder.', 'error'); return; }
+                    relabelRowsInFolder(oldName, data.name);
+                    if (CHAT_FOLDER_FILTER === oldName) {
+                        const url = new URL(window.location.href);
+                        url.searchParams.set('folder', data.name);
+                        history.replaceState(null, '', url);
+                    }
+                    refreshFolderChipsFromServer();
                     showToast('Folder renamed', 'success');
-                    location.reload();
                 })
                 .catch(() => showToast('Network error - please try again.', 'error'));
         }
@@ -5678,7 +6480,7 @@
                 .then(res => res.json().then(data => ({ ok: res.ok, data })))
                 .then(({ ok, data }) => {
                     if (!ok) { showToast(data.error || 'Could not update folder color.', 'error'); return; }
-                    location.reload();
+                    refreshFolderChipsFromServer();
                 })
                 .catch(() => showToast('Network error - please try again.', 'error'));
         }
@@ -5703,12 +6505,13 @@
                         .then(({ ok, data }) => {
                             if (!ok) { showToast(data.error || 'Could not delete folder.', 'error'); return; }
                             showToast(`Folder deleted${data.unfiled ? ` · ${data.unfiled} chat(s) unfiled` : ''}`, 'info');
-                            // If we were viewing the deleted folder, go back to All.
-                            const params = new URLSearchParams(window.location.search);
-                            if (params.get('folder') === name) {
+                            if (CHAT_FOLDER_FILTER === name) {
+                                // The folder being viewed no longer exists -
+                                // "All" is the only view left to show.
                                 window.location.href = '/';
                             } else {
-                                location.reload();
+                                unfileRowsInFolder(name);
+                                refreshFolderChipsFromServer();
                             }
                         })
                         .catch(() => showToast('Network error - please try again.', 'error'));
@@ -5719,23 +6522,49 @@
         async function promptSetFolder(id, currentFolder) {
             const folder = prompt("Folder name (leave blank to remove from folder):", currentFolder || "");
             if (folder === null) return;
-            const res = await fetch(`/sessions/${id}/folder/`, {
-                method: "POST",
-                headers: { "Content-Type": "application/x-www-form-urlencoded", "X-CSRFToken": csrfToken },
-                body: `folder=${encodeURIComponent(folder)}`
-            });
-            if (res.ok) location.reload();
-            else showToast("Setting folder failed", 'error');
+            try {
+                const res = await fetch(`/sessions/${id}/folder/`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/x-www-form-urlencoded", "X-CSRFToken": csrfToken },
+                    body: `folder=${encodeURIComponent(folder)}`
+                });
+                if (!res.ok) { showToast("Could not update folder.", 'error'); return; }
+                const data = await res.json();
+                const row = getChatRow(id);
+                if (row) {
+                    row.dataset.folder = data.folder;
+                    refreshRowFromData(row);
+                    moveRowToCorrectSection(row);
+                }
+                closeAllSideDropdowns();
+                refreshFolderChipsFromServer();
+                showToast('Folder updated', 'success');
+            } catch (err) { console.error(err); showToast("Network error - please try again.", 'error'); }
         }
 
         async function setSessionColor(id, color) {
-            const res = await fetch(`/sessions/${id}/color/`, {
-                method: "POST",
-                headers: { "Content-Type": "application/x-www-form-urlencoded", "X-CSRFToken": csrfToken },
-                body: `color=${encodeURIComponent(color)}`
-            });
-            if (res.ok) location.reload();
-            else alert("Setting color failed");
+            // Same in-flight guard as togglePin/etc above - without it,
+            // clicking two different swatches quickly could let an earlier,
+            // slower request resolve AFTER a later one and overwrite the
+            // row back to a color the user didn't actually pick last.
+            const key = 'color-' + id;
+            if (_inFlightSessionActions.has(key)) return;
+            _inFlightSessionActions.add(key);
+            closeAllSideDropdowns();
+            const row = getChatRow(id);
+            try {
+                const res = await fetch(`/sessions/${id}/color/`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/x-www-form-urlencoded", "X-CSRFToken": csrfToken },
+                    body: `color=${encodeURIComponent(color)}`
+                });
+                if (!res.ok) { showToast("Could not update color.", 'error'); return; }
+                if (row) {
+                    row.dataset.color = color;
+                    refreshRowFromData(row);
+                }
+            } catch (err) { console.error(err); showToast("Network error - please try again.", 'error'); }
+            finally { _inFlightSessionActions.delete(key); }
         }
 
         // ================= Bulk select =================
@@ -5768,8 +6597,30 @@
                     headers: { "Content-Type": "application/x-www-form-urlencoded", "X-CSRFToken": csrfToken },
                     body: params.toString()
                 });
-                if (res.ok) location.reload();
-                else showToast("Bulk action failed", 'error');
+                if (!res.ok) { showToast("Bulk action failed", 'error'); return; }
+
+                const currentSessionId = new URLSearchParams(window.location.search).get('session');
+                let currentWasDeleted = false;
+                ids.forEach(id => {
+                    const row = getChatRow(id);
+                    if (action === 'delete') {
+                        if (String(currentSessionId) === String(id)) currentWasDeleted = true;
+                        row?.remove();
+                    } else if (row) {
+                        row.dataset.archived = action === 'archive' ? '1' : '0';
+                        refreshRowFromData(row);
+                        moveRowToCorrectSection(row);
+                    }
+                });
+                refreshChatListChrome();
+                toggleBulkSelectMode();
+
+                if (currentWasDeleted) {
+                    window.location.href = '/';
+                    return;
+                }
+                const verb = action === 'delete' ? 'deleted' : action === 'archive' ? 'archived' : 'unarchived';
+                showToast(`${ids.length} chat${ids.length === 1 ? '' : 's'} ${verb}`, 'info');
             };
 
             if (action === 'delete') {
@@ -5902,9 +6753,16 @@
             if (!sessionId) { alert("This conversation isn't saved yet - send a message first."); return; }
             const simbaBlock = btn.closest('.simba-block');
             const container = simbaBlock ? simbaBlock.querySelector('.followup-suggestions') : null;
+            // The exact reply this button belongs to - without this, the
+            // backend fell back to "whatever the session's active leaf is
+            // right now", which drifted from this reply the moment editing/
+            // regenerating/branch-switching moved the active leaf elsewhere
+            // (stale, mismatched, or occasionally empty suggestions).
+            const messageId = simbaBlock ? simbaBlock.dataset.messageId : '';
             if (container) container.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Thinking of follow-ups...';
             btn.disabled = true;
-            fetch(`/session/${sessionId}/suggest-followups/`, { signal: AbortSignal.timeout(15000) })
+            const followupUrl = `/session/${sessionId}/suggest-followups/` + (messageId ? `?message_id=${encodeURIComponent(messageId)}` : '');
+            fetch(followupUrl, { signal: AbortSignal.timeout(15000) })
                 .then(res => res.json())
                 .then(data => {
                     if (!container) return;
@@ -6088,8 +6946,11 @@
                 // સર્વરના સેશનને પણ તે જ સમયે અપડેટ કરો [cite: 2026-03-01]
                 try {
                     await fetch(`/update_model/?model_id=${value}`);
-                    console.log("SIMBA_SESSION: Model synced to " + value);
-                } catch (err) { console.log("Sync Error"); }
+                } catch (err) {
+                    // Non-fatal: the model is already selected client-side and
+                    // in localStorage above: worst case the server-side
+                    // session falls back to the last synced model next reload.
+                }
 
                 optionsBox.style.display = "none";
                 select.classList.remove("open");
@@ -6183,6 +7044,29 @@
         // ================= AbortController for the in-flight request - powers the Stop button =================
         let currentAbortController = null;
 
+        // ================= Recover from the browser back/forward cache (bfcache) =================
+        // Navigating away mid-send (e.g. clicking Settings/Analytics while a
+        // reply is streaming) and then pressing Back can restore this exact
+        // page from bfcache instead of a fresh load - a frozen JS snapshot
+        // with isSendingQuery/isGeneratingImage still true, even though the
+        // real fetch that would have flipped them back died with the
+        // navigation that cached this page. Without this, the Send button
+        // stays permanently stuck in "Stop" mode (every click just aborts an
+        // already-dead controller and returns) until a hard refresh.
+        // event.persisted is true only for an actual bfcache restore, never
+        // for a normal first load, so this never runs on the common path.
+        window.addEventListener('pageshow', (event) => {
+            if (!event.persisted) return;
+            if (isSendingQuery || isGeneratingImage) {
+                isSendingQuery = false;
+                isGeneratingImage = false;
+                currentAbortController = null;
+                clearWatchdog();
+                setSendButtonBusy(false);
+                setStatus("status-online", "CORE ONLINE");
+            }
+        });
+
         // ================= Request watchdog: guarantees no request can hang forever =================
         // A plain fetch() has no built-in timeout, and the streaming read loop in
         // sendQuery/regenerateText/submitEditedMessage awaits reader.read() forever
@@ -6240,12 +7124,6 @@
         }
 
         // ================= HTML-escape untrusted text before ever inserting it via innerHTML =================
-        function escapeHtml(str) {
-            const div = document.createElement("div");
-            div.textContent = str;
-            return div.innerHTML;
-        }
-
         // ================= LaTeX -> KaTeX, then markdown, then sanitize =================
         // Math has to be pulled out and rendered *before* marked.parse() runs -
         // markdown syntax chars (_, *, etc.) are also valid inside LaTeX
@@ -6281,7 +7159,55 @@
             let html = marked.parse(processed);
             html = html.replace(/@@MATH_BLOCK_(\d+)@@/g, (_, idx) => mathBlocks[parseInt(idx, 10)]);
 
-            return window.DOMPurify ? DOMPurify.sanitize(html) : html;
+            // Fail closed, not open: if the DOMPurify CDN script didn't load
+            // (network hiccup, blocked host, CDN outage), this must NEVER
+            // fall through to inserting marked.parse()'s raw, unsanitized
+            // HTML via innerHTML - that would turn any HTML/script markup an
+            // AI reply happens to contain into a real DOM injection. Falling
+            // back to escaped plain text is safe and keeps the reply
+            // readable; a real fix (reload) is one refresh away.
+            if (!window.DOMPurify) return escapeHtml(text);
+            return DOMPurify.sanitize(html);
+        }
+
+        // ================= Throttled streaming markdown renderer =================
+        // Shared by every streaming loop (send/regenerate/continue/edit).
+        // Re-parsing the whole accumulated response (renderMarkdown does a
+        // full marked.parse + DOMPurify.sanitize pass) and forcing a
+        // synchronous scrollHeight/scrollTop layout read+write on every
+        // single network chunk is unbounded, roughly quadratic-in-response-
+        // length work for no visible benefit - only the state right before
+        // each paint is ever actually seen. Coalescing to at most one
+        // update per animation frame (originally done only for the main
+        // send flow) fixes that everywhere a response streams in.
+        //
+        // `cf` (the scroll container) is optional - edit's loop never
+        // auto-scrolled before this helper existed (editing happens
+        // mid-conversation, not necessarily at the bottom), and passing no
+        // `cf` here preserves that exact behavior instead of introducing a
+        // new scroll no caller asked for.
+        function createThrottledStreamRenderer(getMarkdownDiv, getText, cf) {
+            let latestIsAtBottom = true;
+            let rafHandle = null;
+            const flush = () => {
+                rafHandle = null;
+                const markdownDiv = getMarkdownDiv();
+                if (markdownDiv) markdownDiv.innerHTML = renderMarkdown(getText());
+                if (cf && latestIsAtBottom) cf.scrollTop = cf.scrollHeight;
+            };
+            return {
+                schedule() {
+                    if (cf) latestIsAtBottom = cf.scrollHeight - cf.clientHeight <= cf.scrollTop + 100;
+                    if (rafHandle === null) rafHandle = requestAnimationFrame(flush);
+                },
+                // Guarantees the final chunk is rendered even if a throttled
+                // update was still pending when the stream ended - call this
+                // exactly once, unconditionally, right after the read loop.
+                flushNow() {
+                    if (rafHandle !== null) cancelAnimationFrame(rafHandle);
+                    flush();
+                },
+            };
         }
 
         if (window.mermaid) {
@@ -6794,7 +7720,7 @@
                         "Content-Type": "application/x-www-form-urlencoded",
                         "X-CSRFToken": csrfToken
                     },
-                    body: `query=${encodeURIComponent(userPrompt)}&model_id=${encodeURIComponent(currentModel)}&aspect_ratio=${encodeURIComponent(aspectRatio)}&seed=${seed || ""}&session_id=${new URLSearchParams(window.location.search).get("session")}`,
+                    body: `query=${encodeURIComponent(userPrompt)}&model_id=${encodeURIComponent(currentModel)}&aspect_ratio=${encodeURIComponent(aspectRatio)}&seed=${seed || ""}&session_id=${new URLSearchParams(window.location.search).get("session")}&folder=${encodeURIComponent(CHAT_FOLDER_FILTER)}`,
                     signal: currentAbortController.signal
                 });
 
@@ -6819,6 +7745,10 @@
                                 });
                                 listContainer.insertAdjacentHTML('afterbegin', newEntry);
                             }
+                            // This new chat was just filed into the active folder
+                            // (see ask_ai's `folder` param) - its chip count is
+                            // now stale without this.
+                            if (CHAT_FOLDER_FILTER) refreshFolderChipsFromServer();
                         }
                     } catch (sidebarErr) {
                         console.error("Sidebar sync failed (non-fatal):", sidebarErr);
@@ -7226,6 +8156,10 @@
                     form.append("query", query);
                     form.append("model_id", modelId);
                     form.append("session_id", sessionParam || "");
+                    // Only matters when this send actually creates a brand-new
+                    // session (no session_id yet) - the backend only reads it
+                    // on that branch, so it's harmless to always include.
+                    form.append("folder", CHAT_FOLDER_FILTER);
                     attachmentsToSend.forEach(a => form.append("attachment", a.file, a.name));
                     fetchOptions = {
                         method: "POST",
@@ -7240,7 +8174,7 @@
                             "Content-Type": "application/x-www-form-urlencoded",
                             "X-CSRFToken": csrfToken
                         },
-                        body: `query=${encodeURIComponent(query)}&model_id=${encodeURIComponent(modelId)}&session_id=${sessionParam || ""}`,
+                        body: `query=${encodeURIComponent(query)}&model_id=${encodeURIComponent(modelId)}&session_id=${sessionParam || ""}&folder=${encodeURIComponent(CHAT_FOLDER_FILTER)}`,
                         signal: currentAbortController.signal
                     };
                 }
@@ -7321,6 +8255,10 @@
 
                             listContainer.insertAdjacentHTML('afterbegin', newEntry);
                         }
+                        // This new chat was just filed into the active folder
+                        // (see ask_ai's `folder` param) - its chip count is
+                        // now stale without this.
+                        if (CHAT_FOLDER_FILTER) refreshFolderChipsFromServer();
                     }
                 } catch (sidebarErr) {
                     console.error("Sidebar sync failed (non-fatal):", sidebarErr);
@@ -7622,6 +8560,9 @@
                 const decoder = new TextDecoder();
                 let fullResponse = "";
                 let firstTokenReceived = false;
+                const renderer = createThrottledStreamRenderer(
+                    () => contentDiv.querySelector('.markdown-content'), () => fullResponse, cf,
+                );
 
                 while (true) {
                     const { done, value } = await reader.read();
@@ -7634,10 +8575,9 @@
                         firstTokenReceived = true;
                     }
                     fullResponse += chunk.replace("<think>", "").replace("</think>", "");
-                    const markdownDiv = contentDiv.querySelector('.markdown-content');
-                    if (markdownDiv) markdownDiv.innerHTML = renderMarkdown(fullResponse);
-                    cf.scrollTop = cf.scrollHeight;
+                    renderer.schedule();
                 }
+                renderer.flushNow();
 
                 if (!fullResponse.trim()) {
                     // Nothing was generated (and nothing was persisted server-side
@@ -7800,6 +8740,9 @@
                 const reader = res.body.getReader();
                 const decoder = new TextDecoder();
                 let addedResponse = "";
+                const renderer = createThrottledStreamRenderer(
+                    () => markdownDiv, () => existingContent + addedResponse, cf,
+                );
 
                 while (true) {
                     const { done, value } = await reader.read();
@@ -7807,9 +8750,9 @@
                     resetWatchdog(currentAbortController, TEXT_REQUEST_TIMEOUT_MS);
                     const chunk = decoder.decode(value, { stream: true });
                     addedResponse += chunk.replace("<think>", "").replace("</think>", "");
-                    if (markdownDiv) markdownDiv.innerHTML = renderMarkdown(existingContent + addedResponse);
-                    cf.scrollTop = cf.scrollHeight;
+                    renderer.schedule();
                 }
+                renderer.flushNow();
 
                 if (addedResponse.trim()) {
                     if (rawDataEl) rawDataEl.value = existingContent + addedResponse;
@@ -8322,6 +9265,10 @@
                 const decoder = new TextDecoder();
                 let fullResponse = "";
                 let firstToken = false;
+                const renderer = createThrottledStreamRenderer(
+                    () => assistantContentDiv && assistantContentDiv.querySelector('.markdown-content'),
+                    () => fullResponse,
+                );
                 while (true) {
                     const { done, value } = await reader.read();
                     if (done) break;
@@ -8334,10 +9281,10 @@
                             if (assistantLabel) assistantLabel.innerText = "SIMBA_RESPONSE";
                             firstToken = true;
                         }
-                        const markdownDiv = assistantContentDiv.querySelector('.markdown-content');
-                        if (markdownDiv) markdownDiv.innerHTML = renderMarkdown(fullResponse);
+                        renderer.schedule();
                     }
                 }
+                renderer.flushNow();
 
                 if (!fullResponse.trim()) {
                     // Nothing generated, nothing persisted server-side either -
@@ -8490,7 +9437,7 @@
                     // user's selected theme. Load state is already visible via the
                     // bar colors above.)
                 })
-                .catch(() => console.log("Re-establishing metrics link..."));
+                .catch(() => { /* transient poll failure - next tick retries on its own */ });
         }
         // 5s instead of 1s (this is a decorative CPU/RAM gauge, not live
         // telemetry - 1s bought no visible benefit but polled 5x more than

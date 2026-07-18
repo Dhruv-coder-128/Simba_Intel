@@ -29,7 +29,13 @@ _INSECURE_DEFAULT_SECRET_KEY = 'django-insecure-0dxud_bzn1-j5*+avl*c7ossn*qcsin#
 SECRET_KEY = os.getenv('DJANGO_SECRET_KEY', _INSECURE_DEFAULT_SECRET_KEY)
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = os.getenv('DEBUG', 'True') == 'True'
+# Defaults to False (not True) so a DEBUG env var that's missing entirely -
+# a misconfigured deploy, not just "someone forgot .env locally" - fails
+# safe (verbose 500 pages off) instead of failing open. Both .env and
+# .env.example already set DEBUG explicitly, so local development is
+# unaffected either way; this only changes behavior for an environment that
+# never set it at all.
+DEBUG = os.getenv('DEBUG', 'False') == 'True'
 
 if not DEBUG and SECRET_KEY == _INSECURE_DEFAULT_SECRET_KEY:
     raise RuntimeError(
@@ -69,9 +75,6 @@ MIDDLEWARE = [
     # Needs request.user (set by AuthenticationMiddleware above) to let
     # superusers through during an active kill switch.
     'chat.middleware.MaintenanceModeMiddleware',
-    # Also needs request.user - activates the signed-in user's timezone for
-    # every timestamp rendered during this request (see middleware docstring).
-    'chat.middleware.TimezoneMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'allauth.account.middleware.AccountMiddleware',
@@ -91,7 +94,6 @@ TEMPLATES = [
                 'django.contrib.messages.context_processors.messages',
                 'chat.context_processors.feature_flags',
                 'chat.context_processors.rbac',
-                'chat.context_processors.user_timezone',
             ],
         },
     },

@@ -1,6 +1,6 @@
 {% load static %}
 <!DOCTYPE html>
-<html lang="en" data-theme="{{ profile.theme|default:'cyberpunk' }}">
+<html lang="en" data-theme="{{ profile.theme|default:'cyberpunk' }}" data-accent="{{ profile.accent_override }}" data-density="{{ profile.density|default:'comfortable' }}" data-radius="{{ profile.card_radius|default:'rounded' }}" data-animation="{{ profile.animation_level|default:'full' }}" data-glass="{{ profile.glass_intensity|default:'medium' }}">
 
 <head>
     <meta charset="UTF-8">
@@ -53,6 +53,60 @@
             --text: #1c1f26;
             --text-dim: #5b6472;
             --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.08);
+        }
+
+        /* Part 5 (Settings redesign task) - expanded theme set */
+        html[data-theme="cyber-orange"] { --bg:#120a05; --sidebar:#1a0f08; --accent:#ff9d3d; --accent-rgb:255,157,61; --border:#2e1c0f; --card: rgba(255,255,255,0.025); --surface:#170e07; --text:#ffe9d1; --text-dim:#b89a7d; --accent-soft: rgba(255,157,61,0.55); --accent-dim: rgba(255,157,61,0.08); }
+        html[data-theme="neon-green"] { --bg:#060806; --sidebar:#0b100b; --accent:#39ff14; --accent-rgb:57,255,20; --border:#16220f; --card: rgba(255,255,255,0.02); --surface:#0a0f0a; --text:#e6ffe6; --text-dim:#86c98a; --accent-soft: rgba(57,255,20,0.55); --accent-dim: rgba(57,255,20,0.08); }
+        html[data-theme="midnight-blue"] { --bg:#060b18; --sidebar:#0a1226; --accent:#3b82f6; --accent-rgb:59,130,246; --border:#16224a; --card: rgba(255,255,255,0.02); --surface:#0a1530; --text:#e3ecff; --text-dim:#8ba0c9; --accent-soft: rgba(59,130,246,0.55); --accent-dim: rgba(59,130,246,0.08); }
+        html[data-theme="purple-matrix"] { --bg:#0b0714; --sidebar:#120b20; --accent:#9d4edd; --accent-rgb:157,78,221; --border:#241238; --card: rgba(255,255,255,0.025); --surface:#0f0a1c; --text:#ede4ff; --text-dim:#a695c4; --accent-soft: rgba(157,78,221,0.55); --accent-dim: rgba(157,78,221,0.08); }
+        html[data-theme="crimson-red"] { --bg:#140505; --sidebar:#1e0808; --accent:#ef4444; --accent-rgb:239,68,68; --border:#3a1414; --card: rgba(255,255,255,0.025); --surface:#1a0707; --text:#ffe4e4; --text-dim:#c48a8a; --accent-soft: rgba(239,68,68,0.55); --accent-dim: rgba(239,68,68,0.08); }
+        html[data-theme="oled-black"] { --bg:#000000; --sidebar:#000000; --accent:#00e5ff; --accent-rgb:0,229,255; --border:#161616; --card: rgba(255,255,255,0.02); --surface:#050505; --text:#f0f0f0; --text-dim:#7a7a7a; --accent-soft: rgba(0,229,255,0.55); --accent-dim: rgba(0,229,255,0.08); }
+        html[data-theme="emerald"] { --bg:#05120d; --sidebar:#081a13; --accent:#10b981; --accent-rgb:16,185,129; --border:#123626; --card: rgba(255,255,255,0.02); --surface:#071f16; --text:#e3fff3; --text-dim:#83baa4; --accent-soft: rgba(16,185,129,0.55); --accent-dim: rgba(16,185,129,0.08); }
+        html[data-theme="royal-gold"] { --bg:#120e05; --sidebar:#1b1508; --accent:#d4af37; --accent-rgb:212,175,55; --border:#372c11; --card: rgba(255,255,255,0.025); --surface:#171207; --text:#fdf3d9; --text-dim:#b8a878; --accent-soft: rgba(212,175,55,0.55); --accent-dim: rgba(212,175,55,0.08); }
+        html[data-theme="arctic-white"] {
+            --bg: #f7fafc;
+            --sidebar: #ffffff;
+            --accent: #0ea5e9;
+            --accent-rgb: 14, 165, 233;
+            --accent-soft: rgba(14, 165, 233, 0.55);
+            --accent-dim: rgba(14, 165, 233, 0.08);
+            --border: #dce6ee;
+            --border-soft: rgba(14, 40, 60, 0.06);
+            --card: rgba(14, 60, 90, 0.02);
+            --surface: #ffffff;
+            --text: #16232e;
+            --text-dim: #587085;
+            --shadow-md: 0 4px 16px rgba(20, 50, 70, 0.08);
+        }
+
+        /* ================= APPEARANCE CONTROLS (Part 6) =================
+           Mirrors the same data-accent/data-density/data-radius/data-animation/
+           data-glass handling as chat.html - see that file for the full
+           rationale. Placed after every theme block so it always wins. */
+        html[data-accent="cyan"] { --accent: #00e5ff; --accent-rgb: 0,229,255; --accent-soft: rgba(0,229,255,0.55); --accent-dim: rgba(0,229,255,0.08); }
+        html[data-accent="green"] { --accent: #39ff88; --accent-rgb: 57,255,136; --accent-soft: rgba(57,255,136,0.55); --accent-dim: rgba(57,255,136,0.08); }
+        html[data-accent="blue"] { --accent: #3b82f6; --accent-rgb: 59,130,246; --accent-soft: rgba(59,130,246,0.55); --accent-dim: rgba(59,130,246,0.08); }
+        html[data-accent="purple"] { --accent: #b084f5; --accent-rgb: 176,132,245; --accent-soft: rgba(176,132,245,0.55); --accent-dim: rgba(176,132,245,0.08); }
+        html[data-accent="pink"] { --accent: #ff6ec7; --accent-rgb: 255,110,199; --accent-soft: rgba(255,110,199,0.55); --accent-dim: rgba(255,110,199,0.08); }
+        html[data-accent="orange"] { --accent: #ff8c42; --accent-rgb: 255,140,66; --accent-soft: rgba(255,140,66,0.55); --accent-dim: rgba(255,140,66,0.08); }
+        html[data-accent="red"] { --accent: #ff4d4d; --accent-rgb: 255,77,77; --accent-soft: rgba(255,77,77,0.55); --accent-dim: rgba(255,77,77,0.08); }
+        html[data-accent="gold"] { --accent: #d4af37; --accent-rgb: 212,175,55; --accent-soft: rgba(212,175,55,0.55); --accent-dim: rgba(212,175,55,0.08); }
+
+        html[data-density="compact"] { --space-1: 2px; --space-2: 5px; --space-3: 8px; --space-4: 11px; --space-5: 16px; --space-6: 22px; }
+        html[data-radius="sharp"] { --radius-sm: 2px; --radius-md: 4px; --radius-lg: 6px; }
+        html[data-radius="soft"] { --radius-sm: 10px; --radius-md: 16px; --radius-lg: 24px; }
+
+        :root { --glass-blur: 18px; --glass-saturate: 160%; --glass-bg-alpha: 0.82; }
+        html[data-glass="off"] { --glass-blur: 0px; --glass-saturate: 100%; --glass-bg-alpha: 0.97; }
+        html[data-glass="light"] { --glass-blur: 8px; --glass-saturate: 120%; --glass-bg-alpha: 0.9; }
+        html[data-glass="high"] { --glass-blur: 28px; --glass-saturate: 180%; --glass-bg-alpha: 0.68; }
+
+        html[data-animation="reduced"] *, html[data-animation="reduced"] *::before, html[data-animation="reduced"] *::after {
+            transition-duration: 0.06s !important; animation-duration: 0.06s !important;
+        }
+        html[data-animation="none"] *, html[data-animation="none"] *::before, html[data-animation="none"] *::after {
+            transition: none !important; animation: none !important;
         }
 
         * { box-sizing: border-box; }
@@ -113,6 +167,119 @@
             display: flex;
             align-items: center;
             gap: 16px;
+        }
+
+        /* Dashboard hero (Part 3): identity + at-a-glance stats, so Settings
+           opens on something more premium than a bare "SETTINGS" title bar. */
+        .settings-hero {
+            display: flex;
+            align-items: center;
+            gap: 18px;
+            flex-wrap: wrap;
+            padding: 22px;
+            margin-bottom: 20px;
+            background: var(--surface);
+            border: 1px solid var(--border-soft);
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-md);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .settings-hero::before {
+            content: "";
+            position: absolute;
+            inset: 0;
+            background: radial-gradient(circle at 15% 20%, rgba(var(--accent-rgb), 0.1), transparent 55%);
+            pointer-events: none;
+        }
+
+        .hero-avatar {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            flex-shrink: 0;
+            object-fit: cover;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--accent-dim);
+            color: var(--accent);
+            border: 1px solid var(--accent-soft);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 20px;
+            font-weight: 600;
+        }
+
+        .hero-identity { min-width: 0; flex: 1 1 200px; }
+
+        .hero-name {
+            font-size: 17px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .hero-meta {
+            font-size: 12.5px;
+            color: var(--text-dim);
+            margin-top: 4px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            flex-wrap: wrap;
+        }
+
+        .hero-stats {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .hero-stat {
+            text-align: center;
+            background: var(--bg);
+            border: 1px solid var(--border-soft);
+            border-radius: var(--radius-sm);
+            padding: 8px 16px;
+            min-width: 76px;
+        }
+
+        .hero-stat-value {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--accent);
+        }
+
+        .hero-stat-label {
+            font-size: 10px;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+            color: var(--text-dim);
+            margin-top: 2px;
+        }
+
+        /* Skeleton-in reveal (Part 3): a single shimmer sweep across the
+           hero card and every settings card as they enter, instead of a
+           flat fade - reads as "loading in", not just "appearing". Runs
+           once (iteration-count 1) and leaves no residue afterward. */
+        .settings-hero, .settings-card { position: relative; overflow: hidden; }
+
+        .settings-hero::after, .settings-card::after {
+            content: "";
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(100deg, transparent 40%, rgba(255, 255, 255, 0.05) 50%, transparent 60%);
+            transform: translateX(-120%);
+            animation: shimmerSweep 0.9s ease-out 1;
+            pointer-events: none;
+        }
+
+        @keyframes shimmerSweep {
+            to { transform: translateX(120%); }
         }
 
         .back-link {
@@ -428,6 +595,84 @@
             gap: 6px;
         }
 
+        /* Appearance controls (Part 6 UI) - pill-style choice groups for
+           density/radius/animation/glass, and a small circular swatch row
+           for the accent override, both mirroring the theme picker's
+           instant-preview-then-Save pattern. */
+        .appearance-field { margin-bottom: 22px; }
+        .appearance-field:last-child { margin-bottom: 0; }
+
+        .appearance-field-label {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 11px;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            color: var(--text-dim);
+            margin-bottom: 10px;
+        }
+
+        .pill-group { display: flex; flex-wrap: wrap; gap: 8px; }
+        .pill-option { position: relative; cursor: pointer; }
+        .pill-option input { position: absolute; opacity: 0; pointer-events: none; }
+
+        .pill-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 14px;
+            border: 1px solid var(--border-soft);
+            border-radius: 999px;
+            background: var(--bg);
+            font-size: 12.5px;
+            color: var(--text-dim);
+            transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
+        }
+
+        .pill-option input:checked + .pill-btn {
+            border-color: var(--accent);
+            background: var(--accent-dim);
+            color: var(--accent);
+            font-weight: 600;
+        }
+
+        .pill-option:focus-within .pill-btn {
+            outline: 2px solid var(--accent-soft);
+            outline-offset: 2px;
+        }
+
+        .accent-swatch-grid { display: flex; flex-wrap: wrap; gap: 10px; }
+        .accent-option { position: relative; cursor: pointer; }
+        .accent-option input { position: absolute; opacity: 0; pointer-events: none; }
+
+        .accent-swatch-dot {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 2px solid transparent;
+            color: #fff;
+            font-size: 12px;
+            transition: transform 0.15s ease, border-color 0.15s ease;
+        }
+
+        .accent-option input:checked + .accent-swatch-dot {
+            border-color: var(--text);
+            transform: scale(1.1);
+        }
+
+        .accent-option:focus-within .accent-swatch-dot {
+            outline: 2px solid var(--accent-soft);
+            outline-offset: 2px;
+        }
+
+        .accent-swatch-dot.accent-default {
+            background: var(--surface);
+            border: 2px dashed var(--border-soft);
+            color: var(--text-dim);
+        }
+
         .info-grid {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
@@ -656,6 +901,44 @@
             </div>
         </div>
 
+        <div class="settings-hero">
+            {% if user.socialaccount_set.all.0.get_avatar_url %}
+            <img src="{{ user.socialaccount_set.all.0.get_avatar_url }}" alt="" class="hero-avatar">
+            {% else %}
+            <img src="https://ui-avatars.com/api/?name={{ profile.display_name|default:request.user.username }}&background=12161c&color=00e5ff&size=120"
+                alt="" class="hero-avatar">
+            {% endif %}
+            <div class="hero-identity">
+                <div class="hero-name">
+                    {{ profile.display_name|default:request.user.username }}
+                    {% if email_verified %}
+                    <span class="status-badge verified"><i class="fa-solid fa-circle-check"></i> Verified</span>
+                    {% else %}
+                    <span class="status-badge unverified"><i class="fa-solid fa-triangle-exclamation"></i> Not verified</span>
+                    {% endif %}
+                </div>
+                <div class="hero-meta">
+                    <i class="fa-solid fa-envelope"></i> {{ request.user.email }}
+                    <span>&middot;</span>
+                    Member since {{ request.user.date_joined|date:"M j, Y" }}
+                </div>
+            </div>
+            <div class="hero-stats">
+                <div class="hero-stat">
+                    <div class="hero-stat-value">{{ conversation_count }}</div>
+                    <div class="hero-stat-label">Chats</div>
+                </div>
+                <div class="hero-stat">
+                    <div class="hero-stat-value">{{ memory_fact_count }}</div>
+                    <div class="hero-stat-label">Memories</div>
+                </div>
+                <div class="hero-stat">
+                    <div class="hero-stat-value">{{ user_sessions|length }}</div>
+                    <div class="hero-stat-label">Sessions</div>
+                </div>
+            </div>
+        </div>
+
         {% if not email_verified %}
         <div class="settings-locked-banner">
             <i class="fa-solid fa-lock"></i>
@@ -743,13 +1026,92 @@
                                     {% if profile.theme == value %}checked{% endif %}
                                     onchange="document.documentElement.setAttribute('data-theme', this.value); updateThemePreviewNote(this.value, this.dataset.themeName);">
                                 <span class="theme-swatch">
-                                    <span class="swatch-dot" style="background: {% if value == 'cyberpunk' %}#00e5ff{% elif value == 'midnight-purple' %}#b084f5{% elif value == 'matrix-green' %}#39ff88{% elif value == 'nord' %}#88c0d0{% elif value == 'synthwave' %}#ff2e97{% elif value == 'purple-neon' %}#a855f7{% elif value == 'ocean' %}#22d3ee{% elif value == 'minimal-dark' %}#60a5fa{% elif value == 'graphite' %}#f0a868{% else %}#0091a8{% endif %}; color: {% if value == 'cyberpunk' %}#00e5ff{% elif value == 'midnight-purple' %}#b084f5{% elif value == 'matrix-green' %}#39ff88{% elif value == 'nord' %}#88c0d0{% elif value == 'synthwave' %}#ff2e97{% elif value == 'purple-neon' %}#a855f7{% elif value == 'ocean' %}#22d3ee{% elif value == 'minimal-dark' %}#60a5fa{% elif value == 'graphite' %}#f0a868{% else %}#0091a8{% endif %};"></span>
+                                    <span class="swatch-dot" style="background: {% if value == 'cyberpunk' %}#00e5ff{% elif value == 'midnight-purple' %}#b084f5{% elif value == 'matrix-green' %}#39ff88{% elif value == 'nord' %}#88c0d0{% elif value == 'synthwave' %}#ff2e97{% elif value == 'purple-neon' %}#a855f7{% elif value == 'ocean' %}#22d3ee{% elif value == 'minimal-dark' %}#60a5fa{% elif value == 'graphite' %}#f0a868{% elif value == 'cyber-orange' %}#ff9d3d{% elif value == 'neon-green' %}#39ff14{% elif value == 'midnight-blue' %}#3b82f6{% elif value == 'purple-matrix' %}#9d4edd{% elif value == 'crimson-red' %}#ef4444{% elif value == 'oled-black' %}#00e5ff{% elif value == 'emerald' %}#10b981{% elif value == 'royal-gold' %}#d4af37{% elif value == 'arctic-white' %}#0ea5e9{% else %}#0091a8{% endif %}; color: {% if value == 'cyberpunk' %}#00e5ff{% elif value == 'midnight-purple' %}#b084f5{% elif value == 'matrix-green' %}#39ff88{% elif value == 'nord' %}#88c0d0{% elif value == 'synthwave' %}#ff2e97{% elif value == 'purple-neon' %}#a855f7{% elif value == 'ocean' %}#22d3ee{% elif value == 'minimal-dark' %}#60a5fa{% elif value == 'graphite' %}#f0a868{% elif value == 'cyber-orange' %}#ff9d3d{% elif value == 'neon-green' %}#39ff14{% elif value == 'midnight-blue' %}#3b82f6{% elif value == 'purple-matrix' %}#9d4edd{% elif value == 'crimson-red' %}#ef4444{% elif value == 'oled-black' %}#00e5ff{% elif value == 'emerald' %}#10b981{% elif value == 'royal-gold' %}#d4af37{% elif value == 'arctic-white' %}#0ea5e9{% else %}#0091a8{% endif %};"></span>
                                     {{ name }}
                                 </span>
                             </label>
                             {% endfor %}
                         </div>
                         <div class="theme-preview-note" id="themePreviewNote"><i class="fa-solid fa-circle-info"></i> Previewing "{{ profile.theme|default:'cyberpunk' }}" (saved). Pick another swatch to preview it live.</div>
+                    </div>
+
+                    <div class="settings-card">
+                        <h2 class="card-title"><i class="fa-solid fa-sliders"></i> Appearance</h2>
+                        <p class="card-desc">Fine-tune the look and feel on top of your theme - every change previews instantly and only saves when you press Save.</p>
+
+                        <div class="appearance-field">
+                            <div class="appearance-field-label">Accent color</div>
+                            <div class="accent-swatch-grid">
+                                {% for value, name in accent_choices %}
+                                <label class="accent-option" title="{{ name }}">
+                                    <input type="radio" name="accent_override" value="{{ value }}"
+                                        {% if profile.accent_override == value %}checked{% endif %}
+                                        onchange="document.documentElement.setAttribute('data-accent', this.value);">
+                                    {% if value %}
+                                    <span class="accent-swatch-dot" style="background: {% if value == 'cyan' %}#00e5ff{% elif value == 'green' %}#39ff88{% elif value == 'blue' %}#3b82f6{% elif value == 'purple' %}#b084f5{% elif value == 'pink' %}#ff6ec7{% elif value == 'orange' %}#ff8c42{% elif value == 'red' %}#ff4d4d{% elif value == 'gold' %}#d4af37{% endif %};"></span>
+                                    {% else %}
+                                    <span class="accent-swatch-dot accent-default"><i class="fa-solid fa-wand-magic-sparkles"></i></span>
+                                    {% endif %}
+                                </label>
+                                {% endfor %}
+                            </div>
+                        </div>
+
+                        <div class="appearance-field">
+                            <div class="appearance-field-label">Density</div>
+                            <div class="pill-group">
+                                {% for value, name in density_choices %}
+                                <label class="pill-option">
+                                    <input type="radio" name="density" value="{{ value }}"
+                                        {% if profile.density == value %}checked{% endif %}
+                                        onchange="document.documentElement.setAttribute('data-density', this.value);">
+                                    <span class="pill-btn">{{ name }}</span>
+                                </label>
+                                {% endfor %}
+                            </div>
+                        </div>
+
+                        <div class="appearance-field">
+                            <div class="appearance-field-label">Card radius</div>
+                            <div class="pill-group">
+                                {% for value, name in card_radius_choices %}
+                                <label class="pill-option">
+                                    <input type="radio" name="card_radius" value="{{ value }}"
+                                        {% if profile.card_radius == value %}checked{% endif %}
+                                        onchange="document.documentElement.setAttribute('data-radius', this.value);">
+                                    <span class="pill-btn">{{ name }}</span>
+                                </label>
+                                {% endfor %}
+                            </div>
+                        </div>
+
+                        <div class="appearance-field">
+                            <div class="appearance-field-label">Glass intensity</div>
+                            <div class="pill-group">
+                                {% for value, name in glass_choices %}
+                                <label class="pill-option">
+                                    <input type="radio" name="glass_intensity" value="{{ value }}"
+                                        {% if profile.glass_intensity == value %}checked{% endif %}
+                                        onchange="document.documentElement.setAttribute('data-glass', this.value);">
+                                    <span class="pill-btn">{{ name }}</span>
+                                </label>
+                                {% endfor %}
+                            </div>
+                        </div>
+
+                        <div class="appearance-field">
+                            <div class="appearance-field-label">Animation level</div>
+                            <div class="pill-group">
+                                {% for value, name in animation_choices %}
+                                <label class="pill-option">
+                                    <input type="radio" name="animation_level" value="{{ value }}"
+                                        {% if profile.animation_level == value %}checked{% endif %}
+                                        onchange="document.documentElement.setAttribute('data-animation', this.value);">
+                                    <span class="pill-btn">{{ name }}</span>
+                                </label>
+                                {% endfor %}
+                            </div>
+                        </div>
                     </div>
                 </div>
 

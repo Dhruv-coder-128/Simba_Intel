@@ -17,10 +17,18 @@ class MistralProvider(BaseProvider):
         "pixtral-large-latest",
     ]
 
-    def _initialize_client(self):   
+    # See GroqProvider.REQUEST_TIMEOUT_SECONDS for why this exists: an
+    # unbounded client timeout risks pinning one of this app's 8 total
+    # gunicorn request-handling threads on a single hung upstream call. A
+    # streaming read timeout is measured between chunks, not over the whole
+    # response, so a long-but-steadily-streaming reply is unaffected.
+    REQUEST_TIMEOUT_SECONDS = 30.0
+
+    def _initialize_client(self):
         self.client = OpenAI(
             api_key=os.getenv("MISTRAL_API_KEY"),
             base_url="https://api.mistral.ai/v1",
+            timeout=self.REQUEST_TIMEOUT_SECONDS,
         )
 
     def chat(

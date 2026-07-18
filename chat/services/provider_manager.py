@@ -6,7 +6,13 @@ from chat.utils.env import get_env_var
 
 PROVIDER_REGISTRY: Dict[str, str] = {
     "groq": "chat.providers.groq_provider.GroqProvider",
-    "mistral": "chat.providers.mistral_provider.MistralProvider"
+    "mistral": "chat.providers.mistral_provider.MistralProvider",
+    # Not a real API - routes to whichever of these it wraps (see
+    # chat/providers/virtual_provider.py). Dispatched exactly like any other
+    # provider here, which is what lets a visible model (e.g. "Cyber Max")
+    # be backed by a pool of real models with no special-casing anywhere
+    # else in the codebase.
+    "virtual": "chat.providers.virtual_provider.VirtualRouterProvider",
 }
 
 
