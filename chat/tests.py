@@ -1,6 +1,6 @@
 import importlib
 from datetime import timedelta
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 from django.apps import apps as live_apps
 from django.contrib.auth import get_user_model
@@ -100,6 +100,31 @@ class GroqProviderTests(TestCase):
         with patch.object(provider.client.chat.completions, "create", return_value=fake_stream):
             tokens = list(provider.chat_stream([{"role": "user", "content": "hi"}], "cyber-max"))
         self.assertEqual(tokens, ["Hello", " world"])
+
+    def test_vision_accepts_on_usage_without_forwarding_it_to_the_sdk_call(self):
+        """Regression test for the same class of bug fixed in
+        chat/providers/nvidia_vision_provider.py: chat/views.py's ask_ai
+        always calls vision(..., on_usage=...) - without an explicit
+        on_usage parameter here, it would fall into **kwargs and crash
+        chat.completions.create() with "unexpected keyword argument"."""
+        from chat.providers.groq_provider import GroqProvider
+
+        received_kwargs = {}
+
+        def create(model, messages, **kwargs):
+            received_kwargs.update(kwargs)
+            response = MagicMock()
+            response.choices = [MagicMock(message=MagicMock(content="a cat"))]
+            return response
+
+        provider = GroqProvider(api_key="test-key")
+        with patch.object(provider.client.chat.completions, "create", side_effect=create) as mock_create:
+            result = provider.vision(
+                [{"role": "user", "content": "what is this?"}], "some-vision-model", on_usage=lambda u: None,
+            )
+            mock_create.assert_called_once()
+        self.assertEqual(result, "a cat")
+        self.assertNotIn("on_usage", received_kwargs)
 
 
 class _RateLimitError(Exception):
@@ -277,6 +302,381 @@ class VirtualRouterProviderTests(TestCase):
         self.assertNotIn("Switched to", body)
         for leaked in (self.m1, self.m2, self.m3, "groq", "virtual"):
             self.assertNotIn(leaked, body)
+
+
+def _fake_stream_chunk(content):
+    """A minimal stand-in for an OpenAI streaming ChatCompletionChunk -
+    just enough shape (.choices[0].delta.content) for
+    nvidia_text_provider.py's _iter_stream() to read."""
+    chunk = MagicMock()
+    chunk.choices = [MagicMock(delta=MagicMock(content=content))]
+    return chunk
+
+
+def _fake_response(content):
+    """A minimal stand-in for a non-streaming OpenAI ChatCompletion -
+    just enough shape (.choices[0].message.content)."""
+    response = MagicMock()
+    response.choices = [MagicMock(message=MagicMock(content=content))]
+    return response
+
+
+class NvidiaTextProviderTests(TestCase):
+    """End-to-end coverage for chat/providers/nvidia_text_provider.py's
+    fixed TEXT_MODELS priority chain - every failover trigger the spec
+    calls out explicitly (404/429/500/503/timeout/connection/malformed -
+    ANY error), with immediate, single-attempt, no-retry, no-memory
+    failover: a model that fails is skipped for the rest of THIS request
+    only, and is tried again fresh on the very next request. The
+    `openai.OpenAI` client is replaced with a MagicMock after
+    construction, so these never need a real NVIDIA_API_KEY or network
+    access."""
+
+    def _provider(self):
+        from chat.providers.nvidia_text_provider import NvidiaTextProvider
+        provider = NvidiaTextProvider(api_key="test-key")
+        provider.client = MagicMock()
+        return provider
+
+    def test_fixed_model_list_contains_exactly_the_approved_models(self):
+        """Membership only, not exact order - the priority order itself is
+        a product decision that gets tuned independently of this test
+        (see test_primary_model_answers_and_fallbacks_are_never_called for
+        the order-sensitive behavior: whichever model is TEXT_MODELS[0] is
+        always tried first). This test's job is narrower: catch an
+        accidental addition, removal, or wrong id, not police ordering."""
+        from chat.providers.nvidia_text_provider import TEXT_MODELS
+        self.assertEqual(set(TEXT_MODELS), {
+            "openai/gpt-oss-20b",
+            "openai/gpt-oss-120b",
+            "nvidia/nemotron-3-super-120b-a12b",
+            "mistralai/mistral-nemotron",
+            "meta/llama-3.1-70b-instruct",
+        })
+        self.assertEqual(len(TEXT_MODELS), 5, "no duplicate entries")
+
+    def test_primary_model_answers_and_fallbacks_are_never_called(self):
+        from chat.providers.nvidia_text_provider import TEXT_MODELS
+        provider = self._provider()
+
+        def create(model, messages, stream=False, **kwargs):
+            if model == TEXT_MODELS[0]:
+                return iter([_fake_stream_chunk("hello")])
+            raise AssertionError(f"fallback model {model} should never be called when the primary succeeds")
+
+        provider.client.chat.completions.create.side_effect = create
+        out = list(provider.chat_stream([{"role": "user", "content": "hi"}], "quantum-core-pool"))
+        self.assertEqual(out, ["hello"])
+
+    def test_every_error_type_triggers_immediate_failover_with_a_single_attempt(self):
+        from chat.providers.nvidia_text_provider import TEXT_MODELS
+
+        class NotFoundError(Exception):
+            status_code = 404
+
+        class RateLimitError(Exception):
+            status_code = 429
+
+        class InternalServerError(Exception):
+            status_code = 500
+
+        class ServiceUnavailableError(Exception):
+            status_code = 503
+
+        class APITimeoutError(Exception):
+            pass
+
+        class APIConnectionError(Exception):
+            pass
+
+        error_types = [
+            NotFoundError, RateLimitError, InternalServerError,
+            ServiceUnavailableError, APITimeoutError, APIConnectionError,
+        ]
+        for error_cls in error_types:
+            with self.subTest(error=error_cls.__name__):
+                provider = self._provider()
+                attempts = []
+
+                def create(model, messages, stream=False, **kwargs):
+                    attempts.append(model)
+                    if model == TEXT_MODELS[0]:
+                        raise error_cls("simulated failure")
+                    return iter([_fake_stream_chunk("recovered")])
+
+                provider.client.chat.completions.create.side_effect = create
+                out = list(provider.chat_stream([{"role": "user", "content": "hi"}], "quantum-core-pool"))
+                self.assertEqual(out, ["recovered"])
+                self.assertEqual(attempts.count(TEXT_MODELS[0]), 1, "a failed model must never be retried")
+
+    def test_malformed_response_triggers_immediate_failover(self):
+        from chat.providers.nvidia_text_provider import TEXT_MODELS
+        provider = self._provider()
+
+        def malformed_stream():
+            raise AttributeError("'NoneType' object has no attribute 'choices'")
+            yield  # pragma: no cover
+
+        def create(model, messages, stream=False, **kwargs):
+            if model == TEXT_MODELS[0]:
+                return malformed_stream()
+            return iter([_fake_stream_chunk("recovered")])
+
+        provider.client.chat.completions.create.side_effect = create
+        out = list(provider.chat_stream([{"role": "user", "content": "hi"}], "quantum-core-pool"))
+        self.assertEqual(out, ["recovered"])
+
+    def test_every_model_exhausted_raises_without_leaking_the_provider_error(self):
+        provider = self._provider()
+        provider.client.chat.completions.create.side_effect = RuntimeError(
+            "some internal NVIDIA endpoint detail"
+        )
+        with self.assertRaises(Exception) as ctx:
+            list(provider.chat_stream([{"role": "user", "content": "hi"}], "quantum-core-pool"))
+        # The real exception propagates internally (for logging), but no
+        # caller-facing wrapping ever happens at this layer - the view
+        # layer (chat/views.py) is what turns this into the generic safe
+        # message shown to users, exactly as it already does for every
+        # other provider's exhaustion.
+        self.assertIsInstance(ctx.exception, RuntimeError)
+
+    def test_no_memory_of_a_failed_model_across_separate_requests(self):
+        """No blacklist cache, no health cache - a model that failed on
+        one request is tried again, fresh, on the very next one."""
+        from chat.providers.nvidia_text_provider import TEXT_MODELS
+        provider = self._provider()
+        attempts = []
+
+        def always_fail_primary(model, messages, stream=False, **kwargs):
+            attempts.append(model)
+            if model == TEXT_MODELS[0]:
+                raise RuntimeError("down")
+            return iter([_fake_stream_chunk("ok")])
+
+        provider.client.chat.completions.create.side_effect = always_fail_primary
+        list(provider.chat_stream([{"role": "user", "content": "hi"}], "quantum-core-pool"))
+        list(provider.chat_stream([{"role": "user", "content": "hi again"}], "quantum-core-pool"))
+        self.assertEqual(attempts.count(TEXT_MODELS[0]), 2, "the primary must be retried on every new request")
+
+    def test_streaming_yields_incrementally_across_multiple_chunks(self):
+        from chat.providers.nvidia_text_provider import TEXT_MODELS
+        provider = self._provider()
+        provider.client.chat.completions.create.side_effect = lambda model, messages, stream=False, **kw: iter(
+            [_fake_stream_chunk(c) for c in ["Hello", ", ", "world", "!"]]
+        ) if model == TEXT_MODELS[0] else iter([])
+        out = list(provider.chat_stream([{"role": "user", "content": "hi"}], "quantum-core-pool"))
+        self.assertEqual(out, ["Hello", ", ", "world", "!"])
+
+    def test_non_streaming_chat_also_fails_over(self):
+        from chat.providers.nvidia_text_provider import TEXT_MODELS
+        provider = self._provider()
+
+        def create(model, messages, stream=False, **kwargs):
+            if model == TEXT_MODELS[0]:
+                raise RuntimeError("down")
+            return _fake_response("non-streaming answer")
+
+        provider.client.chat.completions.create.side_effect = create
+        result = provider.chat([{"role": "user", "content": "hi"}], "quantum-core-pool")
+        self.assertEqual(result, "non-streaming answer")
+
+    def test_vision_delegates_to_the_vision_provider(self):
+        provider = self._provider()
+        with patch("chat.providers.nvidia_text_provider.ask_vision", return_value="a photo of a cat") as mock_vision:
+            result = provider.vision([{"role": "user", "content": "describe this"}], "quantum-core-pool")
+        self.assertEqual(result, "a photo of a cat")
+        mock_vision.assert_called_once_with(provider.api_key, [{"role": "user", "content": "describe this"}])
+
+    def test_generate_image_is_not_implemented(self):
+        """Quantum Core never generates images - that stays Pollinations'
+        job (Image Studio), untouched by this rebuild."""
+        provider = self._provider()
+        with self.assertRaises(NotImplementedError):
+            provider.generate_image("a sunset", "quantum-core-pool")
+
+
+class NvidiaVisionProviderTests(TestCase):
+    """End-to-end coverage for chat/providers/nvidia_vision_provider.py's
+    fixed VISION_MODELS priority chain, plus its OCR helper - shares the
+    same immediate, no-retry, no-memory failover model as the text
+    provider. "No Tesseract, no OCR library, everything must use NVIDIA
+    Vision" is verified by extract_text_from_image() reusing ask_vision()
+    directly rather than any separate implementation."""
+
+    def _client(self):
+        return MagicMock()
+
+    def test_fixed_model_list_matches_the_spec_exactly(self):
+        from chat.providers.nvidia_vision_provider import VISION_MODELS
+        self.assertEqual(VISION_MODELS, [
+            "meta/llama-3.2-11b-vision-instruct",
+            "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning",
+            "nvidia/nemotron-nano-12b-v2-vl",
+            "stepfun-ai/step-3.7-flash",
+        ])
+
+    def test_primary_model_answers_and_fallbacks_are_never_called(self):
+        from chat.providers.nvidia_vision_provider import VISION_MODELS, ask_vision
+
+        def create(model, messages, **kwargs):
+            if model == VISION_MODELS[0]:
+                return _fake_response("a red apple on a table")
+            raise AssertionError(f"fallback model {model} should never be called when the primary succeeds")
+
+        with patch("chat.providers.nvidia_vision_provider._make_client") as mock_make_client:
+            mock_make_client.return_value.chat.completions.create.side_effect = create
+            result = ask_vision("test-key", [{"role": "user", "content": "what is this?"}])
+        self.assertEqual(result, "a red apple on a table")
+
+    def test_on_usage_reaches_ask_vision_but_never_leaks_into_completions_create(self):
+        """Regression test: chat/views.py's ask_ai always calls
+        ai_vision(..., on_usage=captured_usage.update). Before this fix,
+        ask_vision() had no explicit on_usage parameter, so it fell into
+        **kwargs and was forwarded straight into
+        client.chat.completions.create(**kwargs) - which the OpenAI SDK
+        rejects with "unexpected keyword argument 'on_usage'" before any
+        HTTP request is ever sent. Confirms the real create() call now
+        happens (the request actually reaches the client) and never
+        receives on_usage."""
+        from chat.providers.nvidia_vision_provider import VISION_MODELS, ask_vision
+
+        received_kwargs = {}
+
+        def create(model, messages, **kwargs):
+            received_kwargs.update(kwargs)
+            return _fake_response("a photo of a dog")
+
+        with patch("chat.providers.nvidia_vision_provider._make_client") as mock_make_client:
+            fake_create = mock_make_client.return_value.chat.completions.create
+            fake_create.side_effect = create
+            result = ask_vision(
+                "test-key",
+                [{"role": "user", "content": "what is this?"}],
+                on_usage=lambda usage: None,
+            )
+            fake_create.assert_called_once()
+
+        self.assertEqual(result, "a photo of a dog")
+        self.assertNotIn("on_usage", received_kwargs)
+
+    def test_any_error_triggers_immediate_failover_with_a_single_attempt(self):
+        from chat.providers.nvidia_vision_provider import VISION_MODELS, ask_vision
+
+        attempts = []
+
+        def create(model, messages, **kwargs):
+            attempts.append(model)
+            if model == VISION_MODELS[0]:
+                raise TimeoutError("timed out")
+            return _fake_response("recovered")
+
+        with patch("chat.providers.nvidia_vision_provider._make_client") as mock_make_client:
+            mock_make_client.return_value.chat.completions.create.side_effect = create
+            result = ask_vision("test-key", [{"role": "user", "content": "what is this?"}])
+        self.assertEqual(result, "recovered")
+        self.assertEqual(attempts.count(VISION_MODELS[0]), 1, "a failed model must never be retried")
+
+    def test_every_model_exhausted_raises(self):
+        from chat.providers.nvidia_vision_provider import ask_vision
+
+        with patch("chat.providers.nvidia_vision_provider._make_client") as mock_make_client:
+            mock_make_client.return_value.chat.completions.create.side_effect = RuntimeError("down")
+            with self.assertRaises(Exception):
+                ask_vision("test-key", [{"role": "user", "content": "what is this?"}])
+
+    def test_extract_text_from_image_reuses_the_ask_vision_chain(self):
+        from chat.providers.nvidia_vision_provider import extract_text_from_image
+
+        with patch(
+            "chat.providers.nvidia_vision_provider.ask_vision", return_value="Invoice #4471\nTotal: $82.00",
+        ) as mock_ask_vision:
+            result = extract_text_from_image("test-key", b"fake-image-bytes", "image/png")
+
+        self.assertEqual(result, "Invoice #4471\nTotal: $82.00")
+        mock_ask_vision.assert_called_once()
+        call_messages = mock_ask_vision.call_args[0][1]
+        content = call_messages[0]["content"]
+        image_block = next(b for b in content if b["type"] == "image_url")
+        self.assertTrue(image_block["image_url"]["url"].startswith("data:image/png;base64,"))
+
+    def test_no_text_found_sentinel_becomes_empty_string(self):
+        from chat.providers.nvidia_vision_provider import extract_text_from_image
+
+        with patch("chat.providers.nvidia_vision_provider.ask_vision", return_value="NO_TEXT_FOUND"):
+            result = extract_text_from_image("test-key", b"fake-image-bytes")
+        self.assertEqual(result, "")
+
+    def test_vision_failure_degrades_to_empty_string_not_an_exception(self):
+        """OCR is best-effort context for a chat turn, never a hard
+        requirement - every NVIDIA vision model being down must not turn
+        an image upload into a visible error."""
+        from chat.providers.nvidia_vision_provider import extract_text_from_image
+
+        with patch("chat.providers.nvidia_vision_provider.ask_vision", side_effect=RuntimeError("all models down")):
+            result = extract_text_from_image("test-key", b"fake-image-bytes")
+        self.assertEqual(result, "")
+
+
+class QuantumCoreViewIntegrationTests(TestCase):
+    """End-to-end through the actual ask_ai view - confirms "quantum-core"
+    is a fully wired, selectable model with zero frontend/view changes
+    needed, and that the user-visible response never leaks an internal
+    NVIDIA model id."""
+
+    def setUp(self):
+        self.user = User.objects.create_user(username="quantum_core_user", password="x")
+        self.client.force_login(self.user)
+
+    def test_quantum_core_is_registered_and_displayed(self):
+        config = get_model_config("quantum-core")
+        self.assertEqual(config.provider, "nvidia")
+        self.assertIn("Quantum Core", config.display_name)
+
+        models = list_available_models()
+        ids = {m["id"] for m in models}
+        self.assertIn("quantum-core", ids)
+
+    def test_ask_ai_routes_quantum_core_through_the_text_provider_with_no_leaked_internals(self):
+        from chat.providers.nvidia_text_provider import TEXT_MODELS
+        from chat.services.provider_manager import get_provider
+
+        provider = get_provider("nvidia")
+        fake_client = MagicMock()
+
+        def create(model, messages, stream=False, **kwargs):
+            self.assertEqual(model, TEXT_MODELS[0], "the primary model should be tried first")
+            return iter([_fake_stream_chunk("Quantum Core says hello.")])
+
+        fake_client.chat.completions.create.side_effect = create
+        provider.client = fake_client
+
+        with patch("chat.services.conversation_intelligence.ai_chat") as mock_title_chat:
+            mock_title_chat.return_value = "Title"
+            response = self.client.post(reverse("ask_ai"), {
+                "query": "hello there", "model_id": "quantum-core", "session_id": "",
+            })
+            self.assertEqual(response.status_code, 200)
+            body = b"".join(response.streaming_content).decode()
+
+        self.assertEqual(body, "Quantum Core says hello.")
+        for model_id in TEXT_MODELS:
+            self.assertNotIn(model_id, body)
+        self.assertNotIn("nvidia", body.lower())
+
+    @patch("chat.views.ai_vision")
+    def test_image_attachment_with_quantum_core_calls_vision(self, mock_vision):
+        mock_vision.return_value = "A handwritten note that says hello."
+        img = SimpleUploadedFile("photo.png", b"fake-image-bytes", content_type="image/png")
+        response = self.client.post(reverse("ask_ai"), {
+            "query": "What does this say?",
+            "model_id": "quantum-core",
+            "attachment": img,
+        })
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data["type"], "vision")
+        self.assertEqual(data["response"], "A handwritten note that says hello.")
+        mock_vision.assert_called_once()
 
 
 class ConversationHistoryTests(TestCase):

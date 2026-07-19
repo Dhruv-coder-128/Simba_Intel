@@ -7,6 +7,11 @@ from chat.utils.env import get_env_var
 PROVIDER_REGISTRY: Dict[str, str] = {
     "groq": "chat.providers.groq_provider.GroqProvider",
     "mistral": "chat.providers.mistral_provider.MistralProvider",
+    # "⚛ Quantum Core" - a fixed-priority NVIDIA text model chain with
+    # immediate, no-retry failover (see chat/providers/nvidia_text_provider.py).
+    # Its vision() method delegates to chat/providers/nvidia_vision_provider.py's
+    # own fixed vision-model chain.
+    "nvidia": "chat.providers.nvidia_text_provider.NvidiaTextProvider",
     # Not a real API - routes to whichever of these it wraps (see
     # chat/providers/virtual_provider.py). Dispatched exactly like any other
     # provider here, which is what lets a visible model (e.g. "Cyber Max")

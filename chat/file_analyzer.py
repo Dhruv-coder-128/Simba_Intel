@@ -1,7 +1,21 @@
+import os
 import pdfplumber
 import pandas as pd
-from PIL import Image
-import pytesseract
+
+from chat.providers.nvidia_vision_provider import extract_text_from_image
+from chat.services.provider_manager import get_provider
+
+# Image attachment OCR now runs entirely through NVIDIA vision models
+# (chat/providers/nvidia_vision_provider.py) instead of a local pytesseract
+# install - "no Tesseract, no OCR library, everything must use NVIDIA Vision."
+_IMAGE_MIME_TYPES = {
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".png": "image/png",
+    ".webp": "image/webp",
+    ".gif": "image/gif",
+    ".bmp": "image/bmp",
+}
 
 
 def analyze_file(filepath):
@@ -45,9 +59,14 @@ Preview:
 
     elif filepath.lower().endswith((".jpg", ".jpeg", ".png", ".webp", ".gif", ".bmp")):
 
-        img = Image.open(filepath)
+        ext = os.path.splitext(filepath)[1].lower()
+        mime_type = _IMAGE_MIME_TYPES.get(ext, "image/png")
 
-        text = pytesseract.image_to_string(img)
+        with open(filepath, "rb") as f:
+            image_bytes = f.read()
+
+        api_key = get_provider("nvidia").api_key
+        text = extract_text_from_image(api_key, image_bytes, mime_type)
 
         return f"""
 IMAGE TEXT DETECTED:

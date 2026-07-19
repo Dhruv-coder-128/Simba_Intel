@@ -228,10 +228,15 @@ class VirtualRouterProvider(BaseProvider):
         logger.warning("virtual_router: every pool model unavailable/failed for pool=%s", model)
         raise last_error or RuntimeError(f"No models available in pool {model!r}")
 
-    def vision(self, messages: list, model: str, **kwargs) -> str:
+    def vision(self, messages: list, model: str, on_usage=None, **kwargs) -> str:
         # Routed through the exact same pool/health/retry machinery as
         # chat() - a pool with no vision-capable member simply fails the
-        # same way any non-vision provider's vision() call would.
+        # same way any non-vision provider's vision() call would. `on_usage`
+        # is accepted for interface parity (chat/views.py's ask_ai always
+        # passes it) but deliberately NOT forwarded: self.chat() -> the real
+        # provider's chat() -> chat.completions.create() has no such
+        # parameter anywhere in that chain, and forwarding it would crash
+        # the SDK call before any HTTP request is sent.
         return self.chat(messages, model, **kwargs)
 
     def generate_image(self, prompt: str, model: str, **kwargs) -> str:

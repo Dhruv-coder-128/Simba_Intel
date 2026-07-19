@@ -61,7 +61,19 @@ class GroqProvider(BaseProvider):
             if chunk.choices and chunk.choices[0].delta and chunk.choices[0].delta.content:
                 yield chunk.choices[0].delta.content
 
-    def vision(self, messages: list[Dict[str, Any]], model: str, **kwargs) -> str:
+    def vision(
+        self,
+        messages: list[Dict[str, Any]],
+        model: str,
+        on_usage: Optional[Callable[[dict], None]] = None,
+        **kwargs,
+    ) -> str:
+        # `on_usage` is accepted for interface parity with every other
+        # provider's vision() (chat/views.py's ask_ai always passes it) but
+        # deliberately NOT forwarded to **kwargs - it isn't a real
+        # chat.completions.create() parameter, and passing it through
+        # crashes the SDK call with "unexpected keyword argument" before
+        # any HTTP request is even sent.
         response = self.client.chat.completions.create(
             model=model,
             messages=messages,

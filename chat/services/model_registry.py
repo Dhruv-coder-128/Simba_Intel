@@ -46,24 +46,39 @@ MODEL_REGISTRY: Dict[str, ModelConfig] = {
         actual_model="mistral-large-latest",
         supports_vision=True
     ),
-    "sky-net-pro": ModelConfig(
-        display_name="SkyNet Pro",
-        provider="mistral",
-        actual_model="mistral-large-latest",
-        supports_vision=True
-    ),
     "sky-net-mini": ModelConfig(
         display_name="SkyNet Mini",
         provider="mistral",
         actual_model="mistral-medium-3-5",
         supports_vision=True
     ),
+    "quantum-core": ModelConfig(
+        display_name="⚛ Quantum Core",
+        # "nvidia" = routed through chat/providers/nvidia_text_provider.py's
+        # NvidiaTextProvider rather than calling a single real model
+        # directly - actual_model below isn't a real NVIDIA model id, it's
+        # a nominal pool tag (NvidiaTextProvider ignores it and always
+        # routes over its own fixed TEXT_MODELS priority list - see that
+        # file's own docstring). Quantum Core itself still appears as
+        # exactly one model everywhere else in the app (chat list,
+        # analytics, etc.) - only this ModelConfig and chat/providers/
+        # nvidia_*_provider.py know it's backed by a fixed, explicit NVIDIA
+        # model chain with immediate, no-retry failover.
+        # supports_vision=True: an attached image routes through
+        # NvidiaTextProvider.vision(), which delegates to chat/providers/
+        # nvidia_vision_provider.py's own fixed vision-model chain - the
+        # same generic provider-dispatch path every other vision-capable
+        # model already uses, no ask_ai changes needed for this to work.
+        provider="nvidia",
+        actual_model="quantum-core-pool",
+        supports_vision=True,
+    ),
     "image-studio": ModelConfig(
         display_name="Image Studio (Image)",
         provider="pollinations",
         actual_model="flux",
         supports_image_gen=True
-    )
+    ),
 }
 
 
@@ -75,8 +90,9 @@ MODEL_REGISTRY: Dict[str, ModelConfig] = {
 PROVIDER_DISPLAY_NAMES: Dict[str, str] = {
     "groq": "SkyNet Cloud",
     "mistral": "NovaMind Cloud",
-    "pollinations": "Image Studio Engine",
     "openai": "Cyber Max Cloud",
+    "nvidia": "Quantum Core Cloud",
+    "pollinations": "Image Studio Engine",
 }
 
 
@@ -93,7 +109,6 @@ FALLBACK_CHAINS: Dict[str, list] = {
     "cyber-max": ["nova-mind", "sky-net-mini"],
     "nova-mind": ["cyber-max", "sky-net-mini"],
     "sky-net": ["sky-net-mini"],
-    "sky-net-pro": ["sky-net-mini"],
     "sky-net-mini": ["sky-net"],
 }
 

@@ -12,7 +12,6 @@ MODEL_COSTS: Dict[str, Dict[str, float]] = {
     "cyber-max": {"input_per_1k": 0.00011, "output_per_1k": 0.00034},    # groq llama-4-scout
     "nova-mind": {"input_per_1k": 0.0, "output_per_1k": 0.0},            # groq compound-mini (free tier)
     "sky-net": {"input_per_1k": 0.002, "output_per_1k": 0.006},          # mistral-large
-    "sky-net-pro": {"input_per_1k": 0.002, "output_per_1k": 0.006},      # mistral-large
     "sky-net-mini": {"input_per_1k": 0.0004, "output_per_1k": 0.002},    # mistral-medium
     "image-studio": {"flat_cost": 0.0},                                  # pollinations (free)
 }

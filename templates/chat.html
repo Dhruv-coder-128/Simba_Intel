@@ -3004,32 +3004,456 @@
             animation-delay: -0.16s;
         }
 
-        .quick-card {
-            background: var(--user-bubble);
-            border: 1px solid var(--border);
-            padding: 20px;
-            border-radius: 10px;
-            cursor: pointer;
-            transition: all 0.3s ease;
+        /* ================= QUANTUM CORE COMMAND CENTER (Empty Home Screen) =================
+           Full replacement of the old static quick-card grid - an interactive
+           holographic AI core command center, not a dashboard. Strict no-
+           scroll rule: every size-driving property below is a clamp() bounded
+           by BOTH vw and dvh (via min()), so the whole screen compresses to
+           fit one viewport - short/landscape as well as tall/portrait -
+           without ever needing to scroll. Every animation is transform/
+           opacity/filter/box-shadow only (GPU-friendly) and is automatically
+           disabled by html[data-animation="reduced"/"none"] (Appearance
+           Controls, defined earlier) plus the prefers-reduced-motion query
+           at the end of this block. Command chips use flex-wrap (not a
+           fixed-column grid), and hovering one switches the core's "mode"
+           (glow color/icon/status text/orbit speed) via chat.html's small
+           inline script further down - see .qc-chip[data-mode] usage. */
+        .welcome-container {
+            position: relative;
+            width: 100%;
+            height: 100%;
             display: flex;
             flex-direction: column;
             align-items: center;
-            gap: 10px;
-            font-family: 'JetBrains Mono';
-            font-size: 13px;
-            color: #6b7280;
+            isolation: isolate;
+            overflow: hidden;
+            animation: qcFadeIn 0.8s ease both;
         }
 
-        .quick-card i {
-            font-size: 20px;
-            color: #bf9b30;
+        /* Flexbox safety net: a flex child's default min-width is "auto", not
+           0 - it refuses to shrink below its own content's intrinsic width
+           even when the container is narrower, so unbreakable text would
+           otherwise overflow past the viewport edge instead of wrapping. */
+        .welcome-container * {
+            min-width: 0;
         }
 
-        .quick-card:hover {
+        /* ---- Background field: radial lighting + soft grid + particles ---- */
+        .qc-field {
+            position: absolute;
+            inset: 0;
+            z-index: -3;
+            pointer-events: none;
+            overflow: hidden;
+        }
+
+        .qc-radial {
+            position: absolute;
+            left: 50%;
+            border-radius: 50%;
+            filter: blur(20px);
+            transform: translateX(-50%);
+        }
+
+        .qc-radial-1 {
+            width: min(70vw, 60dvh, 640px);
+            height: min(70vw, 60dvh, 640px);
+            top: 8%;
+            /* Stays accent-colored rather than mode-colored on purpose:
+               background-image gradients can't be smoothly transitioned
+               between colors (only background-color/border-color/box-shadow
+               etc. reliably interpolate), and the core/rings/particles
+               already carry the full mode-color signal, so this soft
+               ambient glow doesn't need to re-color too. */
+            background: radial-gradient(closest-side, rgba(var(--accent-rgb), 0.14), transparent 70%);
+            animation: qcRadialPulse 10s ease-in-out infinite;
+        }
+
+        .qc-radial-2 {
+            width: min(55vw, 45dvh, 480px);
+            height: min(55vw, 45dvh, 480px);
+            bottom: -8%;
+            background: radial-gradient(closest-side, rgba(var(--accent-rgb), 0.08), transparent 70%);
+            animation: qcRadialPulse 12s ease-in-out infinite reverse;
+        }
+
+        .qc-grid {
+            position: absolute;
+            inset: 0;
+            background-image:
+                linear-gradient(rgba(var(--accent-rgb), 0.05) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(var(--accent-rgb), 0.05) 1px, transparent 1px);
+            background-size: 34px 34px;
+            -webkit-mask-image: radial-gradient(ellipse at center, black 0%, transparent 75%);
+            mask-image: radial-gradient(ellipse at center, black 0%, transparent 75%);
+            opacity: 0.6;
+        }
+
+        .qc-particles span {
+            position: absolute;
+            width: 3px;
+            height: 3px;
+            border-radius: 50%;
+            background: rgb(var(--mode-rgb, var(--accent-rgb)));
+            opacity: 0;
+            box-shadow: 0 0 6px 1px rgba(var(--mode-rgb, var(--accent-rgb)), 0.8);
+            animation: qcParticleFloat 14s ease-in-out infinite;
+            /* Color/glow ease in on a slight delay after the core's own glow
+               starts, so the cascade reads as "core changes first, particles
+               follow" - never an instant recolor, and never stopped/paused,
+               just a continuously-flowing color shift (per "particles should
+               never teleport... interpolate naturally"). */
+            transition: background-color 420ms cubic-bezier(.4, 0, .2, 1) 110ms,
+                box-shadow 420ms cubic-bezier(.4, 0, .2, 1) 110ms;
+        }
+
+        .qc-particles span:nth-child(1) { left: 8%; top: 75%; animation-delay: 0s; }
+        .qc-particles span:nth-child(2) { left: 18%; top: 40%; animation-delay: 1.2s; }
+        .qc-particles span:nth-child(3) { left: 30%; top: 85%; animation-delay: 2.4s; }
+        .qc-particles span:nth-child(4) { left: 42%; top: 20%; animation-delay: 3.6s; }
+        .qc-particles span:nth-child(5) { left: 58%; top: 88%; animation-delay: 4.8s; }
+        .qc-particles span:nth-child(6) { left: 68%; top: 25%; animation-delay: 6s; }
+        .qc-particles span:nth-child(7) { left: 78%; top: 70%; animation-delay: 7.2s; }
+        .qc-particles span:nth-child(8) { left: 88%; top: 35%; animation-delay: 8.4s; }
+        .qc-particles span:nth-child(9) { left: 94%; top: 60%; animation-delay: 9.6s; }
+        .qc-particles span:nth-child(10) { left: 50%; top: 10%; animation-delay: 10.8s; }
+
+        /* ---- Minimal top status bar ---- */
+        .qc-topbar {
+            flex-shrink: 0;
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            align-items: center;
+            gap: clamp(4px, 1vw, 10px) clamp(6px, 1.2vw, 10px);
+            width: 100%;
+            max-width: 100%;
+            padding: clamp(0.5rem, 1.5dvh, 0.9rem) clamp(0.75rem, 4vw, 2rem) 0;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: clamp(8px, 0.7vw + 5.5px, 11px);
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+            color: var(--text-dim);
+        }
+
+        .qc-topbar-item {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            max-width: 100%;
+            overflow-wrap: break-word;
+        }
+
+        .qc-topbar-sep {
+            opacity: 0.4;
+            flex-shrink: 0;
+        }
+
+        .qc-live-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: #39ff88;
+            box-shadow: 0 0 6px 1px rgba(57, 255, 136, 0.8);
+            animation: qcDotBlink 2.4s ease-in-out infinite;
+        }
+
+        /* ---- Main content: vertically centered in whatever space remains
+           below the top bar - min-height:0 lets it shrink instead of forcing
+           the page to overflow. ---- */
+        .qc-main {
+            position: relative;
+            flex: 1;
+            min-height: 0;
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            gap: min(2.2dvh, 1.1rem);
+            padding: clamp(0.5rem, 2dvh, 1.5rem) clamp(1rem, 4vw, 2rem);
+        }
+
+        .qc-main>* {
+            max-width: 100%;
+        }
+
+        /* ---- The Quantum Core itself: concentric HUD rings + orbiting
+           nodes + a pulsing glass core + mouse-tracking tilt (applied inline
+           via JS to .qc-core's transform). ---- */
+        .qc-core-wrap {
+            perspective: 700px;
+        }
+
+        .qc-core {
+            position: relative;
+            width: min(24vw, 24dvh, 190px);
+            aspect-ratio: 1;
+            display: grid;
+            place-items: center;
+            transition: transform 0.2s ease-out;
+            transform-style: preserve-3d;
+        }
+
+        /* Rotation for these four is driven entirely by chat.html's
+           requestAnimationFrame loop (inline `transform: rotate()`, eased
+           toward each mode's target speed every frame) rather than a CSS
+           @keyframes animation - animation-duration cannot be smoothly
+           interpolated by the browser (it snaps at the next iteration
+           instead of easing), so a real per-frame speed ramp is the only
+           way to satisfy "rings should never stop instantly." Only the
+           border COLOR is a CSS transition here. */
+        .qc-core-ring {
+            position: absolute;
+            inset: 0;
+            border-radius: 50%;
+            border: 1px solid rgba(var(--mode-rgb, var(--accent-rgb)), 0.25);
+            transition: border-color 380ms cubic-bezier(.4, 0, .2, 1) 70ms;
+        }
+
+        .qc-ring-outer {
+            border-style: dashed;
+            border-color: rgba(var(--mode-rgb, var(--accent-rgb)), 0.3);
+        }
+
+        .qc-ring-mid {
+            inset: 12%;
+            border-top-color: rgb(var(--mode-rgb, var(--accent-rgb)));
+            border-right-color: rgb(var(--mode-rgb, var(--accent-rgb)));
+            opacity: 0.85;
+        }
+
+        .qc-ring-inner {
+            inset: 24%;
+            animation: qcRingPulse 3.2s ease-in-out infinite;
+        }
+
+        .qc-core-orbit {
+            position: absolute;
+            inset: -6%;
+            border-radius: 50%;
+        }
+
+        .qc-orbit-reverse {
+            inset: 4%;
+        }
+
+        .qc-orbit-node {
+            position: absolute;
+            top: -3px;
+            left: 50%;
+            width: 6px;
+            height: 6px;
+            margin-left: -3px;
+            border-radius: 50%;
+            background: rgb(var(--mode-rgb, var(--accent-rgb)));
+            box-shadow: 0 0 8px 2px rgba(var(--mode-rgb, var(--accent-rgb)), 0.8);
+            transition: background-color 380ms cubic-bezier(.4, 0, .2, 1) 100ms,
+                box-shadow 380ms cubic-bezier(.4, 0, .2, 1) 100ms;
+        }
+
+        .qc-core-center {
+            position: relative;
+            width: 56%;
+            height: 56%;
+            display: grid;
+            place-items: center;
+            border-radius: 50%;
+            background: rgba(var(--mode-rgb, var(--accent-rgb)), 0.14);
+            border: 1px solid rgba(var(--mode-rgb, var(--accent-rgb)), 0.4);
+            backdrop-filter: blur(var(--glass-blur, 18px)) saturate(var(--glass-saturate, 160%));
+            -webkit-backdrop-filter: blur(var(--glass-blur, 18px)) saturate(var(--glass-saturate, 160%));
+            box-shadow: var(--shadow-glow), 0 0 40px rgba(var(--mode-rgb, var(--accent-rgb)), 0.25);
+            animation: qcCorePulse 3.6s ease-in-out infinite;
+            /* No delay - the core's own glow is the FIRST thing to change in
+               the cascade ("glow gradually changes" is step one). */
+            transition: background-color 420ms cubic-bezier(.4, 0, .2, 1),
+                border-color 420ms cubic-bezier(.4, 0, .2, 1),
+                box-shadow 420ms cubic-bezier(.4, 0, .2, 1);
+        }
+
+        /* The SIMBA_INTEL brand glyph - the same ">_<" mark used in the
+           sidebar (see .brand .text-wrapper > div). Always centered, never
+           rotated (only the rings around it spin); its color/glow simply
+           follows the active mode like everything else. */
+        .qc-core-logo {
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 700;
+            font-size: min(4.6vw, 4.6dvh, 1.9rem);
+            line-height: 1;
+            letter-spacing: 0.5px;
+            color: rgb(var(--mode-rgb, var(--accent-rgb)));
+            text-shadow: 0 0 12px rgba(var(--mode-rgb, var(--accent-rgb)), 0.7),
+                0 0 26px rgba(var(--mode-rgb, var(--accent-rgb)), 0.35);
+            transition: color 380ms cubic-bezier(.4, 0, .2, 1) 40ms,
+                text-shadow 380ms cubic-bezier(.4, 0, .2, 1) 40ms;
+            user-select: none;
+        }
+
+        .qc-core-status {
+            margin: 0;
+            min-height: 1.2em;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: clamp(9px, 0.7vw + 6px, 11px);
+            letter-spacing: 1.5px;
+            text-transform: uppercase;
+            color: rgb(var(--mode-rgb, var(--accent-rgb)));
+            opacity: 0.85;
+            /* Color eases the same as everything else, but opacity is
+               driven manually by JS (a crossfade timed to land last in the
+               cascade, since text content itself can't be transitioned). */
+            transition: color 380ms cubic-bezier(.4, 0, .2, 1) 40ms, opacity 200ms ease;
+        }
+
+        /* ---- Title / subtitle ---- */
+        .qc-title {
+            margin: 0;
+            max-width: 100%;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: min(4.2vw, 4.6dvh, 2.6rem);
+            letter-spacing: clamp(1px, 0.4vw, 3px);
+            font-weight: 600;
+            overflow-wrap: anywhere;
+            background: linear-gradient(135deg, var(--text) 0%, var(--accent) 55%, var(--text) 100%);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+        }
+
+        .qc-subtitle {
+            margin: 0;
+            max-width: min(90%, 520px);
+            font-family: 'Outfit', sans-serif;
+            font-size: min(2.4vw, 2dvh, 1.05rem);
+            line-height: 1.5;
+            color: var(--text-dim);
+            overflow-wrap: break-word;
+        }
+
+        /* ---- Command chips: small pill buttons that flow and wrap, never
+           a grid of square cards. ---- */
+        .qc-commands {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            align-items: center;
+            gap: clamp(6px, 1vw, 12px);
+            max-width: min(100%, 880px);
+        }
+
+        .qc-chip {
+            appearance: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            max-width: 100%;
+            min-height: 40px;
+            padding: clamp(7px, 1.2dvh, 12px) clamp(12px, 1.8vw, 18px);
+            border-radius: 999px;
+            border: 1px solid var(--border);
+            background: var(--card);
+            background: color-mix(in srgb, var(--card) 55%, transparent);
+            backdrop-filter: blur(var(--glass-blur, 18px));
+            -webkit-backdrop-filter: blur(var(--glass-blur, 18px));
+            color: var(--text-dim);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: clamp(10px, 0.8vw + 6px, 13px);
+            white-space: nowrap;
+            cursor: pointer;
+            transition: transform 320ms cubic-bezier(.4, 0, .2, 1),
+                border-color 320ms cubic-bezier(.4, 0, .2, 1),
+                background-color 320ms cubic-bezier(.4, 0, .2, 1),
+                box-shadow 320ms cubic-bezier(.4, 0, .2, 1),
+                backdrop-filter 320ms cubic-bezier(.4, 0, .2, 1),
+                color 320ms cubic-bezier(.4, 0, .2, 1);
+        }
+
+        .qc-chip .qc-chip-emoji {
+            font-size: 1.05em;
+            line-height: 1;
+            filter: brightness(1) saturate(1);
+            transition: filter 320ms cubic-bezier(.4, 0, .2, 1);
+        }
+
+        .qc-chip:hover,
+        .qc-chip:focus-visible {
             border-color: var(--accent);
             background: var(--accent-dim);
             color: var(--accent);
-            transform: translateY(-5px);
+            transform: translateY(-3px);
+            box-shadow: var(--shadow-glow), 0 12px 26px rgba(var(--accent-rgb), 0.16);
+            backdrop-filter: blur(calc(var(--glass-blur, 18px) + 6px));
+            -webkit-backdrop-filter: blur(calc(var(--glass-blur, 18px) + 6px));
+        }
+
+        .qc-chip:hover .qc-chip-emoji,
+        .qc-chip:focus-visible .qc-chip-emoji {
+            filter: brightness(1.3) saturate(1.2);
+        }
+
+        .qc-chip:focus-visible {
+            outline: 2px solid var(--accent);
+            outline-offset: 2px;
+        }
+
+        .qc-chip:active {
+            transform: translateY(-1px);
+            transition-duration: 120ms;
+        }
+
+        @keyframes qcFadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes qcRadialPulse {
+            0%, 100% { opacity: 0.7; }
+            50% { opacity: 1; }
+        }
+
+        @keyframes qcParticleFloat {
+            0% { transform: translate(0, 0); opacity: 0; }
+            10% { opacity: 0.9; }
+            50% { transform: translate(8px, -34px); opacity: 0.5; }
+            90% { opacity: 0.9; }
+            100% { transform: translate(-6px, -68px); opacity: 0; }
+        }
+
+        @keyframes qcRingPulse {
+            0%, 100% { transform: scale(1); opacity: 0.5; }
+            50% { transform: scale(1.06); opacity: 0.9; }
+        }
+
+        /* --pulse-scale (set inline by JS per mode, defaults to 1) rescales
+           the glow's spread - timing stays constant, only amplitude shifts,
+           which is what keeps this feeling like "intensity changes" rather
+           than a jarring re-timed pulse. */
+        @keyframes qcCorePulse {
+            0%, 100% { box-shadow: var(--shadow-glow), 0 0 calc(30px * var(--pulse-scale, 1)) rgba(var(--mode-rgb, var(--accent-rgb)), 0.2); }
+            50% { box-shadow: var(--shadow-glow), 0 0 calc(55px * var(--pulse-scale, 1)) rgba(var(--mode-rgb, var(--accent-rgb)), 0.4); }
+        }
+
+        @keyframes qcDotBlink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.35; }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+
+            .welcome-container,
+            .qc-radial,
+            .qc-particles span,
+            .qc-core-ring,
+            .qc-core-orbit,
+            .qc-core-center,
+            .qc-live-dot {
+                animation: none !important;
+            }
+
+            .qc-core {
+                transition: none !important;
+            }
         }
 
         pre {
@@ -4042,40 +4466,6 @@
                 height: 44px;
             }
 
-            /* Welcome screen - perfectly centered */
-            .welcome-container {
-                width: 100%;
-                max-width: 100%;
-                padding: 0 16px;
-                display: flex;
-                flex-direction: column;
-                align-items: center;
-                justify-content: center;
-            }
-
-            .welcome-container i {
-                display: block;
-                text-align: center;
-            }
-
-            .welcome-container h1 {
-                font-size: 20px;
-                text-align: center;
-            }
-
-            .welcome-container p {
-                text-align: center;
-                max-width: 100%;
-            }
-
-            /* Suggestion cards - responsive grid */
-            .welcome-container>div[style*="grid-template-columns"] {
-                grid-template-columns: repeat(2, 1fr) !important;
-                max-width: 100%;
-                width: 100%;
-                padding: 0 16px;
-            }
-
             /* Images responsive */
             img {
                 max-width: 100%;
@@ -4112,11 +4502,6 @@
 
             .brand {
                 font-size: 16px;
-            }
-
-            /* Suggestion cards - 1 column */
-            .welcome-container>div[style*="grid-template-columns"] {
-                grid-template-columns: 1fr !important;
             }
         }
 
@@ -4742,38 +5127,232 @@
 
         <div id="chat-flow">
             {% if not messages %}
-            <div class="welcome-container" style="text-align: center; margin-top: 8%; animation: fadeIn 0.8s ease;">
-                <i class="fa-solid fa-microchip"
-                    style="font-size: 50px; color: 	#bf9b30; margin-bottom: 20px; filter: drop-shadow(0 0 15px var(--accent-dim));"></i>
-                <h1 style="font-family: 'JetBrains Mono'; letter-spacing: 3px; color: 	#bf9b30; font-size: 24px;">
-                    SIMBA_INTEL</h1>
-                <p style="font-family: 'Outfit'; opacity: 0.6; margin-bottom: 40px;">SYSTEM READY. STANDING BY FOR
-                    COMMANDS, {{ profile.display_name|default:request.user.get_full_name|default:request.user.username|upper }}.</p>
+            <div class="welcome-container" id="qcHome">
+                <div class="qc-field" aria-hidden="true">
+                    <div class="qc-radial qc-radial-1" id="qcRadial1"></div>
+                    <div class="qc-radial qc-radial-2"></div>
+                    <div class="qc-grid"></div>
+                    <div class="qc-particles" id="qcParticles">
+                        <span></span><span></span><span></span><span></span><span></span>
+                        <span></span><span></span><span></span><span></span><span></span>
+                    </div>
+                </div>
 
-                <div
-                    style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; max-width: 600px; margin: 0 auto;">
-                    <div class="quick-card"
-                        onclick="document.getElementById('user-input').value='Explain Python Collections'; sendQuery();">
-                        <i class="fa-brands fa-python"></i>
-                        <span>Explain Python Collections</span>
+                <div class="qc-topbar">
+                    <span class="qc-topbar-item" id="qcTime">--:--:--</span>
+                    <span class="qc-topbar-sep">&bull;</span>
+                    <span class="qc-topbar-item" id="qcDate">-- --- ----</span>
+                    <span class="qc-topbar-sep">&bull;</span>
+                    
+                </div>
+
+                <div class="qc-main">
+                    <div class="qc-core-wrap" id="qcCoreWrap">
+                        <div class="qc-core" id="qcCore" aria-hidden="true">
+                            <div class="qc-core-ring qc-ring-outer"></div>
+                            <div class="qc-core-ring qc-ring-mid"></div>
+                            <div class="qc-core-ring qc-ring-inner"></div>
+                            <div class="qc-core-orbit"><span class="qc-orbit-node"></span></div>
+                            <div class="qc-core-orbit qc-orbit-reverse"><span class="qc-orbit-node"></span></div>
+                            <div class="qc-core-center">
+                                <div class="qc-core-logo" id="qcCoreIcon" aria-hidden="true">&gt;_&lt;</div>
+                            </div>
+                        </div>
                     </div>
-                    <div class="quick-card"
-                        onclick="document.getElementById('user-input').value='Write a Java Program'; sendQuery();">
-                        <i class="fa-brands fa-java"></i>
-                        <span>Write a Java Program</span>
-                    </div>
-                    <div class="quick-card"
-                        onclick="document.getElementById('user-input').value='BCA Project Ideas'; sendQuery();">
-                        <i class="fa-solid fa-graduation-cap"></i>
-                        <span>BCA Project Ideas</span>
-                    </div>
-                    <div class="quick-card"
-                        onclick="document.getElementById('user-input').value='Explain need of Security'; sendQuery();">
-                        <i class="fa-solid fa-shield-halved"></i>
-                        <span>Explain need of Security</span>
+                    <p class="qc-core-status" id="qcCoreStatus">IDLE</p>
+
+                    <h1 class="qc-title">SIMBA_INTEL</h1>
+                    <p class="qc-subtitle">Your Personal Artificial Intelligence Operating System. Standing by for
+                        commands, {{ profile.display_name|default:request.user.get_full_name|default:request.user.username|upper }}.</p>
+
+                    <div class="qc-commands">
+                        <button type="button" class="qc-chip" data-mode="document" onclick="fillHomeAction('Explain this PDF for me: ')">
+                            <span class="qc-chip-emoji">📄</span><span>Explain PDF</span>
+                        </button>
+                        <button type="button" class="qc-chip" data-mode="vision" onclick="fillHomeAction('Analyze this image for me: ')">
+                            <span class="qc-chip-emoji">🖼</span><span>Analyze Image</span>
+                        </button>
+                        <button type="button" class="qc-chip" data-mode="coding" onclick="fillHomeAction('Write code that ')">
+                            <span class="qc-chip-emoji">💻</span><span>Write Code</span>
+                        </button>
+                        <button type="button" class="qc-chip" data-mode="diagnostics" onclick="fillHomeAction('Help me debug this code: ')">
+                            <span class="qc-chip-emoji">🐞</span><span>Debug Code</span>
+                        </button>
+                        <button type="button" class="qc-chip" data-mode="image" onclick="fillHomeAction('Generate an image of ')">
+                            <span class="qc-chip-emoji">🎨</span><span>Generate Image</span>
+                        </button>
+                        <button type="button" class="qc-chip" data-mode="frontend" onclick="fillHomeAction('Build a React app that ')">
+                            <span class="qc-chip-emoji">⚛</span><span>Build React App</span>
+                        </button>
+                        <button type="button" class="qc-chip" data-mode="database" onclick="fillHomeAction('Write a SQL query that ')">
+                            <span class="qc-chip-emoji">🗄</span><span>SQL Query</span>
+                        </button>
+                        <button type="button" class="qc-chip" data-mode="memory" onclick="fillHomeAction('Summarize these notes: ')">
+                            <span class="qc-chip-emoji">📊</span><span>Summarize Notes</span>
+                        </button>
                     </div>
                 </div>
             </div>
+            <script>
+                (function () {
+                    var core = document.getElementById('qcCore');
+                    var coreWrap = document.getElementById('qcCoreWrap');
+                    var statusEl = document.getElementById('qcCoreStatus');
+                    var homeEl = document.getElementById('qcHome');
+                    if (!core || !coreWrap) return;
+
+                    var reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+                        || document.documentElement.getAttribute('data-animation') === 'none'
+                        || document.documentElement.getAttribute('data-animation') === 'reduced';
+
+                    // Each command's own mode: color, orbit-speed multiplier
+                    // (relative to idle), and glow-pulse intensity multiplier.
+                    // The center glyph itself never changes (see .qc-core-logo -
+                    // it's the brand mark, not a per-mode icon) - only its glow
+                    // color follows the mode, same as everything else.
+                    var MODES = {
+                        document: { rgb: '110, 200, 255', label: 'DOCUMENT MODE', speed: 1.3, pulse: 1.0 },
+                        vision: { rgb: '255, 185, 80', label: 'VISION MODE', speed: 0.6, pulse: 1.15 },
+                        coding: { rgb: '110, 255, 160', label: 'CODING MODE', speed: 1.9, pulse: 1.0 },
+                        diagnostics: { rgb: '255, 95, 95', label: 'DIAGNOSTICS MODE', speed: 2.2, pulse: 1.25 },
+                        image: { rgb: '255, 105, 210', label: 'IMAGE STUDIO MODE', speed: 0.9, pulse: 1.3 },
+                        frontend: { rgb: '80, 230, 210', label: 'FRONTEND MODE', speed: 1.6, pulse: 1.05 },
+                        database: { rgb: '150, 140, 255', label: 'DATABASE MODE', speed: 1.0, pulse: 0.9 },
+                        memory: { rgb: '215, 170, 255', label: 'MEMORY MODE', speed: 0.7, pulse: 1.1 }
+                    };
+                    var IDLE_LABEL = 'IDLE';
+
+                    // ---- Staged, cinematic mode transition ----
+                    // Colors/glow are plain CSS transitions (see the .qc-* rules
+                    // in <style> - each layer has its own transition-delay so
+                    // glow -> rings -> particles -> pulse cascade in, matching
+                    // "glow gradually changes, then rings accelerate, then
+                    // particles shift color, then pulse grows"). Ring rotation
+                    // SPEED can't be smoothly interpolated by CSS at all
+                    // (animation-duration changes snap at the next cycle
+                    // instead of easing), so it's driven by the rAF loop below
+                    // instead, which eases toward a target speed every frame -
+                    // that's what actually satisfies "rings should never stop
+                    // instantly, smooth easing only." Status text can't be
+                    // transitioned either (text content isn't animatable), so
+                    // it gets a manual opacity crossfade timed to land last in
+                    // the sequence.
+                    var statusFadeTimer = null;
+
+                    function crossfadeStatus(label) {
+                        if (!statusEl) return;
+                        clearTimeout(statusFadeTimer);
+                        statusEl.style.opacity = '0';
+                        statusFadeTimer = setTimeout(function () {
+                            statusEl.textContent = label;
+                            requestAnimationFrame(function () {
+                                statusEl.style.opacity = '1';
+                            });
+                        }, 200);
+                    }
+
+                    function applyMode(modeKey) {
+                        var m = modeKey && MODES[modeKey];
+                        if (m) {
+                            core.style.setProperty('--mode-rgb', m.rgb);
+                            core.style.setProperty('--pulse-scale', m.pulse);
+                            ringSpeed.target = m.speed;
+                            crossfadeStatus(m.label);
+                        } else {
+                            core.style.removeProperty('--mode-rgb');
+                            core.style.removeProperty('--pulse-scale');
+                            ringSpeed.target = 1;
+                            crossfadeStatus(IDLE_LABEL);
+                        }
+                    }
+
+                    document.querySelectorAll('#qcHome .qc-chip[data-mode]').forEach(function (chip) {
+                        chip.addEventListener('mouseenter', function () { applyMode(chip.dataset.mode); });
+                        chip.addEventListener('focus', function () { applyMode(chip.dataset.mode); });
+                        chip.addEventListener('mouseleave', function () { applyMode(null); });
+                        chip.addEventListener('blur', function () { applyMode(null); });
+                    });
+
+                    // ---- Ring/orbit rotation, driven by requestAnimationFrame ----
+                    // Idle speed -> acceleration -> target speed -> deceleration
+                    // -> idle, with pure easing (exponential smoothing toward a
+                    // target multiplier every frame) instead of CSS keyframes,
+                    // which is the only way to get a genuinely smooth speed
+                    // change rather than a snap at the next animation cycle.
+                    // Skipped entirely under reduced motion - rings stay static.
+                    var ringEls = {
+                        outer: core.querySelector('.qc-ring-outer'),
+                        mid: core.querySelector('.qc-ring-mid'),
+                        orbit: core.querySelector('.qc-core-orbit:not(.qc-orbit-reverse)'),
+                        orbitRev: core.querySelector('.qc-orbit-reverse')
+                    };
+                    var ringBaseDegPerSec = { outer: 14, mid: -46, orbit: 62, orbitRev: -42 };
+                    var ringAngle = { outer: 0, mid: 0, orbit: 0, orbitRev: 0 };
+                    var ringSpeed = { current: 1, target: 1 };
+                    var lastFrameTime = null;
+
+                    function tickRings(now) {
+                        // Same self-stopping idea as the clock below - once
+                        // the welcome screen is hidden (first message sent),
+                        // there's no point still computing rotation angles for
+                        // an invisible element every frame for the rest of the
+                        // page's life.
+                        if (!homeEl || !homeEl.isConnected || homeEl.style.display === 'none') return;
+
+                        if (lastFrameTime === null) lastFrameTime = now;
+                        var dt = Math.min((now - lastFrameTime) / 1000, 0.05);
+                        lastFrameTime = now;
+
+                        ringSpeed.current += (ringSpeed.target - ringSpeed.current) * Math.min(dt * 3.2, 1);
+
+                        for (var key in ringEls) {
+                            var el = ringEls[key];
+                            if (!el) continue;
+                            ringAngle[key] = (ringAngle[key] + ringBaseDegPerSec[key] * ringSpeed.current * dt) % 360;
+                            el.style.transform = 'rotate(' + ringAngle[key].toFixed(2) + 'deg)';
+                        }
+
+                        requestAnimationFrame(tickRings);
+                    }
+                    if (!reducedMotion) {
+                        requestAnimationFrame(tickRings);
+                    }
+
+                    // Subtle mouse-tracking tilt - pointer devices only, and
+                    // never fires at all under reduced-motion preferences.
+                    if (!reducedMotion && window.matchMedia('(pointer: fine)').matches) {
+                        coreWrap.addEventListener('mousemove', function (e) {
+                            var rect = coreWrap.getBoundingClientRect();
+                            var px = (e.clientX - rect.left) / rect.width - 0.5;
+                            var py = (e.clientY - rect.top) / rect.height - 0.5;
+                            core.style.transform = 'rotateX(' + (-py * 10).toFixed(2) + 'deg) rotateY(' + (px * 10).toFixed(2) + 'deg)';
+                        });
+                        coreWrap.addEventListener('mouseleave', function () {
+                            core.style.transform = '';
+                        });
+                    }
+
+                    // Live status bar clock - stops itself once the welcome
+                    // screen is hidden (sendQuery() hides it via display:none
+                    // rather than removing it, since a returning user might
+                    // come back to an empty session later) so this doesn't
+                    // keep ticking in the background for the rest of the
+                    // page's life after the first message is sent.
+                    var timeEl = document.getElementById('qcTime');
+                    var dateEl = document.getElementById('qcDate');
+                    var clockInterval = setInterval(function () {
+                        if (!homeEl || !homeEl.isConnected || homeEl.style.display === 'none') {
+                            clearInterval(clockInterval);
+                            return;
+                        }
+                        var now = new Date();
+                        if (timeEl) timeEl.textContent = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+                        if (dateEl) dateEl.textContent = now.toLocaleDateString([], { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' });
+                    }, 1000);
+                    if (timeEl) timeEl.textContent = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+                    if (dateEl) dateEl.textContent = new Date().toLocaleDateString([], { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' });
+                })();
+            </script>
             {% endif %}
 
             {% for m in messages %}
@@ -5898,6 +6477,18 @@
             const input = document.getElementById('user-input');
             if (input) { input.value = el.dataset.content; input.focus(); }
             closePromptLibrary();
+        }
+
+        // Empty-home-screen command chips - same "fill the composer and let
+        // the user finish typing" pattern as insertPromptText() above, rather
+        // than auto-sending, since several of these (Debug Code, SQL Query,
+        // Summarize Notes, Build React App) need the user's own content
+        // pasted in first.
+        function fillHomeAction(text) {
+            const input = document.getElementById('user-input');
+            if (!input) return;
+            input.value = text;
+            input.focus();
         }
 
         function usePromptFromLibrary(promptId) {
