@@ -485,7 +485,9 @@ class NvidiaTextProviderTests(TestCase):
         with patch("chat.providers.nvidia_text_provider.ask_vision", return_value="a photo of a cat") as mock_vision:
             result = provider.vision([{"role": "user", "content": "describe this"}], "quantum-core-pool")
         self.assertEqual(result, "a photo of a cat")
-        mock_vision.assert_called_once_with(provider.api_key, [{"role": "user", "content": "describe this"}])
+        mock_vision.assert_called_once_with(
+            provider.api_key, [{"role": "user", "content": "describe this"}], on_model_resolved=None,
+        )
 
     def test_generate_image_is_not_implemented(self):
         """Quantum Core never generates images - that stays Pollinations'

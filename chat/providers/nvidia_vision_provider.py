@@ -49,6 +49,7 @@ def ask_vision(
     api_key: Optional[str],
     messages: List[Dict[str, Any]],
     on_usage: Optional[Callable[[dict], None]] = None,
+    on_model_resolved: Optional[Callable[[dict], None]] = None,
     **kwargs,
 ) -> str:
     """Tries each VISION_MODELS candidate in priority order, immediate
@@ -68,17 +69,21 @@ def ask_vision(
     estimate instead, same as the text provider."""
     client = _make_client(api_key)
     last_error: Optional[Exception] = None
+    fallback_count = 0
     for candidate in VISION_MODELS:
         start = time.time()
         try:
             response = client.chat.completions.create(model=candidate, messages=messages, **kwargs)
         except Exception as e:
             last_error = e
+            fallback_count += 1
             logger.warning(
                 "Quantum Core (vision): model=%s failed (%.2fs): %s", candidate, time.time() - start, e,
             )
             continue
         logger.info("Quantum Core (vision): selected_model=%s latency=%.2fs", candidate, time.time() - start)
+        if on_model_resolved:
+            on_model_resolved({"model": candidate, "fallback_count": fallback_count})
         return response.choices[0].message.content
     logger.warning("Quantum Core (vision): every model failed")
     raise last_error or RuntimeError("Quantum Core vision is temporarily unavailable.")

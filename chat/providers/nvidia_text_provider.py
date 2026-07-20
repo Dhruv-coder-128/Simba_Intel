@@ -97,6 +97,7 @@ class NvidiaTextProvider(BaseProvider):
         messages: list[Dict[str, Any]],
         model: str,
         on_usage: Optional[Callable[[dict], None]] = None,
+        on_model_resolved: Optional[Callable[[dict], None]] = None,
         **kwargs,
     ) -> Generator[str, None, None]:
         # stream_options={"include_usage": True} is deliberately NOT sent -
@@ -144,6 +145,8 @@ class NvidiaTextProvider(BaseProvider):
                     "Quantum Core (text): selected_model=%s fallback_count=%d latency=%.2fs",
                     candidate, fallback_count, time.time() - start,
                 )
+                if on_model_resolved:
+                    on_model_resolved({"model": candidate, "fallback_count": fallback_count})
                 yield first_chunk
                 yield from gen
                 return
@@ -151,12 +154,18 @@ class NvidiaTextProvider(BaseProvider):
         logger.warning("Quantum Core (text): every model failed")
         raise last_error or RuntimeError("Quantum Core is temporarily unavailable.")
 
-    def vision(self, messages: list[Dict[str, Any]], model: str, **kwargs) -> str:
+    def vision(
+        self,
+        messages: list[Dict[str, Any]],
+        model: str,
+        on_model_resolved: Optional[Callable[[dict], None]] = None,
+        **kwargs,
+    ) -> str:
         """Delegates entirely to chat/providers/nvidia_vision_provider.py's
         own VISION_MODELS chain - kept in its own file so the text and
         vision routing policies can each be read, tested, and changed
         independently."""
-        return ask_vision(self.api_key, messages, **kwargs)
+        return ask_vision(self.api_key, messages, on_model_resolved=on_model_resolved, **kwargs)
 
     def generate_image(self, prompt: str, model: str, **kwargs) -> str:
         raise NotImplementedError(

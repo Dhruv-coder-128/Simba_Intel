@@ -1,6 +1,7 @@
 
 import base64
 import os
+import re
 import time
 import uuid
 import zoneinfo
@@ -39,7 +40,9 @@ from chat.services.conversation_intelligence import (
 from chat.services.message_tree import (
     append_turn, build_display_messages, regenerate_assistant_reply, set_active_leaf, walk_chain_from,
 )
+from chat.services.message_stats import build_stats
 from chat.services.model_registry import list_available_models, get_model_config, is_model_allowed_for_user
+from chat.services.searxng import searxng_web_search, searxng_image_search
 from chat.services.smart_router import resolve_model_id
 from chat.services.usage import record_usage, record_failure, check_rate_limit, check_daily_limit
 from chat.services.verification import is_email_verified, verification_required
@@ -122,6 +125,83 @@ def _get_tavily_search(query: str):
         return None
 
 
+def _get_web_search_results(query: str):
+    """SearXNG (chat/services/searxng.py) is the primary web search engine -
+    self-hosted, cached, no per-request vendor cost. Falls back to Tavily
+    only if SEARXNG_URL isn't configured or SearXNG returned nothing, so an
+    existing Tavily-only deployment keeps working unmodified."""
+    results = searxng_web_search(query)
+    if results:
+        return results
+    return _get_tavily_search(query)
+
+
+_MD_IMAGE_RE = re.compile(r'!\[([^\]]*)\]\(([^)]*)\)')
+
+
+def _rewrite_images_in_stream(pairs):
+    """Wraps a _stream_with_failover token_gen ((text, is_notice) pairs) and
+    replaces every markdown image the model emits - ![alt](url) - with a
+    real SearXNG image result for `alt` before it ever reaches the client,
+    so a hallucinated/random/mismatched image URL is never shown (see
+    chat/services/searxng.py's searxng_image_search). No real match found
+    (no SEARXNG_URL configured, empty alt text, or nothing returned) means
+    the image is dropped entirely - never left pointing at a broken or
+    unrelated one.
+
+    Only wraps search-augmented replies (see ask_ai) - buffers at most one
+    in-progress, not-yet-closed image marker at a time, so ordinary text is
+    never delayed; only the (rare, short) span of an actual image marker
+    waits on one cached SearXNG lookup.
+    """
+    buffer = ""
+    resolved_cache = {}
+
+    def resolve(alt: str) -> str:
+        alt = alt.strip()
+        if not alt:
+            return ""
+        key = alt.lower()
+        if key not in resolved_cache:
+            resolved_cache[key] = searxng_image_search(alt)
+        return resolved_cache[key]
+
+    for token, is_notice in pairs:
+        if is_notice:
+            yield token, is_notice
+            continue
+
+        buffer += token
+        out = []
+        last_end = 0
+        for m in _MD_IMAGE_RE.finditer(buffer):
+            out.append(buffer[last_end:m.start()])
+            real_url = resolve(m.group(1))
+            if real_url:
+                out.append(f"![{m.group(1)}]({real_url})")
+            last_end = m.end()
+
+        tail = buffer[last_end:]
+        open_marker = tail.rfind("![")
+        if open_marker == -1 and tail.endswith("!"):
+            open_marker = len(tail) - 1
+        if open_marker != -1 and ")" not in tail[open_marker:]:
+            # An image marker may be starting here but hasn't closed yet -
+            # hold it back, flush everything before it.
+            if open_marker > 0:
+                out.append(tail[:open_marker])
+            buffer = tail[open_marker:]
+        else:
+            out.append(tail)
+            buffer = ""
+
+        if out:
+            yield "".join(out), False
+
+    if buffer:
+        yield buffer, False
+
+
 def _is_search_query(query: str) -> bool:
     search_keywords = ["latest", "today", "news", "search", "current", "price", "weather", "now", "recent", "stock", "market"]
     query_lower = query.lower()
@@ -132,10 +212,20 @@ def _stream_with_failover(model_id, messages, on_usage):
     """Shared by every stream_generator (ask_ai, regenerate_message,
     edit_message, continue_message) - wraps chat_stream_with_failover and
     tracks which model actually ends up serving the request. Returns
-    (token_generator, serving) - serving['model_id'] is only reliable once
-    the generator has been fully consumed (it flips the moment a switch
-    happens, which - by chat_stream_with_failover's own contract - is always
-    before the first token is yielded).
+    (token_generator, serving, resolved) - both dicts are only reliable once
+    the generator has been fully consumed.
+
+    serving['model_id'] flips the moment a cross-model switch happens (see
+    chat_stream_with_failover's on_switch contract) - always before the
+    first token is yielded.
+
+    resolved is populated by on_model_resolved, which only virtual/nvidia
+    (pooled) providers ever call (see those providers' chat_stream) - it
+    reports the real underlying model actually used within that pool/chain,
+    since serving['model_id'] alone only ever holds a *visible* SIMBA model
+    id (e.g. "quantum-core"), never the real provider model id. Empty for
+    any other provider; callers fall back to get_model_config(serving[
+    'model_id']).actual_model in that case, which is already the real model.
 
     token_generator yields (text, is_notice) pairs rather than plain
     strings: the switch notice must reach the live stream (so the user sees
@@ -149,20 +239,25 @@ def _stream_with_failover(model_id, messages, on_usage):
     `on_switch` closure and the variable it updates is exactly the kind of
     bug that's easy to introduce once and much harder to notice later."""
     serving = {"model_id": model_id}
+    resolved = {}
 
     def on_switch(new_model_id):
         serving["model_id"] = new_model_id
 
+    def on_model_resolved(info):
+        resolved.update(info)
+
     def token_generator():
         for i, token in enumerate(chat_stream_with_failover(
             model_id, messages, on_switch=on_switch, on_usage=on_usage,
+            on_model_resolved=on_model_resolved,
         )):
             if i == 0 and serving["model_id"] != model_id:
                 switched_cfg = get_model_config(serving["model_id"])
                 yield (f"_(Switched to {switched_cfg.display_name} after a temporary provider issue)_\n\n", True)
             yield (token, False)
 
-    return token_generator(), serving
+    return token_generator(), serving, resolved
 
 
 def _compute_folders_for_user(user):
@@ -739,7 +834,7 @@ def ask_ai(request):
                 status=429
             )
         user_query = request.POST.get('query', '').strip()
-        model_id = request.POST.get('model_id', 'cyber-max')
+        model_id = request.POST.get('model_id', 'quantum-core')
         session_id = request.POST.get('session_id')
         attachments = request.FILES.getlist('attachment')
         # Session remembers the literal "auto" choice (so Auto mode stays
@@ -867,11 +962,22 @@ def ask_ai(request):
                             {"role": "user", "content": content}
                         ]
                         captured_usage = {}
+                        resolved = {}
                         start_time = time.time()
-                        vision_text = ai_vision(model_id, vision_messages, on_usage=captured_usage.update)
+                        vision_text = ai_vision(
+                            model_id, vision_messages,
+                            on_usage=captured_usage.update, on_model_resolved=resolved.update,
+                        )
                         latency = round(time.time() - start_time, 2)
-
                         display_query = user_query or f"[{len(image_files)} image(s): {', '.join(filenames)}]"
+                        stats = build_stats(
+                            model_id=model_id, serving_model_id=model_id, resolved=resolved,
+                            captured_usage=captured_usage,
+                            prompt_text=display_query, completion_text=vision_text,
+                            start_time=start_time,
+                            streaming=False, is_vision=True, memory_used=False,
+                        )
+
                         _user_msg, assistant_msg = append_turn(
                             session, display_query, vision_text,
                             assistant_extra_data={
@@ -881,6 +987,7 @@ def ask_ai(request):
                                 # kept for backward compatibility with older rendered history
                                 "filename": filenames[0],
                                 "image_preview": image_previews[0],
+                                "stats": stats,
                             },
                             latency=latency,
                         )
@@ -977,6 +1084,14 @@ def ask_ai(request):
 
                     # Save the turn to the message tree
                     result.setdefault("generation_time", 0)
+                    image_start_time = time.time() - result.get("generation_time", 0)
+                    image_stats = build_stats(
+                        model_id=model_id, serving_model_id=model_id,
+                        prompt_text=user_query, completion_text="",
+                        start_time=image_start_time, end_time=time.time(),
+                        streaming=False, is_image_gen=True, memory_used=False,
+                    )
+                    image_stats["actual_model"] = result["model_used"]
                     _user_msg, assistant_msg = append_turn(
                         session, user_query, "",
                         assistant_extra_data={
@@ -986,7 +1101,8 @@ def ask_ai(request):
                             "prompt": result["prompt"],
                             "width": result["width"],
                             "height": result["height"],
-                            "generation_time": result.get("generation_time", 0)
+                            "generation_time": result.get("generation_time", 0),
+                            "stats": image_stats,
                         },
                         latency=result.get("generation_time", 0),
                     )
@@ -1040,26 +1156,40 @@ def ask_ai(request):
                 return limit_response
 
             chat_system_prompt = SYSTEM_PROMPT
+            memory_used = False
             if profile.memory_enabled:
                 memory_context = get_user_memory_context(request.user)
                 if memory_context:
                     chat_system_prompt = f"{SYSTEM_PROMPT}\n\n{memory_context}"
+                    memory_used = True
             messages = build_context_messages(session, user_query, chat_system_prompt)
+            is_search_augmented = False
             if FeatureFlag.is_enabled('web_search', default=True) and _is_search_query(user_query):
-                search_results = _get_tavily_search(user_query)
+                search_results = _get_web_search_results(user_query)
                 if search_results:
                     context_str = "\n\n".join([f"- {result['title']}: {result['content']}" for result in search_results])
-                    augmented_query = f"{user_query}\n\nRelevant search results:\n{context_str}"
+                    augmented_query = (
+                        f"{user_query}\n\nRelevant search results:\n{context_str}"
+                        "\n\nIf you include an image for a specific product, gift, place, "
+                        "animal, or similar item, give it a short, precise caption (used as "
+                        "the image's alt text) that names exactly that one item, nothing else."
+                    )
                     messages[-1]['content'] = augmented_query
-            
+                    is_search_augmented = True
+
             def stream_generator():
                 full_response = ""
                 start_time = time.time()
+                first_token_time = None
                 captured_usage = {}
-                token_gen, serving = _stream_with_failover(model_id, messages, captured_usage.update)
+                token_gen, serving, resolved = _stream_with_failover(model_id, messages, captured_usage.update)
+                if is_search_augmented:
+                    token_gen = _rewrite_images_in_stream(token_gen)
                 try:
                     for token, is_notice in token_gen:
                         if not is_notice:
+                            if first_token_time is None:
+                                first_token_time = time.time()
                             full_response += token
                         yield token
                 except Exception as e:
@@ -1082,7 +1212,14 @@ def ask_ai(request):
                     actual_config = get_model_config(serving["model_id"])
                     if full_response.strip():
                         is_first_turn = not session.thread.exists()
-                        append_turn(session, user_query, full_response, latency=latency)
+                        stats = build_stats(
+                            model_id=model_id, serving_model_id=serving["model_id"], resolved=resolved,
+                            captured_usage=captured_usage,
+                            prompt_text=user_query, completion_text=full_response,
+                            start_time=start_time,
+                            first_token_time=first_token_time, streaming=True, memory_used=memory_used,
+                        )
+                        append_turn(session, user_query, full_response, assistant_extra_data={"stats": stats}, latency=latency)
                         record_usage(
                             request.user, session, actual_config.provider, serving["model_id"], "chat",
                             prompt_text=user_query, completion_text=full_response,
@@ -1208,7 +1345,7 @@ def regenerate_message(request, message_id):
         id=message_id, role='assistant', session__user=request.user,
     )
     session = old_msg.session
-    model_id = request.POST.get('model_id') or request.session.get('selected_model', 'cyber-max')
+    model_id = request.POST.get('model_id') or request.session.get('selected_model', 'quantum-core')
     user_query = old_msg.parent.content if old_msg.parent else ""
     if model_id.lower() == "auto":
         routing_profile = UserProfile.get_or_create_for(request.user)
@@ -1228,11 +1365,14 @@ def regenerate_message(request, message_id):
     def stream_generator():
         full_response = ""
         start_time = time.time()
+        first_token_time = None
         captured_usage = {}
-        token_gen, serving = _stream_with_failover(model_id, messages, captured_usage.update)
+        token_gen, serving, resolved = _stream_with_failover(model_id, messages, captured_usage.update)
         try:
             for token, is_notice in token_gen:
                 if not is_notice:
+                    if first_token_time is None:
+                        first_token_time = time.time()
                     full_response += token
                 yield token
         except Exception as e:
@@ -1254,7 +1394,14 @@ def regenerate_message(request, message_id):
             latency = round(time.time() - start_time, 2)
             actual_config = get_model_config(serving["model_id"])
             if full_response.strip():
-                regenerate_assistant_reply(old_msg, full_response, latency=latency)
+                stats = build_stats(
+                    model_id=model_id, serving_model_id=serving["model_id"], resolved=resolved,
+                    captured_usage=captured_usage,
+                    prompt_text=user_query, completion_text=full_response,
+                    start_time=start_time,
+                    first_token_time=first_token_time, streaming=True, memory_used=False,
+                )
+                regenerate_assistant_reply(old_msg, full_response, extra_data={"stats": stats}, latency=latency)
                 record_usage(
                     request.user, session, actual_config.provider, serving["model_id"], "chat",
                     prompt_text=user_query, completion_text=full_response,
@@ -1298,7 +1445,7 @@ def edit_message(request, message_id):
     if not new_content:
         return JsonResponse({"response": "Query cannot be empty"}, status=400)
 
-    model_id = request.POST.get('model_id') or request.session.get('selected_model', 'cyber-max')
+    model_id = request.POST.get('model_id') or request.session.get('selected_model', 'quantum-core')
     if model_id.lower() == "auto":
         routing_profile = UserProfile.get_or_create_for(request.user)
         model_id = resolve_model_id(model_id, new_content, False, routing_profile.default_model)
@@ -1317,11 +1464,14 @@ def edit_message(request, message_id):
     def stream_generator():
         full_response = ""
         start_time = time.time()
+        first_token_time = None
         captured_usage = {}
-        token_gen, serving = _stream_with_failover(model_id, messages, captured_usage.update)
+        token_gen, serving, resolved = _stream_with_failover(model_id, messages, captured_usage.update)
         try:
             for token, is_notice in token_gen:
                 if not is_notice:
+                    if first_token_time is None:
+                        first_token_time = time.time()
                     full_response += token
                 yield token
         except Exception as e:
@@ -1343,7 +1493,17 @@ def edit_message(request, message_id):
             latency = round(time.time() - start_time, 2)
             actual_config = get_model_config(serving["model_id"])
             if full_response.strip():
-                append_turn(session, new_content, full_response, latency=latency, parent=old_msg.parent)
+                stats = build_stats(
+                    model_id=model_id, serving_model_id=serving["model_id"], resolved=resolved,
+                    captured_usage=captured_usage,
+                    prompt_text=new_content, completion_text=full_response,
+                    start_time=start_time,
+                    first_token_time=first_token_time, streaming=True, memory_used=False,
+                )
+                append_turn(
+                    session, new_content, full_response, assistant_extra_data={"stats": stats},
+                    latency=latency, parent=old_msg.parent,
+                )
                 record_usage(
                     request.user, session, actual_config.provider, serving["model_id"], "chat",
                     prompt_text=new_content, completion_text=full_response,
@@ -1422,6 +1582,23 @@ def bookmark_message(request, message_id):
     msg.extra_data = extra_data
     msg.save(update_fields=["extra_data"])
     return JsonResponse({"status": "success", "bookmarked": extra_data["bookmarked"]})
+
+
+@login_required
+def message_info(request, message_id):
+    """Read side of the Message Information Panel - returns exactly the
+    real, backend-captured metadata stored in extra_data['stats'] at
+    generation time (see chat/services/message_stats.py's build_stats and
+    its call sites in ask_ai/regenerate_message/edit_message/
+    continue_message). Never estimates or fabricates: a message with no
+    stats recorded (e.g. one created before this feature existed) returns
+    has_stats=false, and the frontend must show "not available" rather than
+    inventing a value."""
+    msg = get_object_or_404(Message, id=message_id, session__user=request.user, role="assistant")
+    stats = (msg.extra_data or {}).get("stats")
+    if not stats:
+        return JsonResponse({"status": "success", "has_stats": False})
+    return JsonResponse({"status": "success", "has_stats": True, "stats": stats})
 
 
 @login_required
@@ -1676,7 +1853,7 @@ def continue_message(request, message_id):
         id=message_id, role='assistant', session__user=request.user,
     )
     session = old_msg.session
-    model_id = request.POST.get('model_id') or request.session.get('selected_model', 'cyber-max')
+    model_id = request.POST.get('model_id') or request.session.get('selected_model', 'quantum-core')
     user_query = old_msg.parent.content if old_msg.parent else ""
     if model_id.lower() == "auto":
         routing_profile = UserProfile.get_or_create_for(request.user)
@@ -1696,11 +1873,14 @@ def continue_message(request, message_id):
     def stream_generator():
         full_response = ""
         start_time = time.time()
+        first_token_time = None
         captured_usage = {}
-        token_gen, serving = _stream_with_failover(model_id, messages, captured_usage.update)
+        token_gen, serving, resolved = _stream_with_failover(model_id, messages, captured_usage.update)
         try:
             for token, is_notice in token_gen:
                 if not is_notice:
+                    if first_token_time is None:
+                        first_token_time = time.time()
                     full_response += token
                 yield token
         except Exception as e:
@@ -1722,9 +1902,17 @@ def continue_message(request, message_id):
             latency = round(time.time() - start_time, 2)
             actual_config = get_model_config(serving["model_id"])
             if full_response.strip():
+                stats = build_stats(
+                    model_id=model_id, serving_model_id=serving["model_id"], resolved=resolved,
+                    captured_usage=captured_usage,
+                    prompt_text=user_query, completion_text=full_response,
+                    start_time=start_time,
+                    first_token_time=first_token_time, streaming=True, memory_used=False,
+                )
                 old_msg.content = old_msg.content + full_response
                 old_msg.latency = (old_msg.latency or 0) + latency
-                old_msg.save(update_fields=["content", "latency"])
+                old_msg.extra_data = {**(old_msg.extra_data or {}), "stats": stats}
+                old_msg.save(update_fields=["content", "latency", "extra_data"])
                 record_usage(
                     request.user, session, actual_config.provider, serving["model_id"], "chat",
                     prompt_text=user_query, completion_text=full_response,

@@ -39,6 +39,7 @@ class GroqProvider(BaseProvider):
         messages: list[Dict[str, Any]],
         model: str,
         on_usage: Optional[Callable[[dict], None]] = None,
+        on_model_resolved: Optional[Callable[[dict], None]] = None,
         **kwargs
     ) -> Generator[str, None, None]:
         # Verified empirically: the installed Groq SDK raises TypeError on
@@ -46,6 +47,10 @@ class GroqProvider(BaseProvider):
         # here (unlike Mistral's OpenAI-compatible endpoint), so `on_usage`
         # is accepted for interface parity but intentionally never called;
         # callers fall back to a token-count estimate for this provider.
+        # `on_model_resolved` is accepted for the same interface-parity
+        # reason but never called either - this provider always calls
+        # exactly the one `model` it was given, so the caller already knows
+        # the real model id without needing a callback.
         stream = self.client.chat.completions.create(
             model=model,
             messages=messages,
@@ -66,6 +71,7 @@ class GroqProvider(BaseProvider):
         messages: list[Dict[str, Any]],
         model: str,
         on_usage: Optional[Callable[[dict], None]] = None,
+        on_model_resolved: Optional[Callable[[dict], None]] = None,
         **kwargs,
     ) -> str:
         # `on_usage` is accepted for interface parity with every other

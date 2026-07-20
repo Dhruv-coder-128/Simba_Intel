@@ -40,6 +40,13 @@ def chat_stream_with_failover(
     serving the request isn't the one originally requested - callers use it
     to show a transient "switched providers" notice without persisting it
     into the saved message content.
+
+    `on_model_resolved` isn't a parameter of this function - it flows through
+    **kwargs straight into `provider.chat_stream(...)` exactly like `on_usage`
+    does. Only virtual/nvidia (pooled) providers ever call it, to report the
+    real underlying model they picked; other providers accept it for
+    interface parity and never call it, since their caller already knows the
+    real model (it's just `model_config.actual_model`).
     """
     candidates = [model_id] + get_fallback_chain(model_id)
     last_error: Optional[Exception] = None

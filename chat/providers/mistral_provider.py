@@ -52,6 +52,7 @@ class MistralProvider(BaseProvider):
         messages: list[Dict[str, Any]],
         model: str,
         on_usage: Optional[Callable[[dict], None]] = None,
+        on_model_resolved: Optional[Callable[[dict], None]] = None,
         **kwargs,
     ) -> Generator[str, None, None]:
 
@@ -86,6 +87,7 @@ class MistralProvider(BaseProvider):
         messages,
         model="pixtral-large-latest",
         on_usage: Optional[Callable[[dict], None]] = None,
+        on_model_resolved: Optional[Callable[[dict], None]] = None,
         **kwargs,
     ):
 

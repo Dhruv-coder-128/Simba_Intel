@@ -1921,6 +1921,7 @@
         #chat-flow {
             flex: 1;
             overflow-y: auto;
+            overflow-x: hidden;
             width: 100%;
             max-width: 1100px;
             margin: 0 auto;
@@ -2253,6 +2254,92 @@
         .bookmarks-panel-box {
             max-width: 620px;
             max-height: 70vh;
+        }
+
+        /* --- Message Information Panel (Message Statistics popup) --- */
+        .message-info-overlay {
+            align-items: center;
+            padding: 16px;
+        }
+
+        .message-info-box {
+            max-width: 420px;
+            max-height: 80vh;
+            padding: 0;
+            animation: messageInfoIn 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        @keyframes messageInfoIn {
+            from { opacity: 0; transform: scale(0.94); }
+            to { opacity: 1; transform: scale(1); }
+        }
+
+        .message-info-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 16px 18px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 12px;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+            color: var(--accent);
+        }
+
+        .message-info-close {
+            background: transparent;
+            border: none;
+            color: var(--text-dim);
+            cursor: pointer;
+            font-size: 14px;
+            padding: 4px;
+            line-height: 1;
+            transition: color 0.15s ease;
+        }
+
+        .message-info-close:hover { color: var(--accent); }
+
+        .message-info-divider {
+            height: 1px;
+            background: var(--border-soft);
+        }
+
+        .message-info-body {
+            padding: 12px 18px 18px;
+            overflow-y: auto;
+        }
+
+        .message-info-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            padding: 7px 0;
+            font-size: 13px;
+        }
+
+        .message-info-row .label { color: var(--text-dim); }
+
+        .message-info-row .value {
+            color: var(--text);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 12px;
+            text-align: right;
+        }
+
+        .message-info-row .value.na { color: var(--text-dim); font-style: italic; }
+
+        .message-info-section-divider {
+            height: 1px;
+            background: var(--border-soft);
+            margin: 6px 0;
+        }
+
+        .message-info-empty {
+            padding: 24px 0;
+            text-align: center;
+            color: var(--text-dim);
+            font-size: 13px;
         }
 
         .bookmarks-results {
@@ -2937,6 +3024,78 @@
             border-bottom: 1px solid #00ffff;
         }
 
+        /* Web search rendering - never horizontal scroll, always fixed-size
+           images (see chat/views.py's _rewrite_images_in_stream and the
+           marked.js image renderer override above). */
+        .markdown-content {
+            max-width: 100%;
+            overflow-x: hidden;
+        }
+
+        .markdown-content table {
+            width: 100%;
+            max-width: 100%;
+            table-layout: fixed;
+            border-collapse: collapse;
+            margin: 10px 0;
+        }
+
+        .markdown-content th,
+        .markdown-content td {
+            border: 1px solid var(--border-soft);
+            padding: 8px 10px;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+            vertical-align: middle;
+        }
+
+        /* The column holding an image never grows with its row's other
+           text columns - keeps every row the same height and the table
+           aligned. Degrades harmlessly (no fixed column) in browsers
+           without :has() support. */
+        .markdown-content th:has(.md-img-wrap),
+        .markdown-content td:has(.md-img-wrap) {
+            width: 160px;
+            max-width: 160px;
+        }
+
+        .md-img-wrap {
+            display: inline-block;
+            position: relative;
+            width: 140px;
+            height: 100px;
+            border-radius: 12px;
+            overflow: hidden;
+            background: linear-gradient(100deg, rgba(255, 255, 255, 0.04) 30%, rgba(255, 255, 255, 0.1) 50%, rgba(255, 255, 255, 0.04) 70%);
+            background-size: 200% 100%;
+            animation: mdImgSkeleton 1.3s ease-in-out infinite;
+            vertical-align: middle;
+        }
+
+        .md-img-wrap.loaded {
+            animation: none;
+            background: none;
+        }
+
+        @keyframes mdImgSkeleton {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+        }
+
+        .md-img {
+            display: block;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            border-radius: 12px;
+            opacity: 0;
+            transition: opacity 0.35s ease;
+        }
+
+        .md-img-wrap.loaded .md-img {
+            opacity: 1;
+        }
+
         input {
             flex: 1;
             background: transparent;
@@ -3565,6 +3724,20 @@
 
         .bookmark-btn.active { color: #ffd93d; border-color: rgba(255, 217, 61, 0.4); }
         .bookmark-btn.active:hover { background: rgba(255, 217, 61, 0.1); }
+
+        .info-btn {
+            border-radius: 50%;
+            width: 26px;
+            height: 26px;
+            padding: 0;
+            justify-content: center;
+            font-size: 12px;
+        }
+
+        .info-btn:hover {
+            transform: scale(1.15);
+            box-shadow: 0 0 10px rgba(var(--accent-rgb), 0.5);
+        }
 
         .delete-msg-btn:hover { color: #ff4b2b !important; border-color: rgba(255, 75, 43, 0.4) !important; }
 
@@ -4472,10 +4645,23 @@
                 height: auto;
             }
 
-            /* Tables responsive */
-            table {
-                display: block;
-                overflow-x: auto;
+            /* Tables responsive - shrink/wrap columns instead of scrolling,
+               so the chat area never gains a horizontal scrollbar. */
+            .markdown-content table {
+                table-layout: fixed;
+                width: 100%;
+                max-width: 100%;
+            }
+
+            .md-img-wrap {
+                width: 96px;
+                height: 72px;
+            }
+
+            .markdown-content th:has(.md-img-wrap),
+            .markdown-content td:has(.md-img-wrap) {
+                width: 110px;
+                max-width: 110px;
             }
         }
 
@@ -4825,6 +5011,17 @@
             </div>
             <div id="promptLibraryCategoryChips" class="folder-chips" style="padding: 0 12px;"></div>
             <div id="promptLibraryResults" class="bookmarks-results"></div>
+        </div>
+    </div>
+
+    <div id="messageInfoOverlay" class="command-palette-overlay message-info-overlay" onclick="if(event.target===this) closeMessageInfo();">
+        <div class="command-palette-box message-info-box">
+            <div class="message-info-header">
+                <span><i class="fa-solid fa-circle-info"></i> Message Statistics</span>
+                <button type="button" class="message-info-close" onclick="closeMessageInfo()" aria-label="Close"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="message-info-divider"></div>
+            <div id="messageInfoBody" class="message-info-body"></div>
         </div>
     </div>
 
@@ -5412,6 +5609,9 @@
                             <button class="copy-btn bookmark-btn {% if m.extra_data.bookmarked %}active{% endif %}" onclick="bookmarkMessage(this)" title="Bookmark this image">
                                 <i class="fa-{% if m.extra_data.bookmarked %}solid{% else %}regular{% endif %} fa-bookmark"></i>
                             </button>
+                            <button class="copy-btn info-btn" onclick="openMessageInfo(this)" title="Message info">
+                                <i class="fa-solid fa-circle-info"></i>
+                            </button>
                             <button class="copy-btn danger" onclick="deleteMessage(this)" title="Delete this image">
                                 <i class="fa-solid fa-trash"></i>
                             </button>
@@ -5452,6 +5652,9 @@
                     <button class="copy-btn bookmark-btn {% if m.extra_data.bookmarked %}active{% endif %}" onclick="bookmarkMessage(this)" title="Bookmark this reply">
                         <i class="fa-{% if m.extra_data.bookmarked %}solid{% else %}regular{% endif %} fa-bookmark"></i>
                     </button>
+                    <button class="copy-btn info-btn" onclick="openMessageInfo(this)" title="Message info">
+                        <i class="fa-solid fa-circle-info"></i>
+                    </button>
                     <button class="copy-btn danger" onclick="deleteMessage(this)" title="Delete this reply">
                         <i class="fa-solid fa-trash"></i>
                     </button>
@@ -5490,6 +5693,9 @@
                     </button>
                     <button class="copy-btn bookmark-btn {% if m.extra_data.bookmarked %}active{% endif %}" onclick="bookmarkMessage(this)" title="Bookmark this reply">
                         <i class="fa-{% if m.extra_data.bookmarked %}solid{% else %}regular{% endif %} fa-bookmark"></i>
+                    </button>
+                    <button class="copy-btn info-btn" onclick="openMessageInfo(this)" title="Message info">
+                        <i class="fa-solid fa-circle-info"></i>
                     </button>
                     <button class="copy-btn danger" onclick="deleteMessage(this)" title="Delete this reply">
                         <i class="fa-solid fa-trash"></i>
@@ -7805,6 +8011,32 @@
             mermaid.initialize({ startOnLoad: false, theme: 'dark', securityLevel: 'strict' });
         }
 
+        // Every markdown image (![alt](url), including the real,
+        // SearXNG-matched ones the backend now rewrites hallucinated web-
+        // search images into - see chat/views.py's _rewrite_images_in_stream)
+        // renders through this fixed-size, lazy-loaded, skeleton-then-fade-in
+        // wrapper instead of a bare <img> - keeps every image the same size
+        // (no oversized/stretched images) and never shows a broken-image
+        // icon (onerror removes the wrapper outright).
+        if (window.marked) {
+            marked.use({
+                renderer: {
+                    image(hrefOrToken, title, text) {
+                        let href = hrefOrToken, altText = text, titleText = title;
+                        if (hrefOrToken && typeof hrefOrToken === 'object') {
+                            href = hrefOrToken.href;
+                            titleText = hrefOrToken.title;
+                            altText = hrefOrToken.text;
+                        }
+                        const safeHref = escapeHtml(href || '');
+                        const safeAlt = escapeHtml(altText || '');
+                        const titleAttr = titleText ? ` title="${escapeHtml(titleText)}"` : '';
+                        return `<span class="md-img-wrap"><img class="md-img" src="${safeHref}" alt="${safeAlt}"${titleAttr} loading="lazy" decoding="async" onload="this.closest('.md-img-wrap').classList.add('loaded')" onerror="this.closest('.md-img-wrap').remove()"></span>`;
+                    },
+                },
+            });
+        }
+
         // Turns ```mermaid fenced code blocks (already rendered as
         // <pre><code class="language-mermaid">) into live diagrams. Only
         // called once a reply is fully streamed (see the renderRichContent()
@@ -8389,6 +8621,9 @@
                                     <button class="copy-btn bookmark-btn" onclick="bookmarkMessage(this)" title="Bookmark this image">
                                         <i class="fa-regular fa-bookmark"></i>
                                     </button>
+                                    <button class="copy-btn info-btn" onclick="openMessageInfo(this)" title="Message info">
+                                        <i class="fa-solid fa-circle-info"></i>
+                                    </button>
                                     <button class="copy-btn danger" onclick="deleteMessage(this)" title="Delete this image">
                                         <i class="fa-solid fa-trash"></i>
                                     </button>
@@ -8662,14 +8897,14 @@
             let modelId =
                 document.getElementById("model-selector").value ||
                 localStorage.getItem("selected_simba_model") ||
-                "cyber-max";
+                "quantum-core";
 
             // Defensive: if model-selector's value ever ends up not matching any real
             // model (e.g. state corruption), fall back to a known-good model instead
             // of sending an invalid model_id to the backend.
             if (!document.querySelector(`#cyberOptions .cyber-option[data-value="${CSS.escape(modelId)}"]`)) {
-                console.error(`Invalid model id "${modelId}" - falling back to cyber-max`);
-                modelId = "cyber-max";
+                console.error(`Invalid model id "${modelId}" - falling back to quantum-core`);
+                modelId = "quantum-core";
                 const modelHiddenInput = document.getElementById("model-selector");
                 if (modelHiddenInput) modelHiddenInput.value = modelId;
                 localStorage.setItem("selected_simba_model", modelId);
@@ -8804,6 +9039,9 @@
                                     </button>
                                     <button class="copy-btn bookmark-btn" onclick="bookmarkMessage(this)" title="Bookmark this reply">
                                         <i class="fa-regular fa-bookmark"></i>
+                                    </button>
+                                    <button class="copy-btn info-btn" onclick="openMessageInfo(this)" title="Message info">
+                                        <i class="fa-solid fa-circle-info"></i>
                                     </button>
                                     <button class="copy-btn danger" onclick="deleteMessage(this)" title="Delete this reply">
                                         <i class="fa-solid fa-trash"></i>
@@ -8977,6 +9215,9 @@
                         <button class="copy-btn bookmark-btn" onclick="bookmarkMessage(this)" title="Bookmark this reply">
                             <i class="fa-regular fa-bookmark"></i>
                         </button>
+                        <button class="copy-btn info-btn" onclick="openMessageInfo(this)" title="Message info">
+                            <i class="fa-solid fa-circle-info"></i>
+                        </button>
                         <button class="copy-btn danger" onclick="deleteMessage(this)" title="Delete this reply">
                             <i class="fa-solid fa-trash"></i>
                         </button>
@@ -9091,7 +9332,7 @@
             const modelId =
                 document.getElementById("model-selector").value ||
                 localStorage.getItem("selected_simba_model") ||
-                "cyber-max";
+                "quantum-core";
 
             const cf = document.getElementById("chat-flow");
             const previousContentHTML = simbaBlock.innerHTML;
@@ -9194,6 +9435,9 @@
                         <button class="copy-btn" onclick="regenerateText(this)">
                             <i class="fa-solid fa-rotate"></i> Regenerate
                         </button>
+                        <button class="copy-btn info-btn" onclick="openMessageInfo(this)" title="Message info">
+                            <i class="fa-solid fa-circle-info"></i>
+                        </button>
                     </div>
                     <div class="reply-mini-actions">
                         <button class="reply-mini-btn" onclick="editPromptFromReply(this)" title="Edit the prompt that produced this reply">
@@ -9289,6 +9533,83 @@
             }
         }
 
+        // ================= Message Information Panel =================
+        // Never estimates or fabricates a value - every field below comes
+        // straight from Message.extra_data['stats'] (chat/services/
+        // message_stats.py's build_stats, captured at generation time). A
+        // field that wasn't actually captured this request renders as
+        // "Not reported"/"Not available" rather than a guessed number.
+        function _msgInfoRow(label, value, isNA) {
+            return `<div class="message-info-row"><span class="label">${escapeHtml(label)}</span><span class="value${isNA ? ' na' : ''}">${escapeHtml(String(value))}</span></div>`;
+        }
+
+        function _msgInfoDivider() {
+            return '<div class="message-info-section-divider"></div>';
+        }
+
+        function _msgInfoBool(value) {
+            return value ? 'Yes' : 'No';
+        }
+
+        function renderMessageInfoBody(stats) {
+            const rows = [];
+            rows.push(_msgInfoRow('Provider', stats.provider));
+            rows.push(_msgInfoRow('Actual Model', stats.actual_model));
+            rows.push(_msgInfoDivider());
+            rows.push(_msgInfoRow('Input Tokens', stats.input_tokens));
+            rows.push(_msgInfoRow('Output Tokens', stats.output_tokens));
+            rows.push(_msgInfoRow('Total Tokens', stats.total_tokens));
+            rows.push(_msgInfoDivider());
+            rows.push(_msgInfoRow('Response Time', `${stats.response_time_s}s`));
+            rows.push(_msgInfoRow('Time To First Token', `${stats.ttft_s}s`));
+            rows.push(_msgInfoDivider());
+            rows.push(_msgInfoRow('Streaming', _msgInfoBool(stats.streaming)));
+            rows.push(_msgInfoRow('Vision Request', _msgInfoBool(stats.is_vision)));
+            rows.push(_msgInfoRow('Image Generation', _msgInfoBool(stats.is_image_gen)));
+            rows.push(_msgInfoRow('Fallback Used', _msgInfoBool(stats.fallback_used)));
+            rows.push(_msgInfoRow('Fallback Model', stats.fallback_model));
+            rows.push(_msgInfoDivider());
+            rows.push(_msgInfoRow('Timestamp', new Date(stats.timestamp).toLocaleString()));
+            rows.push(_msgInfoRow('Request ID', stats.request_id));
+            return rows.join('');
+        }
+
+        async function openMessageInfo(btn) {
+            const block = btn.closest('.chat-block');
+            const messageId = block ? block.dataset.messageId : null;
+            const overlay = document.getElementById('messageInfoOverlay');
+            const body = document.getElementById('messageInfoBody');
+            if (!overlay || !body) return;
+            if (!messageId || messageId === "None") { alert("This message hasn't been saved yet."); return; }
+
+            body.innerHTML = '<div class="message-info-empty">Loading...</div>';
+            overlay.classList.add('show');
+
+            try {
+                const res = await fetch(`/messages/${messageId}/info/`, { signal: AbortSignal.timeout(10000) });
+                const data = await res.json();
+                if (!res.ok || data.status !== 'success') {
+                    body.innerHTML = '<div class="message-info-empty">Could not load message info.</div>';
+                    return;
+                }
+                if (!data.has_stats) {
+                    body.innerHTML = '<div class="message-info-empty">No statistics were recorded for this message.</div>';
+                    return;
+                }
+                body.innerHTML = renderMessageInfoBody(data.stats);
+            } catch (e) {
+                body.innerHTML = '<div class="message-info-empty">Network error - please try again.</div>';
+            }
+        }
+
+        function closeMessageInfo() {
+            document.getElementById('messageInfoOverlay')?.classList.remove('show');
+        }
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') closeMessageInfo();
+        });
+
         async function continueMessage(btn) {
             if (isSendingQuery || isGeneratingImage) return;
 
@@ -9307,7 +9628,7 @@
             const modelId =
                 document.getElementById("model-selector").value ||
                 localStorage.getItem("selected_simba_model") ||
-                "cyber-max";
+                "quantum-core";
 
             const cf = document.getElementById("chat-flow");
             const rawDataEl = simbaBlock.querySelector('.raw-data');
@@ -9793,7 +10114,7 @@
             const modelId =
                 document.getElementById("model-selector").value ||
                 localStorage.getItem("selected_simba_model") ||
-                "cyber-max";
+                "quantum-core";
 
             const simbaBlock = userBlock.nextElementSibling;
             const isTextReply = simbaBlock && simbaBlock.classList.contains('simba-block');
@@ -9907,6 +10228,9 @@
                             </button>
                             <button class="copy-btn" onclick="regenerateText(this)">
                                 <i class="fa-solid fa-rotate"></i> Regenerate
+                            </button>
+                            <button class="copy-btn info-btn" onclick="openMessageInfo(this)" title="Message info">
+                                <i class="fa-solid fa-circle-info"></i>
                             </button>
                         </div>
                         <div class="reply-mini-actions">

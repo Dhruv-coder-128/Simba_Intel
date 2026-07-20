@@ -98,6 +98,7 @@ urlpatterns = [
     path('messages/<int:message_id>/switch-branch/', views.switch_branch, name='switch_branch'),
     path('messages/<int:message_id>/toggle-favorite/', views.toggle_favorite_image, name='toggle_favorite_image'),
     path('messages/<int:message_id>/bookmark/', views.bookmark_message, name='bookmark_message'),
+    path('messages/<int:message_id>/info/', views.message_info, name='message_info'),
     path('messages/<int:message_id>/bookmark/label/', views.set_bookmark_label, name='set_bookmark_label'),
     path('bookmarks/', views.bookmarks_list, name='bookmarks_list'),
     path('prompts/', views.saved_prompts_list, name='saved_prompts_list'),

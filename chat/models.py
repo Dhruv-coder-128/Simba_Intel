@@ -198,7 +198,7 @@ class UserProfile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
     display_name = models.CharField(max_length=100, blank=True)
     avatar_url = models.URLField(blank=True)
-    default_model = models.CharField(max_length=50, default='cyber-max')
+    default_model = models.CharField(max_length=50, default='quantum-core')
     theme = models.CharField(max_length=20, choices=THEME_CHOICES, default='cyberpunk')
     accent_override = models.CharField(max_length=20, choices=ACCENT_OVERRIDE_CHOICES, blank=True, default='')
     density = models.CharField(max_length=20, choices=DENSITY_CHOICES, default='comfortable')
