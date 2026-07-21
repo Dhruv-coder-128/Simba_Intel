@@ -1,13 +1,12 @@
-# Local Docker workflow for the Django app + its Redis cache. The database
-# stays Supabase-hosted Postgres (via DATABASE_URL in .env), never a local
-# Postgres container - nothing changes there.
-#
-# Forward-compatible with the future Celery stack without adding it now: a
-# `celery` service would join this same `default` network (Compose creates
-# one automatically, and every service on it resolves the others by service
-# name - that's how `web` already reaches `redis` below, via REDIS_URL=
-# redis://redis:6379/0) with no change to how `web` or `redis` themselves
-# are built/started. See the commented example at the bottom of this file.
+# Local Docker workflow for the Django app + its Redis cache/broker +
+# Celery worker. The database stays Supabase-hosted Postgres (via
+# DATABASE_URL in .env), never a local Postgres container - nothing changes
+# there. No Celery Beat service: there are no scheduled/periodic tasks
+# anywhere in this project yet (chat/tasks.py's demo_ping_task is dispatched
+# on demand, never on a schedule) - adding Beat now would be a second
+# always-running process with nothing for it to actually schedule. Add it
+# the moment a real periodic task exists; it's one more service block plus
+# a CELERY_BEAT_SCHEDULE dict, no change to `celery` or `web` below.
 services:
   redis:
     image: redis:7-alpine
@@ -48,6 +47,16 @@ services:
       # non-Docker local dev, where REDIS_URL is normally unset entirely -
       # see config/settings/base.py's LocMemCache fallback).
       - REDIS_URL=redis://redis:6379/0
+      # `web` never consumes tasks (that's `celery`, below) but it does
+      # need to be able to dispatch them - any future view/management
+      # command that calls some_task.delay() runs inside THIS container.
+      # Without this, that call would default to config/settings/base.py's
+      # CELERY_BROKER_URL fallback (redis://localhost:6379/1), which
+      # doesn't exist inside this container's own network namespace -
+      # confirmed by hand while verifying this phase: dispatching from
+      # inside `web` failed with a bare "connection refused to localhost"
+      # until this line was added.
+      - CELERY_BROKER_URL=redis://redis:6379/1
     depends_on:
       redis:
         # Waits for Redis to actually answer PING, not just for its
@@ -90,19 +99,37 @@ services:
       retries: 3
     restart: unless-stopped
 
-# --- Future Celery (not implemented yet - example only) ---
-#   celery:
-#     build: .
-#     command: celery -A simba_web worker -l info
-#     env_file:
-#       - .env
-#     environment:
-#       - CELERY_BROKER_URL=redis://redis:6379/1
-#     depends_on:
-#       redis:
-#         condition: service_healthy
-# A dedicated Redis logical DB (/1, vs /0 for the cache above) keeps
-# Celery's broker traffic and this app's cache traffic clearly separated
-# even though they'd share the one `redis` service - no new service needed,
-# `web` itself needs no changes, and REDIS_KEY_PREFIX (config/settings/
-# base.py) already namespaces this app's own keys regardless.
+  celery:
+    # Same image as `web` - it's the same Django project, just started with
+    # a different command (a worker, not gunicorn). No separate Dockerfile:
+    # one image, two roles, so a dependency bump/code change never needs to
+    # be kept in sync across two separately-built images.
+    build: .
+    env_file:
+      - .env
+    environment:
+      - DEBUG=False
+      # Cache DB (0) - a task can use django.core.cache.cache exactly like
+      # any Django view can (see chat/tasks.py's demo_ping_task) - without
+      # this, the worker would silently fall back to its own per-process
+      # LocMemCache (config/settings/base.py's REDIS_URL-unset branch)
+      # instead of the same shared cache `web` uses.
+      - REDIS_URL=redis://redis:6379/0
+      # Broker DB (1) - deliberately different from the cache's DB 0 (see
+      # config/settings/base.py's CELERY_BROKER_URL comment for why).
+      - CELERY_BROKER_URL=redis://redis:6379/1
+    command: celery -A simba_web worker --loglevel=info --concurrency=2 --max-tasks-per-child=100
+    depends_on:
+      redis:
+        condition: service_healthy
+    healthcheck:
+      # Succeeds the moment any worker responds to `inspect ping` - only
+      # one worker in this compose file, so this is unambiguous. Confirms
+      # the worker process is actually connected and consuming, not just
+      # that its container is running.
+      test: ["CMD-SHELL", "celery -A simba_web inspect ping"]
+      interval: 30s
+      timeout: 10s
+      start_period: 15s
+      retries: 3
+    restart: unless-stopped

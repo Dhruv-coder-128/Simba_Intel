@@ -335,6 +335,56 @@ else:
         }
     }
 
+# Celery (simba_web/celery.py reads these via app.config_from_object(
+# 'django.conf:settings', namespace='CELERY') - every setting below maps to
+# a Celery config key by stripping the CELERY_ prefix and lowercasing, e.g.
+# CELERY_BROKER_URL -> broker_url).
+#
+# CELERY_BROKER_URL is a separate env var from REDIS_URL above, even though
+# both typically point at the same Redis instance today - cache and task
+# queue are conceptually different subsystems (a cache entry disappearing
+# is fine; a queued task disappearing is not), and keeping them independent
+# means either can move to different infrastructure later (a dedicated
+# Redis, or a different broker like RabbitMQ, for Celery specifically)
+# without touching the other. Defaults to logical DB 1 (the CACHES block
+# above defaults to DB 0) purely so a single local Redis instance can serve
+# both without any collision, matching docker-compose.yml's `celery` and
+# `web` services.
+CELERY_BROKER_URL = os.getenv('CELERY_BROKER_URL', 'redis://localhost:6379/1')
+
+# No result backend configured - deliberately. The only task in this
+# project so far (chat/tasks.py's demo_ping_task) is fire-and-forget -
+# nothing anywhere calls .get()/.result on it, or needs to poll a task's
+# status or return value. A result backend means Celery writes a result to
+# Redis for every single task and needs its own expiry/cleanup policy -
+# configuring one now, with nothing to read it, would be unused
+# infrastructure. Add CELERY_RESULT_BACKEND (e.g. the same Redis, a
+# different logical DB) the moment a real task exists whose return value or
+# completion status something actually needs to observe.
+CELERY_TASK_SERIALIZER = 'json'
+CELERY_ACCEPT_CONTENT = ['json']
+
+# Matches Django's own TIME_ZONE (set above) - a task queue running on a
+# different timezone than the rest of the app is a standing source of
+# off-by-some-hours confusion in logs/scheduling.
+CELERY_TIMEZONE = TIME_ZONE
+CELERY_ENABLE_UTC = True
+
+# Explicit rather than left to Celery's own version-dependent default:
+# Celery 6 changes what a worker does if its very first broker connection
+# attempt fails on startup. True here because a worker container starting
+# slightly before Redis is reachable (a slow pull, a cold start) should
+# retry until it connects, not crash-loop - stating it explicitly also
+# means this behavior doesn't silently change out from under this project
+# on a future Celery upgrade.
+CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
+
+# Celery's worker otherwise installs its own root logging config, which
+# would silently override this project's own LOGGING (console + ring_buffer
+# handlers, below) for anything Celery-adjacent that logs through Python's
+# standard `logging` module - including chat/tasks.py's own logger calls.
+CELERY_WORKER_HIJACK_ROOT_LOGGER = False
+
 # Security Settings
 if not DEBUG:
     # HTTPS Settings
