@@ -1,3 +1,13 @@
+# Local Docker workflow for the Django app only - the database stays
+# Supabase-hosted Postgres (via DATABASE_URL in .env), never a local
+# Postgres container, so there is nothing else to define here yet.
+#
+# Forward-compatible with the future Redis + Celery stack without adding
+# either now: both would slot in as their own services on this same
+# `default` network (Compose creates one automatically), reachable by the
+# web service via their service name as hostname (e.g. redis://redis:6379/0),
+# with no change to how `web` itself is built or started. See the commented
+# example at the bottom of this file.
 services:
   web:
     build: .
@@ -6,11 +16,52 @@ services:
     env_file:
       - .env
     environment:
+      # Overrides whatever DEBUG the .env file has for this containerized
+      # run specifically - this is the one setting genuinely worth pinning
+      # here rather than leaving to .env, since "run it in Docker" usually
+      # means "run it the way it'll actually be deployed."
       - DEBUG=False
-    volumes:
-      - ./db.sqlite3:/app/db.sqlite3
-      - ./uploads:/app/uploads
-      - staticfiles:/app/staticfiles
+    # No volumes: both staticfiles/ and uploads/ are plain directories
+    # inside the container's own image layer (Dockerfile pre-creates and
+    # chown's them to the non-root `app` user at build time). Neither needs
+    # to be a Docker volume in this single-container setup - collectstatic
+    # regenerates staticfiles/ on every single container start regardless
+    # (see the Dockerfile CMD), so persisting it saves nothing, and
+    # uploads/ is a write-then-immediately-delete scratch dir, never
+    # read after the request that wrote it.
+    #
+    # A previous version mounted both: a *named* volume for staticfiles and
+    # a *bind* mount for uploads. Both caused PermissionError under the
+    # non-root `app` user - Docker initializes a fresh named volume's mount
+    # point as root:root (the build-time `chown` never touches it, since
+    # the volume is separate storage substituted in at container-start
+    # time), and a bind mount takes its ownership from the host-side
+    # directory, which won't generally match the container's `app` uid
+    # either. Removing both sidesteps the problem entirely rather than
+    # patching around it. If a shared, persistent staticfiles/ volume
+    # becomes genuinely necessary later (e.g. Nginx reading collectstatic's
+    # output directly instead of Whitenoise), see the Dockerfile's comment
+    # on why pre-creating the directory before `chown` is what makes a
+    # freshly-mounted volume inherit the right ownership at that point.
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request as u,sys; sys.exit(0 if u.urlopen('http://127.0.0.1:8000/health/', timeout=4).status == 200 else 1)"]
+      interval: 30s
+      timeout: 5s
+      start_period: 15s
+      retries: 3
+    restart: unless-stopped
 
-volumes:
-  staticfiles:
+# --- Future Redis + Celery (not implemented yet - example only) ---
+#   redis:
+#     image: redis:7-alpine
+#     restart: unless-stopped
+#   celery:
+#     build: .
+#     command: celery -A simba_web worker -l info
+#     env_file:
+#       - .env
+#     depends_on:
+#       - redis
+# `web` would then just need CELERY_BROKER_URL=redis://redis:6379/0 (and
+# REDIS_URL for caching, if used) added to .env - no change to this file's
+# `web` service itself.
