@@ -74,22 +74,34 @@ Simba_Intel/
 ├── chat/
 │   ├── models.py
 │   ├── views.py
-│   ├── urls.py
+│   ├── providers/       # per-AI-provider adapters (Groq, Mistral, NVIDIA, ...)
+│   ├── services/        # business logic (routing, memory, usage, search, ...)
 │   ├── migrations/
 │
+├── config/
+│   └── settings/
+│       ├── base.py      # settings shared by every environment
+│       ├── dev.py        # local development (DEBUG on, no HTTPS enforcement)
+│       └── prod.py       # production (always hardened, regardless of env)
+│
 ├── simba_web/
-│   ├── settings.py
+│   ├── settings.py      # backward-compat shim -> config.settings.base
 │   ├── urls.py
 │   ├── wsgi.py
 │
 ├── templates/
 ├── static/
-├── uploads/
+├── uploads/             # transient upload scratch space, always empty at rest
 │
 ├── manage.py
 ├── requirements.txt
 └── README.md
 ```
+
+`manage.py` / `simba_web/wsgi.py` / `simba_web/asgi.py` default `DJANGO_SETTINGS_MODULE`
+to `simba_web.settings` (unchanged, so every existing setup keeps working). Set
+`DJANGO_SETTINGS_MODULE=config.settings.dev` or `config.settings.prod` explicitly to
+use the new split - see `.env.example`.
 
 ---
 

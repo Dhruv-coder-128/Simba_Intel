@@ -9,18 +9,37 @@ venv/
 __pycache__/
 *.pyc
 
-# Database
+# Database - every dump/backup variant, not just the exact default name
+# (e.g. db.sqlite3.pre-phase3-backup-...), which the old db.sqlite3/*.sqlite3
+# patterns alone did not actually match.
 db.sqlite3
+db.sqlite3.*
 *.sqlite3
 
 # Data migration exports - contain real user data (emails, chat content,
 # security/session records); never commit these
 legacy_data.json
 
-# VS Code
+# Static files build output (collectstatic) - regenerated on every deploy
+# (see Dockerfile), never hand-edited; committing it just adds churn/bloat
+# and risks a stale copy diverging from the real source in static/.
+staticfiles/
+
+# Transient upload scratch space (chat/views.py's _extract_attachment_text
+# writes here, then deletes the file right after use) - never meant to
+# hold anything long-lived, so nothing under it belongs in version control.
+/uploads/
+chat/uploads/
+
+# Logs
+*.log
+
+# IDE / editor
 .vscode/
+.idea/
 
 # OS files
 .DS_Store
+Thumbs.db
 
 .gitignore
