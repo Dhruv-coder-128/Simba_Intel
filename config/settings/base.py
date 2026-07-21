@@ -237,23 +237,103 @@ SECURE_REFERRER_POLICY = 'same-origin'
 # cookie. Hardening it closed costs this app nothing.
 CSRF_COOKIE_HTTPONLY = True
 
-# Cache - explicit rather than left as Django's own unstated implicit
-# default (LocMemCache), so it's auditable and is the one place a future
-# Redis cache backend would slot in: allauth's rate-limiting
-# (ACCOUNT_RATE_LIMITS below) and chat/providers/virtual_provider.py's
-# per-model cooldown tracking already both go through django.core.cache.
-# cache, so swapping this BACKEND/LOCATION for django.core.cache.backends.
-# redis.RedisCache later is the entire migration - no application code
-# changes needed. LocMemCache is per-process: with gunicorn's 2 workers
-# (see the Dockerfile), rate-limit/cooldown state isn't currently shared
-# across them - a known, pre-existing limitation this line doesn't change,
-# just makes visible; Redis is what actually fixes it, deliberately not
-# implemented this phase.
-CACHES = {
-    'default': {
-        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+# Cache - Redis (via django-redis) when REDIS_URL is configured, otherwise
+# LocMemCache. Both allauth's rate-limiting (ACCOUNT_RATE_LIMITS below) and
+# chat/providers/virtual_provider.py's per-model cooldown tracking already
+# go through the generic django.core.cache.cache API, so this is the entire
+# migration - no application code changes needed either way.
+#
+# REDIS_URL is deliberately optional, not required: local development (and
+# CI, and anyone running `manage.py runserver` without docker-compose) never
+# needs a Redis instance just to boot the app - if it's unset, this falls
+# back to the exact same per-process LocMemCache that was here before Redis
+# existed in this project at all. Production (docker-compose's `web`
+# service, and later Oracle Cloud) sets REDIS_URL explicitly and gets a
+# real, shared cache instead.
+REDIS_URL = os.getenv('REDIS_URL', '')
+
+if REDIS_URL:
+    CACHES = {
+        'default': {
+            'BACKEND': 'django_redis.cache.RedisCache',
+            'LOCATION': REDIS_URL,
+            # KEY_PREFIX: namespaces every key this app writes (e.g.
+            # "simba_intel:account_ratelimit:...") - cheap insurance against
+            # collision if this same Redis instance is ever shared with
+            # something else on the same logical database, which is exactly
+            # the shape a future Celery broker/result-backend would take
+            # (Celery uses its own key namespace by default too, but an
+            # explicit prefix here means this app's cache keys can never
+            # collide with anything else, present or future, without
+            # relying on that).
+            'KEY_PREFIX': os.getenv('REDIS_KEY_PREFIX', 'simba_intel'),
+            # Matches Django's own built-in default (300s / 5 minutes) for
+            # any future cache.set() call that doesn't pass an explicit
+            # timeout - stated explicitly rather than left implicit. Neither
+            # current cache consumer actually relies on this: allauth's
+            # rate-limit windows and virtual_provider.py's cooldown both
+            # already pass their own explicit timeout to cache.set().
+            'TIMEOUT': int(os.getenv('CACHE_DEFAULT_TIMEOUT', '300')),
+            'OPTIONS': {
+                'CLIENT_CLASS': 'django_redis.client.DefaultClient',
+                # Connection pooling: redis-py (which django-redis sits on
+                # top of) pools connections per process automatically:
+                # this just caps it. One pool per gunicorn worker PROCESS
+                # (see the Dockerfile: 2 workers x 4 threads) - 50 is
+                # comfortably above the 4 threads that process can ever
+                # have concurrently in flight, with headroom for the admin
+                # console's own cache reads, so this is a ceiling against a
+                # connection leak, not a real limit under normal load.
+                'CONNECTION_POOL_KWARGS': {
+                    'max_connections': int(os.getenv('REDIS_MAX_CONNECTIONS', '50')),
+                },
+                # Fast-fail rather than hang: a cache operation should
+                # never be the slow part of a request. Combined with
+                # IGNORE_EXCEPTIONS below, a slow/unreachable Redis becomes
+                # "this request treats it as a cache miss" instead of
+                # "this request hangs for however long the default
+                # (much longer) socket timeout would have been."
+                'SOCKET_CONNECT_TIMEOUT': int(os.getenv('REDIS_SOCKET_CONNECT_TIMEOUT', '3')),
+                'SOCKET_TIMEOUT': int(os.getenv('REDIS_SOCKET_TIMEOUT', '3')),
+                # Neither cache consumer in this app stores anything
+                # safety-critical - allauth's rate-limit counters and
+                # virtual_provider.py's per-model cooldown flags are both
+                # pure resilience/nice-to-have features, never core chat
+                # functionality. IGNORE_EXCEPTIONS means a Redis outage (or
+                # simply Redis not being up yet during container startup)
+                # degrades those two features silently - cache.get() just
+                # returns None, cache.set() is a no-op - rather than
+                # raising and turning "Redis had a blip" into a 500 error
+                # on every request that happens to touch rate-limiting or
+                # model routing. DJANGO_REDIS_LOG_IGNORED_EXCEPTIONS (below)
+                # is what keeps this from being silent in the sense that
+                # matters: it's still logged, just never fatal.
+                'IGNORE_EXCEPTIONS': True,
+            },
+        }
     }
-}
+    # See IGNORE_EXCEPTIONS above - this is what makes an ignored Redis
+    # error still show up in logs (via the django_redis.cache logger,
+    # already wired to the console/ring_buffer handlers below) instead of
+    # disappearing entirely. Not beneficial without IGNORE_EXCEPTIONS, and
+    # not read at all when CACHES falls back to LocMemCache below.
+    DJANGO_REDIS_LOG_IGNORED_EXCEPTIONS = True
+    # Serialization/compression (explicitly considered, not enabled): every
+    # value either current cache consumer stores is a small bool/int/short
+    # string - django-redis's default PickleSerializer already handles that
+    # with no configuration, and adding a compressor (zlib/lz4) would spend
+    # CPU shrinking payloads that are already smaller than the compression
+    # header overhead it would add. Revisit only if a future cache consumer
+    # starts storing meaningfully large values.
+else:
+    # No REDIS_URL configured - exactly the LocMemCache setup this project
+    # ran on before Redis existed here. Nothing about local development
+    # requires Redis to be installed or running.
+    CACHES = {
+        'default': {
+            'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+        }
+    }
 
 # Security Settings
 if not DEBUG:

@@ -12,6 +12,7 @@ dj-database-url==2.3.0
 Django==6.0.5
 django-allauth==65.18.0
 django-cors-headers==4.9.0
+django-redis==7.0.0
 djangorestframework==3.17.1
 djangorestframework_simplejwt==5.5.1
 dotenv==0.9.9
@@ -44,6 +45,7 @@ pypdfium2==5.9.0
 python-dateutil==2.9.0.post0
 python-dotenv==1.2.2
 PyYAML==6.0.3
+redis==8.0.1
 regex==2026.6.28
 requests==2.34.2
 six==1.17.0

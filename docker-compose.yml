@@ -1,14 +1,34 @@
-# Local Docker workflow for the Django app only - the database stays
-# Supabase-hosted Postgres (via DATABASE_URL in .env), never a local
-# Postgres container, so there is nothing else to define here yet.
+# Local Docker workflow for the Django app + its Redis cache. The database
+# stays Supabase-hosted Postgres (via DATABASE_URL in .env), never a local
+# Postgres container - nothing changes there.
 #
-# Forward-compatible with the future Redis + Celery stack without adding
-# either now: both would slot in as their own services on this same
-# `default` network (Compose creates one automatically), reachable by the
-# web service via their service name as hostname (e.g. redis://redis:6379/0),
-# with no change to how `web` itself is built or started. See the commented
-# example at the bottom of this file.
+# Forward-compatible with the future Celery stack without adding it now: a
+# `celery` service would join this same `default` network (Compose creates
+# one automatically, and every service on it resolves the others by service
+# name - that's how `web` already reaches `redis` below, via REDIS_URL=
+# redis://redis:6379/0) with no change to how `web` or `redis` themselves
+# are built/started. See the commented example at the bottom of this file.
 services:
+  redis:
+    image: redis:7-alpine
+    # No published port: only `web` (and later `celery`) need to reach
+    # this, over the internal Compose network - never exposed to the host
+    # or outside world.
+    #
+    # No volume: this is a pure cache today (nothing durable depends on it
+    # surviving a restart - allauth's rate-limit counters and
+    # virtual_provider.py's cooldown flags are both short-lived, 60-300s,
+    # by design). Losing them on a restart just means those two resilience
+    # features briefly reset, never data loss. Revisit if a future Celery
+    # broker/result-backend shares this same instance and needs durability.
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      start_period: 5s
+      retries: 5
+    restart: unless-stopped
+
   web:
     build: .
     ports:
@@ -21,6 +41,25 @@ services:
       # here rather than leaving to .env, since "run it in Docker" usually
       # means "run it the way it'll actually be deployed."
       - DEBUG=False
+      # `redis` here is the service name above, resolved via Compose's
+      # built-in DNS - not "localhost", since this runs in `web`'s own
+      # container, a separate network namespace from `redis`'s container.
+      # Overrides any REDIS_URL left in .env (that file is meant for
+      # non-Docker local dev, where REDIS_URL is normally unset entirely -
+      # see config/settings/base.py's LocMemCache fallback).
+      - REDIS_URL=redis://redis:6379/0
+    depends_on:
+      redis:
+        # Waits for Redis to actually answer PING, not just for its
+        # container process to start - a plain `depends_on: [redis]` only
+        # guarantees start order, not readiness, and Redis is fast enough
+        # to start that gunicorn could otherwise win the race and serve its
+        # very first requests against a cache that isn't accepting
+        # connections yet. Harmless either way (IGNORE_EXCEPTIONS in
+        # config/settings/base.py's CACHES means a not-yet-ready Redis
+        # degrades to cache misses, not crashes) - this just avoids that
+        # window entirely.
+        condition: service_healthy
     # No volumes: both staticfiles/ and uploads/ are plain directories
     # inside the container's own image layer (Dockerfile pre-creates and
     # chown's them to the non-root `app` user at build time). Neither needs
@@ -51,17 +90,19 @@ services:
       retries: 3
     restart: unless-stopped
 
-# --- Future Redis + Celery (not implemented yet - example only) ---
-#   redis:
-#     image: redis:7-alpine
-#     restart: unless-stopped
+# --- Future Celery (not implemented yet - example only) ---
 #   celery:
 #     build: .
 #     command: celery -A simba_web worker -l info
 #     env_file:
 #       - .env
+#     environment:
+#       - CELERY_BROKER_URL=redis://redis:6379/1
 #     depends_on:
-#       - redis
-# `web` would then just need CELERY_BROKER_URL=redis://redis:6379/0 (and
-# REDIS_URL for caching, if used) added to .env - no change to this file's
-# `web` service itself.
+#       redis:
+#         condition: service_healthy
+# A dedicated Redis logical DB (/1, vs /0 for the cache above) keeps
+# Celery's broker traffic and this app's cache traffic clearly separated
+# even though they'd share the one `redis` service - no new service needed,
+# `web` itself needs no changes, and REDIS_KEY_PREFIX (config/settings/
+# base.py) already namespaces this app's own keys regardless.
