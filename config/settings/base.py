@@ -219,6 +219,42 @@ STATIC_ROOT = BASE_DIR / "staticfiles"
 
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
+# Security headers that apply in every environment, not just when DEBUG is
+# off - neither of these depends on HTTPS being available (unlike the
+# cookie-Secure/HSTS/SSL-redirect block below), so unlike those there's no
+# reason to gate them behind DEBUG.
+#
+# SECURE_REFERRER_POLICY: stated explicitly for auditability even though it
+# matches Django's own default ('same-origin') since Django 3.0 - this line
+# changes nothing, it just means a security review doesn't have to know
+# that trivia to confirm what policy is actually in effect.
+SECURE_REFERRER_POLICY = 'same-origin'
+# CSRF_COOKIE_HTTPONLY: Django's own default is actually False, specifically
+# to support apps that read the CSRF token out of the cookie via JS -
+# templates/chat.html does not do that (it reads a rendered {% csrf_token %}
+# hidden input instead: document.getElementById("csrf-token").value, never
+# document.cookie), so there is nothing here that needs JS access to the
+# cookie. Hardening it closed costs this app nothing.
+CSRF_COOKIE_HTTPONLY = True
+
+# Cache - explicit rather than left as Django's own unstated implicit
+# default (LocMemCache), so it's auditable and is the one place a future
+# Redis cache backend would slot in: allauth's rate-limiting
+# (ACCOUNT_RATE_LIMITS below) and chat/providers/virtual_provider.py's
+# per-model cooldown tracking already both go through django.core.cache.
+# cache, so swapping this BACKEND/LOCATION for django.core.cache.backends.
+# redis.RedisCache later is the entire migration - no application code
+# changes needed. LocMemCache is per-process: with gunicorn's 2 workers
+# (see the Dockerfile), rate-limit/cooldown state isn't currently shared
+# across them - a known, pre-existing limitation this line doesn't change,
+# just makes visible; Redis is what actually fixes it, deliberately not
+# implemented this phase.
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+    }
+}
+
 # Security Settings
 if not DEBUG:
     # HTTPS Settings
