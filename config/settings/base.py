@@ -226,6 +226,19 @@ if not DEBUG:
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True
     SECURE_SSL_REDIRECT = True
+    # Health checks (Docker's own HEALTHCHECK, and later a load balancer's/
+    # Oracle Cloud's/Nginx's) hit this app directly over plain HTTP, inside
+    # the private container/cluster network, deliberately never going
+    # through the public HTTPS listener at all - there is no "insecure
+    # request from a real visitor" to redirect here, just an internal
+    # liveness probe. Without this exemption, SECURE_SSL_REDIRECT (correctly
+    # still True) 302s the probe to https://, which nothing on this
+    # container terminates - the probe's HTTPS handshake then hangs until
+    # it times out and reports unhealthy, even though the app is fine. This
+    # is the standard, Django-documented way to carve out that one path
+    # (see SECURE_REDIRECT_EXEMPT) rather than weakening SECURE_SSL_REDIRECT
+    # itself, which stays on for every real request in every environment.
+    SECURE_REDIRECT_EXEMPT = [r'^health/$']
     X_FRAME_OPTIONS = 'DENY'
     SECURE_CONTENT_TYPE_NOSNIFF = True
 

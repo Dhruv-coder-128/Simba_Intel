@@ -33,6 +33,17 @@ SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 SESSION_COOKIE_SECURE = True
 CSRF_COOKIE_SECURE = True
 SECURE_SSL_REDIRECT = True
+# Health checks (Docker's HEALTHCHECK, a future Nginx/load balancer probe)
+# hit this app directly over plain HTTP inside the private container/
+# cluster network - never through the public HTTPS listener - so there is
+# no real insecure visitor request to redirect here, just an internal
+# liveness probe with nothing to terminate the https:// redirect it would
+# otherwise receive. See config/settings/base.py's matching comment for the
+# full explanation; duplicated here (not inherited) for the same reason
+# every other hardening flag in this file is: config.settings.prod must
+# never depend on base.py's own conditional to have computed the right
+# thing.
+SECURE_REDIRECT_EXEMPT = [r'^health/$']
 X_FRAME_OPTIONS = 'DENY'
 SECURE_CONTENT_TYPE_NOSNIFF = True
 
