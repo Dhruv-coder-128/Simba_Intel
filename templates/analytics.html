@@ -700,7 +700,7 @@
                 <tbody>
                     {% for ev in recent_events %}
                     <tr>
-                        <td>{{ ev.created_at|date:"M j, H:i" }}</td>
+                        <td><time class="local-time" datetime="{{ ev.created_at|date:'c' }}" data-format="datetime-short">{{ ev.created_at|date:"M j, H:i" }}</time></td>
                         <td><span class="badge event-{{ ev.event_type }}">{{ ev.event_type }}</span></td>
                         <td>{{ ev.model_id }}</td>
                         <td>{{ ev.prompt_tokens|add:ev.completion_tokens }}</td>
@@ -945,6 +945,7 @@
         heatmapGrid.innerHTML = heatmapHtml;
     </script>
     {% endif %}
+    <script src="{% static 'js/time-utils.js' %}"></script>
 </body>
 
 </html>

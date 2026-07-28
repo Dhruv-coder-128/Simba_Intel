@@ -44,7 +44,7 @@
             <tbody>
                 {% for ev in new_device_logins %}
                 <tr>
-                    <td>{{ ev.created_at|date:"M j, H:i" }}</td>
+                    <td><time class="local-time" datetime="{{ ev.created_at|date:'c' }}" data-format="datetime-short">{{ ev.created_at|date:"M j, H:i" }}</time></td>
                     <td>{% if ev.user %}<a href="{% url 'admin_user_detail' ev.user.id %}" style="color:var(--accent); text-decoration:none;">{{ ev.user.username }}</a>{% else %}-{% endif %}</td>
                     <td>{{ ev.browser }} &middot; {{ ev.device }}</td>
                 </tr>
@@ -80,7 +80,7 @@
             <thead><tr><th>When</th><th>Email</th><th>IP</th></tr></thead>
             <tbody>
                 {% for f in failed_logins %}
-                <tr><td>{{ f.created_at|date:"M j, H:i:s" }}</td><td>{{ f.email_attempted|default:"(blank)" }}</td><td>{{ f.ip_address|default:"Unknown IP" }}</td></tr>
+                <tr><td><time class="local-time" datetime="{{ f.created_at|date:'c' }}" data-format="datetime-short">{{ f.created_at|date:"M j, H:i:s" }}</time></td><td>{{ f.email_attempted|default:"(blank)" }}</td><td>{{ f.ip_address|default:"Unknown IP" }}</td></tr>
                 {% empty %}
                 <tr><td colspan="3"><div class="empty-state"><i class="fa-solid fa-check"></i><span>None recorded.</span></div></td></tr>
                 {% endfor %}
@@ -142,7 +142,7 @@
         <tbody>
             {% for ev in security_events %}
             <tr>
-                <td>{{ ev.created_at|date:"M j, H:i:s" }}</td>
+                <td><time class="local-time" datetime="{{ ev.created_at|date:'c' }}" data-format="datetime-short">{{ ev.created_at|date:"M j, H:i:s" }}</time></td>
                 <td>{{ ev.user.username|default:"-" }}</td>
                 <td>{{ ev.event_type }}</td>
                 <td><span class="badge {% if ev.severity == 'critical' %}bad{% elif ev.severity == 'warning' %}warn{% else %}ok{% endif %}">{{ ev.severity }}</span></td>

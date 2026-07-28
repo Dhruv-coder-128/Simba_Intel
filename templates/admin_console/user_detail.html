@@ -25,14 +25,14 @@
             <tr><td style="color:var(--text-dim);">Google account</td><td>{% if google_linked %}<span class="badge ok">LINKED</span>{% else %}<span style="color:var(--text-dim);">Not linked</span>{% endif %}</td></tr>
             <tr><td style="color:var(--text-dim);">Recovery code</td><td>
                 {% if not target.has_usable_password %}<span style="color:var(--text-dim);">N/A - signs in with Google</span>
-                {% elif recovery_code %}<span class="badge ok">SET</span> <span style="color:var(--text-dim); font-size:11px;">(generated {{ recovery_code.created_at|date:"M j, Y H:i" }})</span>
+                {% elif recovery_code %}<span class="badge ok">SET</span> <span style="color:var(--text-dim); font-size:11px;">(generated <time class="local-time" datetime="{{ recovery_code.created_at|date:'c' }}" data-format="datetime-short">{{ recovery_code.created_at|date:"M j, Y H:i" }}</time>)</span>
                 {% else %}<span class="badge warn">NOT SET</span>{% endif %}
             </td></tr>
-            <tr><td style="color:var(--text-dim);">Joined</td><td>{{ target.date_joined|date:"M j, Y H:i" }}</td></tr>
-            <tr><td style="color:var(--text-dim);">Last login</td><td>{{ target.last_login|date:"M j, Y H:i"|default:"Never" }} {% if profile.last_login_browser %}<span style="color:var(--text-dim); font-size:11px;">({{ profile.last_login_browser }} &middot; {{ profile.last_login_device }} &middot; {{ profile.last_login_os }})</span>{% endif %}</td></tr>
+            <tr><td style="color:var(--text-dim);">Joined</td><td><time class="local-time" datetime="{{ target.date_joined|date:'c' }}" data-format="datetime-short">{{ target.date_joined|date:"M j, Y H:i" }}</time></td></tr>
+            <tr><td style="color:var(--text-dim);">Last login</td><td><time class="local-time" datetime="{{ target.last_login|date:'c' }}" data-format="datetime-short">{{ target.last_login|date:"M j, Y H:i"|default:"Never" }}</time> {% if profile.last_login_browser %}<span style="color:var(--text-dim); font-size:11px;">({{ profile.last_login_browser }} &middot; {{ profile.last_login_device }} &middot; {{ profile.last_login_os }})</span>{% endif %}</td></tr>
             <tr><td style="color:var(--text-dim);">Status</td><td>
                 {% if profile.is_banned %}<span class="badge bad">BANNED</span> - {{ profile.ban_reason }}
-                {% elif profile.is_suspended %}<span class="badge warn">SUSPENDED until {{ profile.suspended_until|date:"M j, H:i" }}</span> - {{ profile.suspend_reason }}
+                {% elif profile.is_suspended %}<span class="badge warn">SUSPENDED until <time class="local-time" datetime="{{ profile.suspended_until|date:'c' }}" data-format="datetime-short">{{ profile.suspended_until|date:"M j, H:i" }}</time></span> - {{ profile.suspend_reason }}
                 {% elif not target.is_active %}<span class="badge bad">BLOCKED</span>
                 {% else %}<span class="badge ok">ACTIVE</span>{% endif %}
             </td></tr>
@@ -211,7 +211,7 @@
             <li style="display:flex; gap:10px; padding:7px 4px; border-bottom:1px solid var(--border-soft); font-size:12.5px;">
                 <span class="badge {% if entry.kind == 'security' %}warn{% elif entry.kind == 'admin' %}bad{% elif entry.kind == 'usage' %}{% else %}ok{% endif %}" style="flex-shrink:0;">{{ entry.kind|upper }}</span>
                 <span style="flex:1;">{{ entry.text }}</span>
-                <span style="color:var(--text-dim); flex-shrink:0;">{{ entry.at|date:"M j, Y H:i" }}</span>
+                <span style="color:var(--text-dim); flex-shrink:0;"><time class="local-time" datetime="{{ entry.at|date:'c' }}" data-format="datetime-short">{{ entry.at|date:"M j, Y H:i" }}</time></span>
             </li>
         {% empty %}
             <li><div class="empty-state"><i class="fa-solid fa-timeline"></i><span>No activity recorded yet.</span></div></li>
@@ -228,7 +228,7 @@
             <thead><tr><th>Device</th><th>Browser</th><th>IP</th><th>Since</th></tr></thead>
             <tbody>
                 {% for s in active_devices %}
-                <tr><td>{{ s.device }}</td><td>{{ s.browser }}</td><td>{{ s.ip_address|default:"Unknown IP" }}</td><td>{{ s.created_at|date:"M j, H:i" }}</td></tr>
+                <tr><td>{{ s.device }}</td><td>{{ s.browser }}</td><td>{{ s.ip_address|default:"Unknown IP" }}</td><td><time class="local-time" datetime="{{ s.created_at|date:'c' }}" data-format="datetime-short">{{ s.created_at|date:"M j, H:i" }}</time></td></tr>
                 {% empty %}
                 <tr><td colspan="4"><div class="empty-state"><i class="fa-solid fa-display"></i><span>No active sessions.</span></div></td></tr>
                 {% endfor %}
@@ -243,7 +243,7 @@
             <thead><tr><th>When</th><th>Type</th><th>IP</th><th>Device</th></tr></thead>
             <tbody>
                 {% for ev in security_events %}
-                <tr><td>{{ ev.created_at|date:"M j, H:i" }}</td><td><span class="badge {% if ev.severity == 'critical' %}bad{% elif ev.severity == 'warning' %}warn{% else %}ok{% endif %}">{{ ev.event_type }}</span></td><td>{{ ev.ip_address|default:"Unknown IP" }}</td><td>{{ ev.browser }} / {{ ev.device }}</td></tr>
+                <tr><td><time class="local-time" datetime="{{ ev.created_at|date:'c' }}" data-format="datetime-short">{{ ev.created_at|date:"M j, H:i" }}</time></td><td><span class="badge {% if ev.severity == 'critical' %}bad{% elif ev.severity == 'warning' %}warn{% else %}ok{% endif %}">{{ ev.event_type }}</span></td><td>{{ ev.ip_address|default:"Unknown IP" }}</td><td>{{ ev.browser }} / {{ ev.device }}</td></tr>
                 {% empty %}
                 <tr><td colspan="4"><div class="empty-state"><i class="fa-solid fa-shield-halved"></i><span>No security events recorded.</span></div></td></tr>
                 {% endfor %}
@@ -259,7 +259,7 @@
         {% for note in notes %}
         <div style="padding:10px 0; border-bottom:1px solid var(--border-soft); font-size:13px;">
             <div>{{ note.note }}</div>
-            <div style="color:var(--text-dim); font-size:11px; margin-top:4px;">{{ note.author.username|default:"system" }} - {{ note.created_at|date:"M j, H:i" }}</div>
+            <div style="color:var(--text-dim); font-size:11px; margin-top:4px;">{{ note.author.username|default:"system" }} - <time class="local-time" datetime="{{ note.created_at|date:'c' }}" data-format="datetime-short">{{ note.created_at|date:"M j, H:i" }}</time></div>
         </div>
         {% empty %}
         <div class="empty-state"><i class="fa-solid fa-note-sticky"></i><span>No notes yet.</span></div>
@@ -272,7 +272,7 @@
             <thead><tr><th>When</th><th>Actor</th><th>Action</th><th>Detail</th></tr></thead>
             <tbody>
                 {% for log in audit_history %}
-                <tr><td>{{ log.created_at|date:"M j, H:i" }}</td><td>{{ log.actor.username|default:"-" }}</td><td>{{ log.action }}</td><td>{{ log.detail|truncatechars:40 }}</td></tr>
+                <tr><td><time class="local-time" datetime="{{ log.created_at|date:'c' }}" data-format="datetime-short">{{ log.created_at|date:"M j, H:i" }}</time></td><td>{{ log.actor.username|default:"-" }}</td><td>{{ log.action }}</td><td>{{ log.detail|truncatechars:40 }}</td></tr>
                 {% empty %}
                 <tr><td colspan="4"><div class="empty-state"><i class="fa-solid fa-clipboard-list"></i><span>No admin actions on this account.</span></div></td></tr>
                 {% endfor %}
@@ -289,7 +289,7 @@
         <thead><tr><th>Title</th><th>Created</th><th>Pinned</th></tr></thead>
         <tbody>
             {% for s in sessions %}
-            <tr><td>{{ s.title }}</td><td>{{ s.created_at|date:"M j, Y H:i" }}</td><td>{% if s.is_pinned %}<i class="fa-solid fa-thumbtack"></i>{% endif %}</td></tr>
+            <tr><td>{{ s.title }}</td><td><time class="local-time" datetime="{{ s.created_at|date:'c' }}" data-format="datetime-short">{{ s.created_at|date:"M j, Y H:i" }}</time></td><td>{% if s.is_pinned %}<i class="fa-solid fa-thumbtack"></i>{% endif %}</td></tr>
             {% empty %}
             <tr><td colspan="3"><div class="empty-state"><i class="fa-solid fa-comments"></i><span>No chats yet.</span></div></td></tr>
             {% endfor %}

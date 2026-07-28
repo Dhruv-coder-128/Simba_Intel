@@ -35,8 +35,8 @@
                 <td><span class="badge warn">{{ err.get_category_display }}</span></td>
                 <td style="max-width:360px;">{{ err.message|truncatechars:120 }}</td>
                 <td>{{ err.count }}</td>
-                <td>{{ err.first_seen|date:"M j, H:i" }}</td>
-                <td>{{ err.last_seen|date:"M j, H:i" }}</td>
+                <td><time class="local-time" datetime="{{ err.first_seen|date:'c' }}" data-format="datetime-short">{{ err.first_seen|date:"M j, H:i" }}</time></td>
+                <td><time class="local-time" datetime="{{ err.last_seen|date:'c' }}" data-format="datetime-short">{{ err.last_seen|date:"M j, H:i" }}</time></td>
                 <td>{% if err.resolved %}<span class="badge ok">RESOLVED</span>{% else %}<span class="badge bad">OPEN</span>{% endif %}</td>
                 <td>
                     {% if not err.resolved %}
@@ -68,7 +68,7 @@
         <thead><tr><th>When</th><th>Email attempted</th><th>IP</th></tr></thead>
         <tbody>
             {% for f in recent_auth_errors %}
-            <tr><td>{{ f.created_at|date:"M j, H:i:s" }}</td><td>{{ f.email_attempted|default:"(blank)" }}</td><td>{{ f.ip_address|default:"Unknown IP" }}</td></tr>
+            <tr><td><time class="local-time" datetime="{{ f.created_at|date:'c' }}" data-format="datetime-short">{{ f.created_at|date:"M j, H:i:s" }}</time></td><td>{{ f.email_attempted|default:"(blank)" }}</td><td>{{ f.ip_address|default:"Unknown IP" }}</td></tr>
             {% empty %}
             <tr><td colspan="3"><div class="empty-state"><i class="fa-solid fa-check"></i><span>None recorded.</span></div></td></tr>
             {% endfor %}

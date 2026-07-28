@@ -62,8 +62,8 @@
                     {% elif not u.is_active %}<span class="badge bad">BLOCKED</span>
                     {% else %}<span class="badge ok">ACTIVE</span>{% endif %}
                 </td>
-                <td>{{ u.date_joined|date:"M j, Y" }}</td>
-                <td>{{ u.last_login|date:"M j, Y H:i"|default:"Never" }}</td>
+                <td><time class="local-time" datetime="{{ u.date_joined|date:'c' }}" data-format="date">{{ u.date_joined|date:"M j, Y" }}</time></td>
+                <td><time class="local-time" datetime="{{ u.last_login|date:'c' }}" data-format="datetime-short">{{ u.last_login|date:"M j, Y H:i"|default:"Never" }}</time></td>
                 <td><a href="{% url 'admin_user_detail' u.id %}" class="btn">View <i class="fa-solid fa-chevron-right"></i></a></td>
             </tr>
             {% empty %}

@@ -2946,3 +2946,72 @@ class FolderManagementTests(TestCase):
         folders = response.context["folders"]
         empty = next(f for f in folders if f["name"] == "Empty")
         self.assertEqual(empty["count"], 0)
+
+
+class SafetyBehaviorTests(TestCase):
+    """Verifies that the project-wide safety/response-behavior instructions are
+    injected into every LLM request via the ai_router layer, preventing SIMBA
+    from mirroring abusive language."""
+
+    def test_inject_safety_instruction_adds_system_message(self):
+        from chat.services.ai_router import _inject_safety_instruction, SAFETY_INSTRUCTION
+        messages = [{"role": "user", "content": "You are stupid"}]
+        injected = _inject_safety_instruction(messages)
+        self.assertEqual(len(injected), 2)
+        self.assertEqual(injected[0]["role"], "system")
+        self.assertEqual(injected[0]["content"], SAFETY_INSTRUCTION)
+        self.assertEqual(injected[1], messages[0])
+
+    def test_inject_safety_instruction_appends_to_existing_system_message(self):
+        from chat.services.ai_router import _inject_safety_instruction, SAFETY_INSTRUCTION
+        messages = [{"role": "system", "content": "Be helpful."}, {"role": "user", "content": "Tell me a joke."}]
+        injected = _inject_safety_instruction(messages)
+        self.assertEqual(len(injected), 2)
+        self.assertEqual(injected[0]["role"], "system")
+        self.assertEqual(injected[0]["content"], f"Be helpful.\n\n{SAFETY_INSTRUCTION}")
+
+    def test_inject_safety_instruction_handles_empty_list(self):
+        from chat.services.ai_router import _inject_safety_instruction
+        self.assertEqual(_inject_safety_instruction([]), [])
+
+    @patch("chat.services.ai_router.get_provider")
+    def test_chat_stream_injects_safety_instruction(self, mock_get_provider):
+        from chat.services.ai_router import chat_stream, SAFETY_INSTRUCTION
+        mock_provider = MagicMock()
+        mock_provider.chat_stream.return_value = iter(["ok"])
+        mock_get_provider.return_value = mock_provider
+
+        list(chat_stream("cyber-max", [{"role": "user", "content": "hi"}]))
+        
+        mock_provider.chat_stream.assert_called_once()
+        called_messages = mock_provider.chat_stream.call_args[0][0]
+        self.assertEqual(called_messages[0]["role"], "system")
+        self.assertEqual(called_messages[0]["content"], SAFETY_INSTRUCTION)
+
+    @patch("chat.services.ai_router.get_provider")
+    def test_chat_injects_safety_instruction(self, mock_get_provider):
+        from chat.services.ai_router import chat, SAFETY_INSTRUCTION
+        mock_provider = MagicMock()
+        mock_provider.chat.return_value = "ok"
+        mock_get_provider.return_value = mock_provider
+
+        chat("cyber-max", [{"role": "user", "content": "hi"}])
+        
+        mock_provider.chat.assert_called_once()
+        called_messages = mock_provider.chat.call_args[0][0]
+        self.assertEqual(called_messages[0]["role"], "system")
+        self.assertEqual(called_messages[0]["content"], SAFETY_INSTRUCTION)
+
+    @patch("chat.services.ai_router.get_provider")
+    def test_vision_injects_safety_instruction(self, mock_get_provider):
+        from chat.services.ai_router import vision, SAFETY_INSTRUCTION
+        mock_provider = MagicMock()
+        mock_provider.vision.return_value = "ok"
+        mock_get_provider.return_value = mock_provider
+
+        vision("cyber-max", [{"role": "user", "content": "hi"}])
+        
+        mock_provider.vision.assert_called_once()
+        called_messages = mock_provider.vision.call_args[0][0]
+        self.assertEqual(called_messages[0]["role"], "system")
+        self.assertEqual(called_messages[0]["content"], SAFETY_INSTRUCTION)

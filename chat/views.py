@@ -297,42 +297,9 @@ def chat_home(request):
         base_qs = base_qs.filter(folder=folder_filter)
     sessions = list(base_qs.order_by('-is_pinned', '-id'))
 
-    # Pinned/Favorites are their own sections regardless of age; everything
-    # else is grouped into relative-date buckets (Today/Yesterday/Last 7
-    # Days/Last 30 Days/Older) computed here rather than in the template -
-    # Django templates have no built-in "group by relative date" filter, and
-    # a custom templatetag for a one-off grouping isn't worth the indirection.
-    #
-    # Every session (pinned/favorite/other alike) gets a `.date_group`
-    # attribute stamped on it here, not just the ones landing in
-    # grouped_sessions - unpinning/unfavoriting via JS (no page reload, see
-    # Part 1) needs to know which date bucket a chat falls back into even
-    # though it's currently rendered in #pinned-chats or #favorite-chats,
-    # not in one of the date groups at all.
-    today = timezone.localdate()
-
-    def _date_group_for(session):
-        session_date = timezone.localtime(session.created_at).date()
-        if session_date == today:
-            return 'today'
-        elif session_date == today - timedelta(days=1):
-            return 'yesterday'
-        elif session_date >= today - timedelta(days=7):
-            return 'week'
-        elif session_date >= today - timedelta(days=30):
-            return 'month'
-        return 'older'
-
-    for s in sessions:
-        s.date_group = _date_group_for(s)
-
     pinned_sessions = [s for s in sessions if s.is_pinned]
     favorite_sessions = [s for s in sessions if s.is_favorite and not s.is_pinned]
     other_sessions = [s for s in sessions if not s.is_pinned and not s.is_favorite]
-
-    grouped_sessions = {'today': [], 'yesterday': [], 'week': [], 'month': [], 'older': []}
-    for s in other_sessions:
-        grouped_sessions[s.date_group].append(s)
 
     folders = _compute_folders_for_user(request.user)
 
@@ -359,7 +326,7 @@ def chat_home(request):
         'sessions': sessions,
         'pinned_sessions': pinned_sessions,
         'favorite_sessions': favorite_sessions,
-        'grouped_sessions': grouped_sessions,
+        'other_sessions': other_sessions,
         'folders': folders,
         'view_mode': view_mode,
         'folder_filter': folder_filter,

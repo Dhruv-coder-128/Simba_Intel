@@ -920,7 +920,7 @@
                 <div class="hero-meta">
                     <i class="fa-solid fa-envelope"></i> {{ request.user.email }}
                     <span>&middot;</span>
-                    Member since {{ request.user.date_joined|date:"M j, Y" }}
+                    Member since <time class="local-time" datetime="{{ request.user.date_joined|date:'c' }}" data-format="date">{{ request.user.date_joined|date:"M j, Y" }}</time>
                 </div>
             </div>
             <div class="hero-stats">
@@ -1209,7 +1209,7 @@
                         <h2 class="card-title"><i class="fa-solid fa-user"></i> Account</h2>
                         <div class="kv-row"><span>Username</span><span>{{ request.user.username }}</span></div>
                         <div class="kv-row"><span>Email</span><span>{{ request.user.email }}</span></div>
-                        <div class="kv-row"><span>Member since</span><span>{{ request.user.date_joined|date:"M j, Y" }}</span></div>
+                        <div class="kv-row"><span>Member since</span><span><time class="local-time" datetime="{{ request.user.date_joined|date:'c' }}" data-format="date">{{ request.user.date_joined|date:"M j, Y" }}</time></span></div>
                         <div style="margin-top:16px;">
                             <button type="button" class="logout-btn" onclick="document.getElementById('logout-form-settings').submit()">
                                 <i class="fa-solid fa-sign-out-alt"></i> LOG OUT
@@ -1234,7 +1234,7 @@
                             </span>
                         </div>
                         {% if profile.email_verified_at %}
-                        <div class="kv-row"><span>Verified on</span><span>{{ profile.email_verified_at|date:"M j, Y" }}</span></div>
+                        <div class="kv-row"><span>Verified on</span><span><time class="local-time" datetime="{{ profile.email_verified_at|date:'c' }}" data-format="date">{{ profile.email_verified_at|date:"M j, Y" }}</time></span></div>
                         {% endif %}
                         {% if not email_verified %}
                         <div style="margin-top:12px;">
@@ -1295,7 +1295,7 @@
                                         <span class="status-badge connected">This device</span>
                                     {% endif %}
                                 </div>
-                                <div class="session-detail">{{ s.ip_address|default:"Unknown IP" }} &middot; signed in {{ s.created_at|date:"M j, Y H:i" }}</div>
+                                <div class="session-detail">{{ s.ip_address|default:"Unknown IP" }} &middot; signed in <time class="local-time" datetime="{{ s.created_at|date:'c' }}" data-format="datetime-short">{{ s.created_at|date:"M j, Y H:i" }}</time></div>
                             </div>
                             {% if s.session_key != current_session_key %}
                             <button type="button" class="session-logout-btn" onclick="logoutOneSession({{ s.id }}, this)">
@@ -1321,7 +1321,7 @@
                         {% for event in recent_logins %}
                         <div class="kv-row">
                             <span>{{ event.browser|default:"Unknown browser" }} &middot; {{ event.device|default:"Unknown device" }}</span>
-                            <span>{{ event.ip_address|default:"Unknown IP" }} &middot; {{ event.created_at|date:"M j, H:i" }}</span>
+                            <span>{{ event.ip_address|default:"Unknown IP" }} &middot; <time class="local-time" datetime="{{ event.created_at|date:'c' }}" data-format="datetime-short">{{ event.created_at|date:"M j, H:i" }}</time></span>
                         </div>
                         {% empty %}
                         <div class="empty-note">No login history recorded yet.</div>
@@ -1547,6 +1547,7 @@
             btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> SAVING...';
         });
     </script>
+    <script src="{% static 'js/time-utils.js' %}"></script>
 </body>
 
 </html>

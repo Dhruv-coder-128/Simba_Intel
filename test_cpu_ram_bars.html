@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>CPU/RAM Progress Bars Test</title>
+    <style>
+        :root {
+            --accent: #bf9b30;
+            --ring-track: rgba(255, 255, 255, 0.1);
+            --text: #d8dbe1;
+            --text-dim: #8b93a3;
+        }
+
+        body {
+            font-family: 'JetBrains Mono', monospace;
+            background: #1a1b2e;
+            color: var(--text);
+            padding: 20px;
+        }
+
+        .system-monitor {
+            padding: var(--space-2, 8px) var(--space-1, 4px);
+            border-top: 1px solid var(--accent-dim, rgba(191, 155, 48, 0.2));
+            margin-top: var(--space-2, 8px);
+        }
+
+        .mini-stats {
+            display: flex;
+            gap: var(--space-3, 12px);
+            margin-top: 6px;
+        }
+
+        .mini-stat {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .mini-stat-row {
+            display: flex;
+            justify-content: space-between;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 10px;
+            color: var(--text-dim);
+            margin-bottom: 3px;
+        }
+
+        .mini-stat-val {
+            color: var(--text);
+        }
+
+        .mini-stat-track {
+            height: 4px;
+            border-radius: 2px;
+            background: var(--ring-track);
+            overflow: hidden;
+        }
+
+        .mini-stat-fill {
+            height: 100%;
+            width: 0%;
+            background: var(--accent);
+            border-radius: 2px;
+            transition: width 0.5s ease, background 0.3s ease;
+        }
+    </style>
+</head>
+<body>
+    <h2>CPU/RAM Progress Bars Test</h2>
+    <p>Testing the compact progress bar layout:</p>
+
+    <div class="system-monitor">
+        <div class="mini-stats">
+            <div class="mini-stat">
+                <div class="mini-stat-row"><span>CPU</span><span class="mini-stat-val" id="cpu-val">16.0%</span></div>
+                <div class="mini-stat-track"><div id="cpu-bar" class="mini-stat-fill"></div></div>
+            </div>
+            <div class="mini-stat">
+                <div class="mini-stat-row"><span>RAM</span><span class="mini-stat-val" id="ram-val">87.1%</span></div>
+                <div class="mini-stat-track"><div id="ram-bar" class="mini-stat-fill"></div></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Test the progress bar updates
+        document.addEventListener('DOMContentLoaded', function() {
+            const cpuBar = document.getElementById('cpu-bar');
+            const ramBar = document.getElementById('ram-bar');
+
+            // Set CPU to 16%
+            cpuBar.style.width = '16%';
+
+            // Set RAM to 87%
+            ramBar.style.width = '87%';
+
+            console.log('CPU bar width:', cpuBar.style.width);
+            console.log('RAM bar width:', ramBar.style.width);
+        });
+    </script>
+</body>
+</html>

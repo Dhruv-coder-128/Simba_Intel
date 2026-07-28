@@ -28,7 +28,7 @@
                 <td><code>{{ flag.key }}</code></td>
                 <td>{{ flag.description|default:"-" }}</td>
                 <td>{% if flag.enabled %}<span class="badge ok">ENABLED</span>{% else %}<span class="badge bad">DISABLED</span>{% endif %}</td>
-                <td>{{ flag.updated_at|date:"M j, H:i" }}</td>
+                <td><time class="local-time" datetime="{{ flag.updated_at|date:'c' }}" data-format="datetime-short">{{ flag.updated_at|date:"M j, H:i" }}</time></td>
                 <td>
                     <form method="post" style="display:inline;">
                         {% csrf_token %}<input type="hidden" name="action" value="toggle"><input type="hidden" name="key" value="{{ flag.key }}">

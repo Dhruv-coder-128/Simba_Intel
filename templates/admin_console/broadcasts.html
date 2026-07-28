@@ -45,9 +45,9 @@
                     {% elif b.status == 'expired' %}<span class="badge">EXPIRED</span>
                     {% else %}<span class="badge">INACTIVE</span>{% endif %}
                 </td>
-                <td>{{ b.starts_at|date:"M j, H:i"|default:"-" }}</td>
-                <td>{{ b.ends_at|date:"M j, H:i"|default:"-" }}</td>
-                <td>{{ b.created_at|date:"M j, H:i" }}</td>
+                <td><time class="local-time" datetime="{{ b.starts_at|date:'c' }}" data-format="datetime-short">{{ b.starts_at|date:"M j, H:i"|default:"-" }}</time></td>
+                <td><time class="local-time" datetime="{{ b.ends_at|date:'c' }}" data-format="datetime-short">{{ b.ends_at|date:"M j, H:i"|default:"-" }}</time></td>
+                <td><time class="local-time" datetime="{{ b.created_at|date:'c' }}" data-format="datetime-short">{{ b.created_at|date:"M j, H:i" }}</time></td>
                 <td>{{ b.created_by.username|default:"-" }}</td>
                 <td>
                     {% if b.active %}

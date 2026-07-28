@@ -134,7 +134,7 @@
             <thead><tr><th>When</th><th>Severity</th><th>Type</th></tr></thead>
             <tbody>
                 {% for ev in recent_errors %}
-                <tr><td>{{ ev.created_at|date:"M j, H:i" }}</td><td><span class="badge {% if ev.severity == 'critical' %}bad{% else %}warn{% endif %}">{{ ev.severity }}</span></td><td>{{ ev.event_type }}</td></tr>
+                <tr><td><time class="local-time" datetime="{{ ev.created_at|date:'c' }}" data-format="datetime-short">{{ ev.created_at|date:"M j, H:i" }}</time></td><td><span class="badge {% if ev.severity == 'critical' %}bad{% else %}warn{% endif %}">{{ ev.severity }}</span></td><td>{{ ev.event_type }}</td></tr>
                 {% empty %}
                 <tr><td colspan="3"><div class="empty-state"><i class="fa-solid fa-shield-halved"></i><span>No warnings or critical events recorded.</span></div></td></tr>
                 {% endfor %}
@@ -149,7 +149,7 @@
             <thead><tr><th>When</th><th>Actor</th><th>Action</th><th>Target</th></tr></thead>
             <tbody>
                 {% for log in recent_audit %}
-                <tr><td>{{ log.created_at|date:"M j, H:i" }}</td><td>{{ log.actor.username|default:"-" }}</td><td>{{ log.action }}</td><td>{{ log.target_user.username|default:"-" }}</td></tr>
+                <tr><td><time class="local-time" datetime="{{ log.created_at|date:'c' }}" data-format="datetime-short">{{ log.created_at|date:"M j, H:i" }}</time></td><td>{{ log.actor.username|default:"-" }}</td><td>{{ log.action }}</td><td>{{ log.target_user.username|default:"-" }}</td></tr>
                 {% empty %}
                 <tr><td colspan="4"><div class="empty-state"><i class="fa-solid fa-clipboard-list"></i><span>No admin actions yet.</span></div></td></tr>
                 {% endfor %}

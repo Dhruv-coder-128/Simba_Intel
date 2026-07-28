@@ -89,7 +89,7 @@
                 } else {
                     emptyEl.style.display = 'none';
                     feedEl.innerHTML = data.feed.map(item => {
-                        const time = new Date(item.at).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', second: '2-digit', timeZone: '{{ user_timezone }}' });
+                        const time = new Date(item.at).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', second: '2-digit' });
                         const color = item.severity === 'critical' ? 'var(--accent)' : (item.severity === 'warning' ? 'var(--warn)' : 'var(--text-dim)');
                         return `<li class="live-feed-item"><span style="color:${color};">${item.text}</span><span style="color:var(--text-dim);">${time}</span></li>`;
                     }).join('');

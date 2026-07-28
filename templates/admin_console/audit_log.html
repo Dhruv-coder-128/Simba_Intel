@@ -28,7 +28,7 @@
         <tbody>
             {% for log in page %}
             <tr>
-                <td>{{ log.created_at|date:"M j, Y H:i:s" }}</td>
+                <td><time class="local-time" datetime="{{ log.created_at|date:'c' }}" data-format="datetime-long">{{ log.created_at|date:"M j, Y H:i:s" }}</time></td>
                 <td>{{ log.actor.username|default:"system" }}</td>
                 <td><span class="badge warn">{{ log.action }}</span></td>
                 <td>{% if log.target_user %}<a href="{% url 'admin_user_detail' log.target_user.id %}" style="color:var(--accent);">{{ log.target_user.username }}</a>{% else %}-{% endif %}</td>

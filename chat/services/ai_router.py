@@ -6,6 +6,36 @@ from chat.services.model_registry import get_model_config, get_fallback_chain
 
 logger = logging.getLogger("simba_intel")
 
+SAFETY_INSTRUCTION = """
+You must remain respectful and professional regardless of the user's language.
+Never retaliate, mirror, imitate, endorse, or unnecessarily repeat profanity, slurs, vulgarity, degrading insults, abusive nicknames, or sexually degrading language directed at any person.
+If abusive wording is irrelevant to the user's actual question, ignore it and answer the underlying question normally.
+Never attach an insult supplied by the user to a person's name, title, identity, occupation, relationship, or description.
+When referring to SIMBA's creator/developer/team or any other person, always use neutral and respectful wording.
+Do not become hostile merely because the user is hostile.
+""".strip()
+
+def _inject_safety_instruction(messages: list[Dict[str, Any]]) -> list[Dict[str, Any]]:
+    if not messages:
+        return messages
+    
+    injected_messages = []
+    system_found = False
+    
+    for msg in messages:
+        if not system_found and msg.get("role") == "system":
+            new_msg = dict(msg)
+            new_msg["content"] = f"{new_msg.get('content', '')}\n\n{SAFETY_INSTRUCTION}"
+            injected_messages.append(new_msg)
+            system_found = True
+        else:
+            injected_messages.append(dict(msg))
+            
+    if not system_found:
+        injected_messages.insert(0, {"role": "system", "content": SAFETY_INSTRUCTION})
+        
+    return injected_messages
+
 
 def chat_stream(
     model_id: str,
@@ -14,7 +44,8 @@ def chat_stream(
 ) -> Generator[str, None, None]:
     model_config = get_model_config(model_id)
     provider = get_provider(model_config.provider)
-    return provider.chat_stream(messages, model_config.actual_model, **kwargs)
+    safe_messages = _inject_safety_instruction(messages)
+    return provider.chat_stream(safe_messages, model_config.actual_model, **kwargs)
 
 
 def chat_stream_with_failover(
@@ -50,6 +81,7 @@ def chat_stream_with_failover(
     """
     candidates = [model_id] + get_fallback_chain(model_id)
     last_error: Optional[Exception] = None
+    safe_messages = _inject_safety_instruction(messages)
 
     for candidate in candidates:
         model_config = get_model_config(candidate)
@@ -57,7 +89,7 @@ def chat_stream_with_failover(
 
         for attempt in range(retries_per_model):
             try:
-                gen = provider.chat_stream(messages, model_config.actual_model, **kwargs)
+                gen = provider.chat_stream(safe_messages, model_config.actual_model, **kwargs)
                 first_chunk = next(gen)
             except StopIteration:
                 # A real, successful call that just produced no tokens - not
@@ -87,7 +119,8 @@ def chat(
 ) -> str:
     model_config = get_model_config(model_id)
     provider = get_provider(model_config.provider)
-    return provider.chat(messages, model_config.actual_model, **kwargs)
+    safe_messages = _inject_safety_instruction(messages)
+    return provider.chat(safe_messages, model_config.actual_model, **kwargs)
 
 
 def vision(
@@ -97,7 +130,8 @@ def vision(
 ) -> str:
     model_config = get_model_config(model_id)
     provider = get_provider(model_config.provider)
-    return provider.vision(messages, model_config.actual_model, **kwargs)
+    safe_messages = _inject_safety_instruction(messages)
+    return provider.vision(safe_messages, model_config.actual_model, **kwargs)
 
 
 def supports_real_usage(model_id: str) -> bool:

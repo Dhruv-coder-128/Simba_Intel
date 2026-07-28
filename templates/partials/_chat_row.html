@@ -1,7 +1,7 @@
 {% load l10n %}
 <div class="chat-item-container {% if s.id|stringformat:'s' == current_session.id|stringformat:'s' %}active-chat{% endif %}"
      data-session-id="{{ s.id }}"
-     data-date-group="{{ s.date_group|default:'today' }}"
+     data-created-at="{{ s.created_at|date:'c' }}"
      data-pinned="{{ s.is_pinned|yesno:'1,0' }}"
      data-favorite="{{ s.is_favorite|yesno:'1,0' }}"
      data-archived="{{ s.is_archived|yesno:'1,0' }}"
