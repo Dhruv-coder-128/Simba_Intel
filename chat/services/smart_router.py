@@ -23,6 +23,7 @@ _SIMPLE_GREETINGS = (
     "hi", "hello", "hey", "thanks", "thank you", "ok", "okay", "yo", "sup",
 )
 
+OX_ALPHA_MODEL = "ox-alpha"
 FAST_MODEL = "nova-mind"
 CAPABLE_MODEL = "cyber-max"
 VISION_MODEL = "sky-net-mini"
@@ -34,13 +35,19 @@ _SIMPLE_WORD_THRESHOLD = 4
 
 
 def choose_model(user_query: str, has_image_attachments: bool, default_model_id: str) -> str:
-    """Resolves "auto" to one real, registered model_id. `default_model_id`
-    is the user's own Settings > General default - used as the fallback for
-    anything that isn't clearly simple/complex/vision, so "Auto" still
-    respects the user's own taste rather than always converging on one model.
+    """Resolves "auto" to one real, registered model_id. Ox Alpha has FIRST priority
+    as the primary intelligence/decision-making model.
     """
     if has_image_attachments:
-        return VISION_MODEL if VISION_MODEL in MODEL_REGISTRY else default_model_id
+        return VISION_MODEL if VISION_MODEL in MODEL_REGISTRY else (default_model_id or OX_ALPHA_MODEL)
+
+    # 1. Ox Alpha is ALWAYS first priority for Auto (Smart Routing)
+    if OX_ALPHA_MODEL in MODEL_REGISTRY:
+        return OX_ALPHA_MODEL
+
+    # 2. User's configured default model if registered
+    if default_model_id in MODEL_REGISTRY:
+        return default_model_id
 
     query = (user_query or "").strip()
     query_lower = query.lower()
@@ -52,8 +59,6 @@ def choose_model(user_query: str, has_image_attachments: bool, default_model_id:
     if word_count <= _SIMPLE_WORD_THRESHOLD or query_lower.strip(" !.?") in _SIMPLE_GREETINGS:
         return FAST_MODEL if FAST_MODEL in MODEL_REGISTRY else default_model_id
 
-    if default_model_id in MODEL_REGISTRY:
-        return default_model_id
     return CAPABLE_MODEL
 
 

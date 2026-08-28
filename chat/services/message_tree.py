@@ -112,6 +112,8 @@ def build_display_messages(session: ChatSession) -> List[SimpleNamespace]:
             user_siblings = [
                 m.id for m in children_by_parent[pending_user.parent_id] if m.role == "user"
             ]
+            user_extra = pending_user.extra_data or {}
+            user_attachments = user_extra.get("attachments", [])
             display.append(SimpleNamespace(
                 id=node.id,
                 user_message_id=pending_user.id,
@@ -119,6 +121,8 @@ def build_display_messages(session: ChatSession) -> List[SimpleNamespace]:
                 ai_response=node.content,
                 latency=node.latency,
                 extra_data=node.extra_data,
+                user_extra_data=user_extra,
+                user_attachments=user_attachments,
                 assistant_sibling_ids=assistant_siblings,
                 assistant_sibling_index=(
                     assistant_siblings.index(node.id) + 1 if node.id in assistant_siblings else 1
@@ -168,6 +172,7 @@ def append_turn(
     assistant_extra_data: Optional[dict] = None,
     latency: Optional[float] = None,
     parent=_UNSET,
+    user_extra_data: Optional[dict] = None,
 ) -> tuple[Message, Message]:
     """Append a new user+assistant turn to the tree and advance the active
     leaf to the new assistant node.
@@ -181,7 +186,9 @@ def append_turn(
     """
     if parent is _UNSET:
         parent = session.active_leaf
-    user_msg = create_message(session, "user", user_content, parent=parent)
+    user_msg = create_message(
+        session, "user", user_content, parent=parent, extra_data=user_extra_data
+    )
     assistant_msg = create_message(
         session, "assistant", assistant_content,
         parent=user_msg, extra_data=assistant_extra_data, latency=latency,

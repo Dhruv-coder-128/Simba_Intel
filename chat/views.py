@@ -1,5 +1,6 @@
 
 import base64
+import json
 import os
 import re
 import time
@@ -12,9 +13,9 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
-from django.http import StreamingHttpResponse, JsonResponse
+from django.http import StreamingHttpResponse, JsonResponse, FileResponse, Http404
 from django.shortcuts import render, redirect, get_object_or_404
-from django.template.loader import render_to_string
+from django.views.decorators.clickjacking import xframe_options_sameorigin
 from django.conf import settings
 from django.db import models
 from django.urls import reverse
@@ -27,7 +28,10 @@ try:
 except ImportError:
     GPUtil_AVAILABLE = False
 
-from chat.models import ChatSession, Message, UserProfile, UsageEvent, RecoveryCode, Broadcast, UserSession, SecurityEvent, FeatureFlag
+from chat.models import (
+    ChatSession, Message, MessageAttachment, UserProfile, UsageEvent,
+    RecoveryCode, Broadcast, UserSession, SecurityEvent, FeatureFlag,
+)
 from chat.services.ai_router import chat_stream_with_failover, vision as ai_vision
 from chat.services.image_router import generate_image
 from chat.services.memory import build_messages, messages_to_history_dicts, SYSTEM_PROMPT
@@ -41,7 +45,9 @@ from chat.services.message_tree import (
     append_turn, build_display_messages, regenerate_assistant_reply, set_active_leaf, walk_chain_from,
 )
 from chat.services.message_stats import build_stats
-from chat.services.model_registry import list_available_models, get_model_config, is_model_allowed_for_user
+from chat.services.model_registry import (
+    MODEL_REGISTRY, list_available_models, get_model_config, is_model_allowed_for_user,
+)
 from chat.services.searxng import searxng_web_search, searxng_image_search
 from chat.services.smart_router import resolve_model_id
 from chat.services.usage import record_usage, record_failure, check_rate_limit, check_daily_limit
@@ -50,6 +56,13 @@ from chat.utils.logger import SimbaLogger
 from chat.utils.request_info import client_ip, raw_user_agent
 
 from chat.file_analyzer import analyze_file
+from chat.agent.controller import default_agent_controller
+from chat.agent.fast_router import default_fast_router
+from chat.agent_views import (
+    agent_connect_view, agent_poll_view, agent_result_view,
+    agent_heartbeat_view, agent_disconnect_view,
+    agent_status_view, agent_regenerate_token_view,
+)
 
 # Loaded once at import time (not per-request) - the same sorted list backs
 # both the Settings > General timezone <select> and server-side validation
@@ -63,7 +76,15 @@ logger = SimbaLogger()
 User = get_user_model()
 
 ALLOWED_IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".gif", ".bmp"}
-ALLOWED_UPLOAD_EXTENSIONS = {".pdf", ".csv", ".txt"} | ALLOWED_IMAGE_EXTENSIONS
+ALLOWED_DOCUMENT_EXTENSIONS = {
+    ".pdf", ".csv", ".tsv", ".txt", ".md", ".json", ".xml", ".yaml", ".yml",
+    ".log", ".env", ".sql", ".ini", ".cfg", ".conf", ".toml",
+    ".py", ".js", ".jsx", ".ts", ".tsx", ".html", ".css", ".scss", ".sass",
+    ".java", ".c", ".cpp", ".cc", ".cxx", ".h", ".hpp", ".cs", ".rs", ".go",
+    ".php", ".rb", ".swift", ".kt", ".sh", ".bash", ".zsh", ".bat", ".ps1",
+    ".doc", ".docx",
+}
+ALLOWED_UPLOAD_EXTENSIONS = ALLOWED_DOCUMENT_EXTENSIONS | ALLOWED_IMAGE_EXTENSIONS
 MAX_UPLOAD_SIZE_BYTES = 10 * 1024 * 1024  # 10 MB per file
 MAX_ATTACHMENTS_PER_MESSAGE = 6
 
@@ -75,6 +96,56 @@ IMAGE_MIME_TYPES = {
     ".gif": "image/gif",
     ".bmp": "image/bmp",
 }
+
+MIME_TYPE_MAP = {
+    ".png": "image/png",
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".webp": "image/webp",
+    ".gif": "image/gif",
+    ".bmp": "image/bmp",
+    ".pdf": "application/pdf",
+    ".csv": "text/csv",
+    ".tsv": "text/tab-separated-values",
+    ".txt": "text/plain",
+    ".json": "application/json",
+    ".xml": "application/xml",
+    ".html": "text/html",
+    ".css": "text/css",
+    ".js": "application/javascript",
+    ".ts": "text/typescript",
+    ".py": "text/x-python",
+    ".java": "text/x-java-source",
+    ".cpp": "text/x-c++src",
+    ".c": "text/x-csrc",
+    ".h": "text/x-chdr",
+    ".rs": "text/x-rustsrc",
+    ".go": "text/x-go",
+    ".php": "text/x-php",
+    ".rb": "text/x-ruby",
+    ".sh": "application/x-sh",
+    ".sql": "application/sql",
+    ".md": "text/markdown",
+    ".yaml": "text/yaml",
+    ".yml": "text/yaml",
+    ".log": "text/plain",
+    ".env": "text/plain",
+}
+
+
+def _get_file_type(ext: str) -> str:
+    ext = ext.lower()
+    if ext in ALLOWED_IMAGE_EXTENSIONS:
+        return "image"
+    if ext == ".pdf":
+        return "pdf"
+    if ext in {".py", ".js", ".jsx", ".ts", ".tsx", ".html", ".css", ".scss", ".sass",
+               ".java", ".c", ".cpp", ".cc", ".cxx", ".h", ".hpp", ".cs", ".rs", ".go",
+               ".php", ".rb", ".swift", ".kt", ".sh", ".bash", ".zsh", ".bat", ".ps1", ".sql"}:
+        return "code"
+    if ext in {".txt", ".md", ".json", ".xml", ".yaml", ".yml", ".log", ".env", ".csv", ".tsv", ".ini", ".cfg", ".conf", ".toml"}:
+        return "text"
+    return "file"
 
 
 def _validate_attachment(attachment):
@@ -88,19 +159,48 @@ def _validate_attachment(attachment):
     return safe_name, ext, None
 
 
-def _extract_attachment_text(attachment, safe_name, ext):
-    """Save an uploaded file transiently, run it through file_analyzer, then delete it."""
+def _save_attachment_record(attachment, session, user, safe_name, ext):
+    """Persists an uploaded attachment to a MessageAttachment database record and media storage."""
+    file_type = _get_file_type(ext)
+    mime = MIME_TYPE_MAP.get(ext, getattr(attachment, "content_type", "") or "application/octet-stream")
+    record = MessageAttachment(
+        session=session,
+        user=user,
+        original_name=safe_name,
+        file_size=attachment.size,
+        mime_type=mime,
+        file_type=file_type,
+    )
+    record.file.save(safe_name, attachment, save=False)
+    record.save()
+    return record
+
+
+def _extract_attachment_text(attachment_or_record, safe_name, ext):
+    """Extract text from an uploaded file or persistent MessageAttachment."""
+    if hasattr(attachment_or_record, "file") and hasattr(attachment_or_record.file, "path"):
+        try:
+            if os.path.exists(attachment_or_record.file.path):
+                return analyze_file(attachment_or_record.file.path)
+        except Exception:
+            pass
+
     save_dir = os.path.join(settings.BASE_DIR, "uploads")
     os.makedirs(save_dir, exist_ok=True)
     save_path = os.path.join(save_dir, f"{uuid.uuid4().hex}{ext}")
-    with open(save_path, "wb+") as f:
-        for chunk in attachment.chunks():
-            f.write(chunk)
     try:
+        with open(save_path, "wb+") as f:
+            if hasattr(attachment_or_record, "chunks"):
+                for chunk in attachment_or_record.chunks():
+                    f.write(chunk)
+            elif hasattr(attachment_or_record, "file"):
+                attachment_or_record.file.seek(0)
+                f.write(attachment_or_record.file.read())
         return analyze_file(save_path)
     finally:
         try:
-            os.remove(save_path)
+            if os.path.exists(save_path):
+                os.remove(save_path)
         except OSError:
             pass
 
@@ -312,7 +412,14 @@ def chat_home(request):
             messages = build_display_messages(current_session)
         except Exception:
             current_session = None
-    selected_model = request.session.get("selected_model", profile.default_model)
+
+    if current_session:
+        selected_model = request.session.get(f"session_model_{current_session.id}", request.session.get("selected_model", profile.default_model))
+    else:
+        # Genuinely new session: default to Ox Alpha (profile.default_model)
+        selected_model = profile.default_model
+        request.session["selected_model"] = selected_model
+
     models = list_available_models()
     # `active=True` alone isn't "currently showing" - starts_at/ends_at can
     # still make it scheduled-for-later or expired; there's normally at most
@@ -800,8 +907,8 @@ def ask_ai(request):
                 {"type": "error", "message": "You're sending requests too quickly. Please wait a moment and try again."},
                 status=429
             )
-        user_query = request.POST.get('query', '').strip()
-        model_id = request.POST.get('model_id', 'quantum-core')
+        profile = UserProfile.get_or_create_for(request.user)
+        model_id = request.POST.get('model_id') or profile.default_model
         session_id = request.POST.get('session_id')
         attachments = request.FILES.getlist('attachment')
         # Session remembers the literal "auto" choice (so Auto mode stays
@@ -810,8 +917,10 @@ def ask_ai(request):
         # below, so every line after this block can keep treating it as one
         # exactly like before Smart Routing existed.
         request.session["selected_model"] = model_id
+        if session_id and session_id not in ["null", "None", ""]:
+            request.session[f"session_model_{session_id}"] = model_id
         request.session.modified = True
-        profile = UserProfile.get_or_create_for(request.user)
+        user_query = request.POST.get('query', '').strip()
         if model_id.lower() == "auto":
             has_image_attachment = any(
                 os.path.splitext(att.name)[1].lower() in ALLOWED_IMAGE_EXTENSIONS
@@ -864,6 +973,7 @@ def ask_ai(request):
                 upload_disabled_response["X-Session-ID"] = str(session.id)
                 return upload_disabled_response
 
+            saved_attachments = []
             if attachments:
                 validated = []  # list of (attachment, safe_name, ext)
                 for att in attachments:
@@ -875,6 +985,10 @@ def ask_ai(request):
                         attach_response["X-Session-ID"] = str(session.id)
                         return attach_response
                     validated.append((att, safe_name, ext))
+
+                for att, safe_name, ext in validated:
+                    record = _save_attachment_record(att, session, request.user, safe_name, ext)
+                    saved_attachments.append(record)
 
                 image_files = [v for v in validated if v[2] in ALLOWED_IMAGE_EXTENSIONS]
                 doc_files = [v for v in validated if v[2] not in ALLOWED_IMAGE_EXTENSIONS]
@@ -906,9 +1020,10 @@ def ask_ai(request):
                     # in a single multi-image message.
                     try:
                         text_parts = []
-                        for att, safe_name, ext in doc_files:
-                            extracted = _extract_attachment_text(att, safe_name, ext)
-                            text_parts.append(f"--- Attached file: {safe_name} ---\n{extracted}\n--- End attachment ---")
+                        for rec in saved_attachments:
+                            if rec.file_type != "image":
+                                extracted = _extract_attachment_text(rec, rec.original_name, os.path.splitext(rec.original_name)[1].lower())
+                                text_parts.append(f"--- Attached file: {rec.original_name} ---\n{extracted}\n--- End attachment ---")
                         text_parts.append(user_query or (
                             "Describe this image." if len(image_files) == 1 else "Describe these images."
                         ))
@@ -916,13 +1031,18 @@ def ask_ai(request):
                         content = [{"type": "text", "text": "\n\n".join(text_parts)}]
                         image_previews = []
                         filenames = []
-                        for att, safe_name, ext in image_files:
-                            image_bytes = att.read()
-                            mime = IMAGE_MIME_TYPES.get(ext, "image/jpeg")
-                            data_uri = f"data:{mime};base64,{base64.b64encode(image_bytes).decode('utf-8')}"
-                            content.append({"type": "image_url", "image_url": {"url": data_uri}})
-                            image_previews.append(data_uri)
-                            filenames.append(safe_name)
+                        for rec in saved_attachments:
+                            if rec.file_type == "image":
+                                try:
+                                    rec.file.seek(0)
+                                    image_bytes = rec.file.read()
+                                except Exception:
+                                    image_bytes = b""
+                                mime = rec.mime_type or "image/jpeg"
+                                data_uri = f"data:{mime};base64,{base64.b64encode(image_bytes).decode('utf-8')}"
+                                content.append({"type": "image_url", "image_url": {"url": data_uri}})
+                                image_previews.append(rec.to_dict()["url"])
+                                filenames.append(rec.original_name)
 
                         vision_messages = [
                             {"role": "system", "content": SYSTEM_PROMPT},
@@ -945,19 +1065,21 @@ def ask_ai(request):
                             streaming=False, is_vision=True, memory_used=False,
                         )
 
-                        _user_msg, assistant_msg = append_turn(
+                        attachment_dicts = [r.to_dict() for r in saved_attachments]
+                        user_msg, assistant_msg = append_turn(
                             session, display_query, vision_text,
+                            user_extra_data={"attachments": attachment_dicts},
                             assistant_extra_data={
                                 "type": "vision",
                                 "filenames": filenames,
                                 "image_previews": image_previews,
-                                # kept for backward compatibility with older rendered history
                                 "filename": filenames[0],
-                                "image_preview": image_previews[0],
+                                "image_preview": image_previews[0] if image_previews else "",
                                 "stats": stats,
                             },
                             latency=latency,
                         )
+                        MessageAttachment.objects.filter(id__in=[r.id for r in saved_attachments]).update(message=user_msg)
                         record_usage(
                             request.user, session, model_config.provider, model_id, "vision",
                             prompt_text=display_query, completion_text=vision_text,
@@ -974,6 +1096,7 @@ def ask_ai(request):
                             "response": vision_text,
                             "image_previews": image_previews,
                             "filenames": filenames,
+                            "attachments": attachment_dicts,
                             "message_id": assistant_msg.id,
                         })
                         vision_response["X-Session-ID"] = str(session.id)
@@ -999,11 +1122,13 @@ def ask_ai(request):
                     # attachment (OCR for images, direct extraction for documents) and
                     # fold it into the conversation as context for the normal chat flow.
                     extracted_blocks = []
-                    for att, safe_name, ext in validated:
-                        extracted = _extract_attachment_text(att, safe_name, ext)
-                        extracted_blocks.append(f"--- Attached file: {safe_name} ---\n{extracted}\n--- End attachment ---")
+                    for rec in saved_attachments:
+                        extracted = _extract_attachment_text(rec, rec.original_name, os.path.splitext(rec.original_name)[1].lower())
+                        extracted_blocks.append(f"--- Attached file: {rec.original_name} ---\n{extracted}\n--- End attachment ---")
                     context_block = "\n\n".join(extracted_blocks)
-                    user_query = f"{context_block}\n\n{user_query}" if user_query else context_block
+                    user_query_for_model = f"{context_block}\n\n{user_query}" if user_query else context_block
+            else:
+                user_query_for_model = user_query
 
             if model_config.supports_image_gen and not is_email_verified(request.user):
                 verify_response = JsonResponse({
@@ -1059,8 +1184,10 @@ def ask_ai(request):
                         streaming=False, is_image_gen=True, memory_used=False,
                     )
                     image_stats["actual_model"] = result["model_used"]
+                    attachment_dicts = [r.to_dict() for r in saved_attachments] if saved_attachments else None
                     _user_msg, assistant_msg = append_turn(
                         session, user_query, "",
+                        user_extra_data={"attachments": attachment_dicts} if attachment_dicts else None,
                         assistant_extra_data={
                             "type": "image",
                             "image_url": result["image_url"],
@@ -1073,6 +1200,8 @@ def ask_ai(request):
                         },
                         latency=result.get("generation_time", 0),
                     )
+                    if saved_attachments:
+                        MessageAttachment.objects.filter(id__in=[r.id for r in saved_attachments]).update(message=_user_msg)
                     record_usage(
                         request.user, session, "pollinations", model_id, "image",
                         prompt_text=user_query, latency=result.get("generation_time", 0),
@@ -1088,6 +1217,7 @@ def ask_ai(request):
                         "height": result["height"],
                         "generation_time": result.get("generation_time", 0),
                         "message_id": assistant_msg.id,
+                        "attachments": attachment_dicts or [],
                     })
                     image_response["X-Session-ID"] = str(session.id)
                     return image_response
@@ -1122,6 +1252,100 @@ def ask_ai(request):
                 limit_response["X-Session-ID"] = str(session.id)
                 return limit_response
 
+            # Desktop Agent execution layer
+            if not attachments and default_agent_controller.can_handle(user_query):
+                def agent_stream_generator():
+                    full_response = ""
+                    start_time = time.time()
+
+                    def synthesize_code_or_text(prompt_text):
+                        gen_messages = [
+                            {"role": "system", "content": "You are a code and text generator. Output ONLY the raw code or text requested. Do not include markdown fences, backticks, conversational preamble, or explanations."},
+                            {"role": "user", "content": prompt_text}
+                        ]
+                        gen_tokens, _, _ = _stream_with_failover(model_id, gen_messages, lambda u: None)
+                        parts = []
+                        for t, is_notice in gen_tokens:
+                            if not is_notice:
+                                parts.append(t)
+                        raw_gen = "".join(parts).strip()
+                        if raw_gen.startswith("```"):
+                            lines = raw_gen.split("\n")
+                            if lines[0].startswith("```"):
+                                lines = lines[1:]
+                            if lines and lines[-1].strip() == "```":
+                                lines = lines[:-1]
+                            raw_gen = "\n".join(lines).strip()
+                        return raw_gen
+
+                    planner_model = "ox-alpha" if "ox-alpha" in MODEL_REGISTRY else model_id
+
+                    def ox_alpha_planner(prompt_text):
+                        gen_messages = [
+                            {"role": "system", "content": "You are SIMBA_INTEL Desktop Agent Planner. Output strictly valid JSON without preamble."},
+                            {"role": "user", "content": prompt_text}
+                        ]
+                        gen_tokens, _, _ = _stream_with_failover(planner_model, gen_messages, lambda u: None)
+                        parts = [t for t, is_notice in gen_tokens if not is_notice]
+                        return "".join(parts).strip()
+
+                    try:
+                        agent_gen = default_agent_controller.execute_and_stream(
+                            user_query,
+                            user_id=request.user.id,
+                            planner_llm_fn=ox_alpha_planner,
+                            text_generator_fn=synthesize_code_or_text,
+                        )
+                        for chunk in agent_gen:
+                            if not chunk.startswith("SIMBA_STATUS:"):
+                                full_response += chunk
+                            yield chunk
+                    except Exception as e:
+                        logger.log_request(
+                            provider=model_config.provider,
+                            latency=time.time() - start_time,
+                            prompt_length=len(user_query),
+                            response_length=len(full_response),
+                            error=str(e)
+                        )
+                        record_failure(request.user, session, model_config.provider, model_id, "agent", latency=time.time() - start_time)
+                        yield "\n\nEncountered an issue executing the desktop action. Please try again."
+                    else:
+                        latency = round(time.time() - start_time, 2)
+                        actual_config = get_model_config(model_id)
+                        if full_response.strip():
+                            is_first_turn = not session.thread.exists()
+                            stats = build_stats(
+                                model_id=model_id, serving_model_id=model_id,
+                                prompt_text=user_query, completion_text=full_response,
+                                start_time=start_time,
+                                streaming=True, memory_used=False,
+                            )
+                            user_msg, assistant_msg = append_turn(
+                                session, user_query, full_response,
+                                assistant_extra_data={"type": "agent_action", "stats": stats},
+                                latency=latency,
+                            )
+                            record_usage(
+                                request.user, session, "local", "agent", "agent",
+                                prompt_text="", completion_text="",
+                                latency=latency,
+                            )
+                            if is_first_turn:
+                                if not session.title or session.title in ["New Chat", "Untitled", "New Conversation"]:
+                                    session.title = user_query.strip().capitalize()[:40]
+                                    session.save(update_fields=["title"])
+                        logger.log_request(
+                            provider="local",
+                            latency=latency,
+                            prompt_length=len(user_query),
+                            response_length=len(full_response)
+                        )
+
+                agent_response = StreamingHttpResponse(agent_stream_generator(), content_type="text/plain")
+                agent_response["X-Session-ID"] = str(session.id)
+                return agent_response
+
             chat_system_prompt = SYSTEM_PROMPT
             memory_used = False
             if profile.memory_enabled:
@@ -1129,14 +1353,14 @@ def ask_ai(request):
                 if memory_context:
                     chat_system_prompt = f"{SYSTEM_PROMPT}\n\n{memory_context}"
                     memory_used = True
-            messages = build_context_messages(session, user_query, chat_system_prompt)
+            messages = build_context_messages(session, user_query_for_model, chat_system_prompt)
             is_search_augmented = False
-            if FeatureFlag.is_enabled('web_search', default=True) and _is_search_query(user_query):
-                search_results = _get_web_search_results(user_query)
+            if FeatureFlag.is_enabled('web_search', default=True) and _is_search_query(user_query_for_model):
+                search_results = _get_web_search_results(user_query_for_model)
                 if search_results:
                     context_str = "\n\n".join([f"- {result['title']}: {result['content']}" for result in search_results])
                     augmented_query = (
-                        f"{user_query}\n\nRelevant search results:\n{context_str}"
+                        f"{user_query_for_model}\n\nRelevant search results:\n{context_str}"
                         "\n\nIf you include an image for a specific product, gift, place, "
                         "animal, or similar item, give it a short, precise caption (used as "
                         "the image's alt text) that names exactly that one item, nothing else."
@@ -1182,14 +1406,23 @@ def ask_ai(request):
                         stats = build_stats(
                             model_id=model_id, serving_model_id=serving["model_id"], resolved=resolved,
                             captured_usage=captured_usage,
-                            prompt_text=user_query, completion_text=full_response,
+                            prompt_text=user_query_for_model, completion_text=full_response,
                             start_time=start_time,
                             first_token_time=first_token_time, streaming=True, memory_used=memory_used,
                         )
-                        append_turn(session, user_query, full_response, assistant_extra_data={"stats": stats}, latency=latency)
+                        attachment_dicts = [r.to_dict() for r in saved_attachments] if saved_attachments else None
+                        clean_user_content = user_query or (f"[{len(saved_attachments)} attachment(s)]" if saved_attachments else "")
+                        user_msg, assistant_msg = append_turn(
+                            session, clean_user_content, full_response,
+                            user_extra_data={"attachments": attachment_dicts} if attachment_dicts else None,
+                            assistant_extra_data={"stats": stats},
+                            latency=latency,
+                        )
+                        if saved_attachments:
+                            MessageAttachment.objects.filter(id__in=[r.id for r in saved_attachments]).update(message=user_msg)
                         record_usage(
                             request.user, session, actual_config.provider, serving["model_id"], "chat",
-                            prompt_text=user_query, completion_text=full_response,
+                            prompt_text=user_query_for_model, completion_text=full_response,
                             captured_usage=captured_usage, latency=latency,
                         )
                         # Both best-effort and non-blocking to the response
@@ -1198,7 +1431,7 @@ def ask_ai(request):
                         # docstrings/try-excepts in conversation_memory.py
                         # and conversation_intelligence.py).
                         if is_first_turn:
-                            maybe_generate_smart_title(session, user_query, full_response)
+                            maybe_generate_smart_title(session, user_query_for_model, full_response)
                         maybe_summarize_session(session)
                         if profile.memory_enabled:
                             extract_and_store_facts(request.user, session)
@@ -1311,11 +1544,10 @@ def regenerate_message(request, message_id):
         Message.objects.select_related('session', 'parent'),
         id=message_id, role='assistant', session__user=request.user,
     )
-    session = old_msg.session
-    model_id = request.POST.get('model_id') or request.session.get('selected_model', 'quantum-core')
+    routing_profile = UserProfile.get_or_create_for(request.user)
+    model_id = request.POST.get('model_id') or request.session.get('selected_model', routing_profile.default_model)
     user_query = old_msg.parent.content if old_msg.parent else ""
     if model_id.lower() == "auto":
-        routing_profile = UserProfile.get_or_create_for(request.user)
         model_id = resolve_model_id(model_id, user_query, False, routing_profile.default_model)
 
     try:
@@ -1412,9 +1644,9 @@ def edit_message(request, message_id):
     if not new_content:
         return JsonResponse({"response": "Query cannot be empty"}, status=400)
 
-    model_id = request.POST.get('model_id') or request.session.get('selected_model', 'quantum-core')
+    routing_profile = UserProfile.get_or_create_for(request.user)
+    model_id = request.POST.get('model_id') or request.session.get('selected_model', routing_profile.default_model)
     if model_id.lower() == "auto":
-        routing_profile = UserProfile.get_or_create_for(request.user)
         model_id = resolve_model_id(model_id, new_content, False, routing_profile.default_model)
 
     try:
@@ -1820,10 +2052,10 @@ def continue_message(request, message_id):
         id=message_id, role='assistant', session__user=request.user,
     )
     session = old_msg.session
-    model_id = request.POST.get('model_id') or request.session.get('selected_model', 'quantum-core')
+    routing_profile = UserProfile.get_or_create_for(request.user)
+    model_id = request.POST.get('model_id') or request.session.get('selected_model', routing_profile.default_model)
     user_query = old_msg.parent.content if old_msg.parent else ""
     if model_id.lower() == "auto":
-        routing_profile = UserProfile.get_or_create_for(request.user)
         model_id = resolve_model_id(model_id, user_query, False, routing_profile.default_model)
 
     try:
@@ -2239,8 +2471,11 @@ def upload_file(request):
 def update_model_session(request):
     if request.method == "GET":
         model_id = request.GET.get('model_id')
+        session_id = request.GET.get('session_id')
         if model_id:
             request.session['selected_model'] = model_id
+            if session_id and session_id not in ["null", "None", ""]:
+                request.session[f'session_model_{session_id}'] = model_id
             request.session.modified = True
             return JsonResponse({
                 "status": "success",
@@ -2416,6 +2651,68 @@ def regenerate_recovery_code(request):
     return JsonResponse({"status": "ok", "redirect": reverse("recovery_code_display")})
 
 
+@login_required
+def update_reaction(request):
+    """Update reaction counts for messages via AJAX"""
+    if request.method != "POST":
+        return JsonResponse({"error": "Invalid request"}, status=400)
+    
+    try:
+        data = json.loads(request.body)
+        message_id = data.get('message_id')
+        role = data.get('role')  # 'user' or 'assistant'
+        reaction = data.get('reaction')
+        
+        if not all([message_id, role, reaction]):
+            return JsonResponse({"error": "Missing required parameters"}, status=400)
+        
+        # Get the message object
+        if role == 'user':
+            # For user messages, we need to find by user_message_id in ChatMessage
+            # But since we're using the new Message model, we'll look in Message
+            message = Message.objects.get(id=message_id, session__user=request.user)
+        elif role == 'assistant':
+            message = Message.objects.get(id=message_id, session__user=request.user)
+        else:
+            return JsonResponse({"error": "Invalid role"}, status=400)
+        
+        # Initialize reactions in extra_data if not present
+        if not message.extra_data:
+            message.extra_data = {}
+        if 'reactions' not in message.extra_data:
+            message.extra_data['reactions'] = {}
+        
+        # Toggle the reaction
+        current_count = message.extra_data['reactions'].get(reaction, 0)
+        if reaction in message.extra_data['reactions']:
+            # Reaction already exists, remove it (toggle off)
+            new_count = current_count - 1
+            if new_count <= 0:
+                del message.extra_data['reactions'][reaction]
+            else:
+                message.extra_data['reactions'][reaction] = new_count
+        else:
+            # Reaction doesn't exist, add it (toggle on)
+            message.extra_data['reactions'][reaction] = current_count + 1
+        
+        message.save()
+        
+        # Return the updated count
+        new_count = message.extra_data['reactions'].get(reaction, 0)
+        return JsonResponse({
+            "success": True,
+            "reaction": reaction,
+            "count": new_count
+        })
+        
+    except Message.DoesNotExist:
+        return JsonResponse({"error": "Message not found"}, status=404)
+    except json.JSONDecodeError:
+        return JsonResponse({"error": "Invalid JSON"}, status=400)
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+
+
 _RECOVERY_CODE_NEXT_URLS = {"home": "home", "login": "account_login", "settings": "profile_settings"}
 
 
@@ -2440,3 +2737,114 @@ def recovery_code_display(request):
     return render(request, "account/recovery_code_display.html", {
         "recovery_code": raw_code, "next_key": next_key,
     })
+
+
+@login_required
+@xframe_options_sameorigin
+def serve_attachment(request, attachment_id):
+    """Serves a stored attachment file with authentication, permission checks, and inline frame support."""
+    try:
+        attachment = get_object_or_404(MessageAttachment, id=attachment_id)
+        if attachment.user != request.user and not (request.user.is_staff or request.user.is_superuser):
+            return JsonResponse({"error": "Unauthorized"}, status=403)
+        if not attachment.file or not attachment.file.storage.exists(attachment.file.name):
+            raise Http404("Attachment file not found")
+
+        file_handle = attachment.file.open("rb")
+        mime = attachment.mime_type or "application/octet-stream"
+        response = FileResponse(file_handle, content_type=mime)
+        
+        force_download = request.GET.get("download") in ("1", "true", "yes")
+        disposition = "attachment" if (force_download or attachment.file_type not in ("image", "pdf", "text", "code")) else "inline"
+        
+        response["Content-Disposition"] = f'{disposition}; filename="{attachment.original_name}"'
+        response["X-Frame-Options"] = "SAMEORIGIN"
+        return response
+    except Exception as e:
+        if isinstance(e, Http404):
+            raise
+        logger.warning(f"Failed to serve attachment {attachment_id}: {e}")
+        raise Http404("Attachment not found")
+
+
+@login_required
+def attachment_content(request, attachment_id):
+    """Returns readable text content or file metadata for modal viewer."""
+    try:
+        attachment = get_object_or_404(MessageAttachment, id=attachment_id)
+        if attachment.user != request.user and not (request.user.is_staff or request.user.is_superuser):
+            return JsonResponse({"status": "error", "message": "Unauthorized"}, status=403)
+        if not attachment.file or not attachment.file.storage.exists(attachment.file.name):
+            return JsonResponse({"status": "error", "message": "Attachment file not found"}, status=404)
+
+        if attachment.file_type == "image":
+            return JsonResponse({
+                "status": "success",
+                "file_type": "image",
+                "name": attachment.original_name,
+                "size": attachment.file_size,
+                "mime_type": attachment.mime_type,
+                "url": f"/attachments/{attachment.id}/",
+            })
+
+        if attachment.file_type in ("text", "code", "pdf") or (attachment.mime_type and attachment.mime_type.startswith("text/")):
+            # Read text (up to 500KB for preview/viewer)
+            try:
+                with attachment.file.open("rb") as f:
+                    raw_bytes = f.read(500 * 1024)
+                text = raw_bytes.decode("utf-8", errors="replace")
+                truncated = attachment.file_size > len(raw_bytes)
+                return JsonResponse({
+                    "status": "success",
+                    "file_type": attachment.file_type,
+                    "name": attachment.original_name,
+                    "size": attachment.file_size,
+                    "mime_type": attachment.mime_type,
+                    "content": text,
+                    "truncated": truncated,
+                    "url": f"/attachments/{attachment.id}/",
+                })
+            except Exception as e:
+                return JsonResponse({
+                    "status": "error",
+                    "message": f"Could not read text content: {e}",
+                    "url": f"/attachments/{attachment.id}/",
+                })
+
+        return JsonResponse({
+            "status": "success",
+            "file_type": "file",
+            "name": attachment.original_name,
+            "size": attachment.file_size,
+            "mime_type": attachment.mime_type,
+            "url": f"/attachments/{attachment.id}/",
+        })
+    except Exception as e:
+        return JsonResponse({"status": "error", "message": str(e)}, status=500)
+
+
+@login_required
+def agent_confirm_action(request):
+    """Executes a confirmed sensitive agent tool on behalf of the user."""
+    if request.method != "POST":
+        return JsonResponse({"success": False, "error": "POST request required."}, status=405)
+
+    tool_name = request.POST.get("tool_name", "").strip()
+    raw_args = request.POST.get("args", "{}")
+
+    try:
+        args = json.loads(raw_args) if isinstance(raw_args, str) else raw_args
+    except Exception:
+        return JsonResponse({"success": False, "error": "Invalid arguments format."}, status=400)
+
+    # Automatically set confirmed/overwrite flags for confirmed sensitive actions
+    if isinstance(args, dict):
+        if "confirmed" in args or tool_name in ["delete_file", "delete_folder"]:
+            args["confirmed"] = True
+        if "overwrite" in args or tool_name in ["write_file", "edit_file", "move_file", "copy_file"]:
+            args["overwrite"] = True
+
+    result = default_agent_controller.executor.execute_tool(tool_name, args)
+    return JsonResponse(result.to_dict())
+
+

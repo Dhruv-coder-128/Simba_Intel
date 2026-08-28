@@ -135,8 +135,8 @@ def vision(
 
 
 def supports_real_usage(model_id: str) -> bool:
-    """True if this model's provider can report real token usage (currently
-    only Mistral, verified against its OpenAI-compatible stream_options
-    support) - everything else falls back to a text-length estimate."""
+    """True if this model's provider can report real token usage (Mistral and
+    OpenRouter via OpenAI-compatible stream_options support) - everything else
+    falls back to a text-length estimate."""
     model_config = get_model_config(model_id)
-    return model_config.provider == "mistral"
+    return model_config.provider in ("mistral", "openrouter")

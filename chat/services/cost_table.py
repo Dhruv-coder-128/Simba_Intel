@@ -14,6 +14,7 @@ MODEL_COSTS: Dict[str, Dict[str, float]] = {
     "sky-net": {"input_per_1k": 0.002, "output_per_1k": 0.006},          # mistral-large
     "sky-net-mini": {"input_per_1k": 0.0004, "output_per_1k": 0.002},    # mistral-medium
     "image-studio": {"flat_cost": 0.0},                                  # pollinations (free)
+    "ox-alpha": {"input_per_1k": 0.0, "output_per_1k": 0.0},            # openrouter nvidia/nemotron-3-super-120b-a12b:free
 }
 
 DEFAULT_COST = {"input_per_1k": 0.0, "output_per_1k": 0.0}

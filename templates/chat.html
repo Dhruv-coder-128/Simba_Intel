@@ -51,7 +51,116 @@
             --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.55);
             --shadow-glow: 0 0 0 1px rgba(var(--accent-rgb), 0.12), 0 8px 24px rgba(0, 0, 0, 0.5);
         }
-
+        
+        /* Message Reactions */
+        .message-reactions {
+            display: flex;
+            gap: 6px;
+            margin-top: 8px;
+            padding: 4px 0;
+        }
+        
+        .reaction-button {
+            background: rgba(var(--accent-rgb), 0.08);
+            border: 1px solid rgba(var(--accent-rgb), 0.2);
+            border-radius: var(--radius-sm);
+            color: var(--accent);
+            font-size: 18px;
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .reaction-button:hover {
+            background: rgba(var(--accent-rgb), 0.15);
+            border-color: rgba(var(--accent-rgb), 0.3);
+            transform: scale(1.1);
+        }
+        
+        .reaction-button.active {
+            background: var(--accent);
+            color: var(--bg);
+            box-shadow: 0 0 0 2px rgba(var(--accent-rgb), 0.3);
+        }
+        
+        .reaction-count {
+            position: absolute;
+            top: -2px;
+            right: -2px;
+            background: var(--accent);
+            color: var(--bg);
+            border-radius: 50%;
+            padding: 0px 4px;
+            font-size: 10px;
+            font-weight: 600;
+            min-width: 18px;
+            height: 18px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        /* Enhanced message styling */
+        .chat-block {
+            margin-bottom: 16px;
+            animation: messageFadeIn 0.3s ease;
+        }
+        
+        @keyframes messageFadeIn {
+            from { opacity: 0; transform: translateY(8px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .content {
+            word-wrap: break-word;
+            line-height: 1.6;
+        }
+        
+        .markdown-content {
+            margin: 12px 0;
+        }
+        
+        /* Avatar styling */
+        .msg-label {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px;
+            font-weight: 600;
+            padding: 4px 8px;
+            background: rgba(var(--accent-rgb), 0.08);
+            border-radius: var(--radius-sm);
+            margin-bottom: 4px;
+        }
+        
+        .msg-label .avatar {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 10px;
+            text-transform: uppercase;
+        }
+        
+        .msg-label .avatar.user {
+            background: var(--accent-dim);
+            color: var(--accent);
+        }
+        
+        .msg-label .avatar.assistant {
+            background: rgba(14, 219, 42, 0.2);
+            color: #0edb2a;
+        }
+        
         /* ================= THEME PRESETS =================
            "cyberpunk" (cyan) is the default, defined in :root above.
            Every rule in this file consumes these custom properties, so
@@ -2903,6 +3012,587 @@
             padding: 2px;
         }
 
+        /* ================= Message Attachments (Cards & Grids) ================= */
+        .message-attachments-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 8px;
+            margin-bottom: 4px;
+        }
+
+        .msg-attachment-card {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 10px;
+            background: rgba(var(--accent-rgb), 0.06);
+            border: 1px solid rgba(var(--accent-rgb), 0.22);
+            border-radius: var(--radius-sm);
+            color: var(--text);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 11px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            max-width: 260px;
+            user-select: none;
+        }
+
+        .msg-attachment-card:hover {
+            background: rgba(var(--accent-rgb), 0.12);
+            border-color: var(--accent);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        }
+
+        .msg-attachment-card.image-card {
+            padding: 4px;
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 4px;
+            max-width: 180px;
+            background: rgba(15, 20, 26, 0.6);
+        }
+
+        .msg-attachment-thumb-wrapper {
+            position: relative;
+            width: 100%;
+            height: 110px;
+            border-radius: 4px;
+            overflow: hidden;
+            background: rgba(0, 0, 0, 0.4);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .msg-attachment-thumb {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transition: transform 0.25s ease;
+        }
+
+        .msg-attachment-card.image-card:hover .msg-attachment-thumb {
+            transform: scale(1.05);
+        }
+
+        .msg-attachment-icon {
+            font-size: 18px;
+            color: var(--accent);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 32px;
+            height: 32px;
+            border-radius: 4px;
+            background: rgba(var(--accent-rgb), 0.1);
+            flex-shrink: 0;
+        }
+
+        .msg-attachment-info {
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            min-width: 0;
+            flex: 1;
+        }
+
+        .msg-attachment-name {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            font-weight: 500;
+            color: var(--text);
+            font-size: 11px;
+        }
+
+        .msg-attachment-size {
+            font-size: 9.5px;
+            color: var(--text-dim);
+            margin-top: 1px;
+        }
+
+        /* ================= Attachment Modals (Lightbox & File Reader) ================= */
+        .attachment-modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(4, 6, 9, 0.85);
+            backdrop-filter: blur(14px);
+            z-index: 100050;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            animation: attachmentFadeIn 0.2s ease;
+        }
+
+        .attachment-modal-overlay.show {
+            display: flex;
+        }
+
+        @keyframes attachmentFadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        .attachment-modal-box {
+            background: var(--surface);
+            border: 1px solid rgba(var(--accent-rgb), 0.3);
+            border-radius: var(--radius-md);
+            box-shadow: 0 16px 48px rgba(0, 0, 0, 0.75), 0 0 20px rgba(var(--accent-rgb), 0.15);
+            display: flex;
+            flex-direction: column;
+            max-width: 90vw;
+            max-height: 88vh;
+            overflow: hidden;
+            animation: attachmentScaleUp 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        @keyframes attachmentScaleUp {
+            from { transform: scale(0.95); opacity: 0; }
+            to { transform: scale(1); opacity: 1; }
+        }
+
+        .attachment-image-box {
+            max-width: 850px;
+            width: auto;
+            background: rgba(10, 12, 16, 0.95);
+        }
+
+        .attachment-reader-box {
+            width: 820px;
+            height: 75vh;
+        }
+
+        .attachment-modal-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 18px;
+            border-bottom: 1px solid var(--border-soft);
+            background: rgba(var(--accent-rgb), 0.04);
+            font-family: 'JetBrains Mono', monospace;
+            gap: 12px;
+        }
+
+        .attachment-modal-title {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: var(--accent);
+            font-size: 12.5px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            min-width: 0;
+        }
+
+        .attachment-modal-actions {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-shrink: 0;
+        }
+
+        .attachment-modal-btn {
+            background: transparent;
+            border: 1px solid var(--border);
+            color: var(--text-dim);
+            padding: 4px 10px;
+            border-radius: var(--radius-sm);
+            font-size: 11px;
+            font-family: 'JetBrains Mono', monospace;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            transition: all 0.15s ease;
+            text-decoration: none;
+        }
+
+        .attachment-modal-btn:hover {
+            color: var(--accent);
+            border-color: var(--accent);
+            background: var(--accent-dim);
+        }
+
+        .attachment-modal-close {
+            background: transparent;
+            border: none;
+            color: var(--text-dim);
+            font-size: 16px;
+            cursor: pointer;
+            padding: 4px;
+            line-height: 1;
+            transition: color 0.15s ease;
+        }
+
+        .attachment-modal-close:hover {
+            color: #ff4b4b;
+        }
+
+        .attachment-modal-body {
+            padding: 16px;
+            overflow: auto;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .attachment-image-body {
+            align-items: center;
+            justify-content: center;
+            padding: 12px;
+            background: #06080b;
+        }
+
+        .attachment-image-body img {
+            max-width: 100%;
+            max-height: 70vh;
+            object-fit: contain;
+            border-radius: var(--radius-sm);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+        }
+
+        .attachment-code-body {
+            background: #080a0e;
+            padding: 0;
+            position: relative;
+        }
+
+        .attachment-code-pre {
+            margin: 0 !important;
+            padding: 16px !important;
+            height: 100%;
+            overflow: auto;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 12px;
+            background: transparent !important;
+        }
+
+        .attachment-pdf-body {
+            padding: 0;
+            height: 100%;
+        }
+
+        .attachment-pdf-iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+            background: #fff;
+        }
+
+        /* ==========================================================================
+           SIMBA AGENT ACTION CARDS (100% Theme-Adaptive)
+           ========================================================================== */
+        .simba-action-card {
+            margin: 10px 0 14px 0;
+            background: var(--card-bg, rgba(16, 20, 28, 0.75));
+            border: 1px solid rgba(var(--accent-rgb), 0.3);
+            border-left: 3px solid var(--accent);
+            border-radius: var(--radius, 8px);
+            padding: 12px 14px;
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25), 0 0 10px rgba(var(--accent-rgb), 0.08);
+            font-family: var(--font-main, inherit);
+            backdrop-filter: blur(8px);
+        }
+
+        .action-card-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            padding-bottom: 8px;
+            margin-bottom: 8px;
+            border-bottom: 1px solid rgba(var(--accent-rgb), 0.15);
+            flex-wrap: wrap;
+        }
+
+        .action-header-left {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            min-width: 0;
+        }
+
+        .action-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            background: rgba(var(--accent-rgb), 0.15);
+            color: var(--accent);
+            border: 1px solid rgba(var(--accent-rgb), 0.3);
+            border-radius: 4px;
+            padding: 2px 7px;
+            font-size: 10px;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+            font-family: 'JetBrains Mono', monospace;
+            text-transform: uppercase;
+        }
+
+        .action-title {
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .action-status {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 11px;
+            font-weight: 600;
+            font-family: 'JetBrains Mono', monospace;
+            padding: 2px 8px;
+            border-radius: 4px;
+        }
+
+        .action-status.success {
+            color: #0edb2a;
+            background: rgba(14, 219, 42, 0.12);
+            border: 1px solid rgba(14, 219, 42, 0.25);
+        }
+
+        .action-status.failed {
+            color: #ff4b4b;
+            background: rgba(255, 75, 75, 0.12);
+            border: 1px solid rgba(255, 75, 75, 0.25);
+        }
+
+        .action-status.offline {
+            color: #ff6b6b;
+            background: rgba(255, 75, 75, 0.12);
+            border: 1px solid rgba(255, 75, 75, 0.3);
+        }
+
+        /* ================= SIMBA Desktop Agent Connection Badge & Modal ================= */
+        .desktop-agent-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-size: 10px;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+            font-family: 'JetBrains Mono', monospace;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            margin-top: 4px;
+            user-select: none;
+        }
+
+        .desktop-agent-badge .agent-dot {
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            display: inline-block;
+        }
+
+        .desktop-agent-badge.agent-online {
+            background: rgba(14, 219, 42, 0.12);
+            color: #0edb2a;
+            border: 1px solid rgba(14, 219, 42, 0.3);
+        }
+
+        .desktop-agent-badge.agent-online .agent-dot {
+            background: #0edb2a;
+            box-shadow: 0 0 8px #0edb2a;
+            animation: pulseAgentOnline 2s infinite;
+        }
+
+        .desktop-agent-badge.agent-connecting {
+            background: rgba(255, 187, 0, 0.12);
+            color: #ffbb00;
+            border: 1px solid rgba(255, 187, 0, 0.3);
+        }
+
+        .desktop-agent-badge.agent-connecting .agent-dot {
+            background: #ffbb00;
+            animation: blink 1s infinite;
+        }
+
+        .desktop-agent-badge.agent-offline {
+            background: rgba(255, 75, 75, 0.08);
+            color: #ff6b6b;
+            border: 1px solid rgba(255, 75, 75, 0.25);
+        }
+
+        .desktop-agent-badge.agent-offline .agent-dot {
+            background: #ff4b4b;
+        }
+
+        .desktop-agent-badge:hover {
+            transform: translateY(-1px);
+            filter: brightness(1.15);
+        }
+
+        @keyframes pulseAgentOnline {
+            0%, 100% { box-shadow: 0 0 4px #0edb2a; }
+            50% { box-shadow: 0 0 10px #0edb2a, 0 0 14px rgba(14, 219, 42, 0.5); }
+        }
+
+        /* Desktop Agent Setup Modal */
+        .agent-modal-card {
+            width: 100%;
+            max-width: 540px;
+            background: var(--sidebar, #101217);
+            border: 1px solid rgba(var(--accent-rgb), 0.35);
+            border-radius: var(--radius-lg, 16px);
+            box-shadow: 0 24px 70px rgba(0, 0, 0, 0.7), 0 0 40px rgba(var(--accent-rgb), 0.15);
+            padding: 26px;
+            animation: verifyCardIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+            color: var(--text, #d8dbe1);
+            font-family: var(--font-main, 'Outfit', sans-serif);
+            text-align: left;
+        }
+
+        .agent-modal-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 16px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid rgba(var(--accent-rgb), 0.15);
+        }
+
+        .agent-modal-title {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 15px;
+            font-weight: 700;
+            color: var(--accent, #00e5ff);
+        }
+
+        .agent-status-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: rgba(var(--accent-rgb), 0.05);
+            border: 1px solid rgba(var(--accent-rgb), 0.15);
+            border-radius: 8px;
+            padding: 12px 14px;
+            margin-bottom: 14px;
+        }
+
+        .agent-token-box {
+            background: #080a0e;
+            border: 1px solid rgba(var(--accent-rgb), 0.2);
+            border-radius: 8px;
+            padding: 10px 12px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            margin: 8px 0 14px 0;
+            word-break: break-all;
+        }
+
+        .agent-cli-command {
+            background: #050608;
+            border: 1px solid var(--border-soft, rgba(255,255,255,0.08));
+            border-radius: 8px;
+            padding: 12px 14px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 11.5px;
+            color: #0edb2a;
+            position: relative;
+            margin: 8px 0 14px 0;
+            overflow-x: auto;
+            white-space: pre-wrap;
+        }
+
+        .action-card-body {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .action-step {
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            background: rgba(var(--accent-rgb), 0.04);
+            border: 1px solid rgba(var(--accent-rgb), 0.1);
+            border-radius: 6px;
+            padding: 8px 10px;
+            transition: border-color 0.15s ease;
+        }
+
+        .action-step.completed {
+            border-color: rgba(14, 219, 42, 0.25);
+        }
+
+        .action-step.error {
+            border-color: rgba(255, 75, 75, 0.25);
+        }
+
+        .action-icon-wrap {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            border-radius: 6px;
+            background: rgba(var(--accent-rgb), 0.12);
+            color: var(--accent);
+            flex-shrink: 0;
+            font-size: 13px;
+        }
+
+        .action-icon.youtube { color: #ff0000; }
+        .action-icon.google { color: #4285f4; }
+        .action-icon.github { color: var(--text); }
+        .action-icon.reddit { color: #ff4500; }
+
+        .action-info {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            min-width: 0;
+            flex: 1;
+        }
+
+        .action-name {
+            font-size: 11px;
+            font-weight: 700;
+            color: var(--accent);
+            text-transform: uppercase;
+            letter-spacing: 0.4px;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .action-target {
+            font-size: 12px;
+            color: var(--text-dim, #a0aabf);
+            word-break: break-word;
+        }
+
+        .action-substeps-list {
+            display: flex;
+            flex-direction: column;
+            gap: 3px;
+            margin-top: 4px;
+        }
+
+        .action-substep {
+            font-size: 11px;
+            color: var(--text-dim, #a0aabf);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            line-height: 1.4;
+        }
+
         .command-box:focus-within {
             border-color: rgba(var(--accent-rgb), 0.35);
             box-shadow: 0 0 15px rgba(var(--accent-rgb), 0.15);
@@ -2911,7 +3601,7 @@
         .cyber-select-wrapper {
             flex-shrink: 0;
             position: relative;
-            width: 152px;
+            width: 180px;
             font-family: 'JetBrains Mono', monospace;
         }
 
@@ -3655,6 +4345,69 @@
             gap: 5px;
         }
 
+        .copy-btn.is-generating {
+            cursor: not-allowed;
+            pointer-events: none;
+            opacity: 0.9;
+            border-color: rgba(var(--accent-rgb), 0.45);
+            background: var(--accent-dim);
+            color: var(--accent);
+        }
+
+        .continue-dots {
+            display: inline-flex;
+            align-items: center;
+            gap: 3.5px;
+            margin-left: 3px;
+            vertical-align: middle;
+        }
+
+        .continue-dot {
+            width: 3.5px;
+            height: 3.5px;
+            border-radius: 50%;
+            background-color: var(--accent);
+            opacity: 0.25;
+            transform: scale(0.85);
+            animation: continueDotPulse 1.2s ease-in-out infinite;
+        }
+
+        .continue-dot:nth-child(1) {
+            animation-delay: 0s;
+        }
+
+        .continue-dot:nth-child(2) {
+            animation-delay: 0.25s;
+        }
+
+        .continue-dot:nth-child(3) {
+            animation-delay: 0.5s;
+        }
+
+        @keyframes continueDotPulse {
+            0%, 100% {
+                opacity: 0.2;
+                transform: scale(0.8);
+            }
+            50% {
+                opacity: 1;
+                transform: scale(1.2);
+                box-shadow: 0 0 5px rgba(var(--accent-rgb), 0.65);
+            }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .continue-dot {
+                animation: none;
+                opacity: 0.75;
+            }
+        }
+
+        html[data-animation="none"] .continue-dot {
+            animation: none;
+            opacity: 0.75;
+        }
+
         /* Small, subtle prompt-context actions under an AI reply - deliberately
            quieter than the primary COPY_INTEL/SHARE/Regenerate row above them. */
         .reply-mini-actions {
@@ -4349,8 +5102,8 @@
 
             .cyber-select-wrapper,
             .cyber-select {
-                width: 150px;
-                min-width: 150px;
+                width: 190px;
+                min-width: 190px;
             }
         }
 
@@ -4616,8 +5369,8 @@
 
             /* Dropdown menu on mobile - FIXED WIDTH, NO WRAP */
             .cyber-select-wrapper .cyber-options {
-                min-width: 180px;
-                width: 180px;
+                min-width: 210px;
+                width: 210px;
                 left: 0;
             }
 
@@ -5025,6 +5778,52 @@
         </div>
     </div>
 
+    <!-- Image Attachment Lightbox Modal -->
+    <div id="attachmentImageViewerModal" class="attachment-modal-overlay" onclick="if(event.target===this) closeAttachmentModals();">
+        <div class="attachment-modal-box attachment-image-box">
+            <div class="attachment-modal-header">
+                <div class="attachment-modal-title">
+                    <i class="fa-regular fa-image"></i>
+                    <span id="attachmentImageModalTitle">Image Preview</span>
+                </div>
+                <div class="attachment-modal-actions">
+                    <a id="attachmentImageOpenTabBtn" class="attachment-modal-btn" href="#" target="_blank" rel="noopener">
+                        <i class="fa-solid fa-arrow-up-right-from-square"></i> Open
+                    </a>
+                    <a id="attachmentImageDownloadBtn" class="attachment-modal-btn" href="#" download>
+                        <i class="fa-solid fa-download"></i> Download
+                    </a>
+                    <button type="button" class="attachment-modal-close" onclick="closeAttachmentModals()" aria-label="Close"><i class="fa-solid fa-xmark"></i></button>
+                </div>
+            </div>
+            <div class="attachment-modal-body attachment-image-body">
+                <img id="attachmentImageModalImg" src="" alt="Attachment Image">
+            </div>
+        </div>
+    </div>
+
+    <!-- Document / Code / File Reader Modal -->
+    <div id="attachmentReaderModal" class="attachment-modal-overlay" onclick="if(event.target===this) closeAttachmentModals();">
+        <div class="attachment-modal-box attachment-reader-box">
+            <div class="attachment-modal-header">
+                <div class="attachment-modal-title">
+                    <i id="attachmentReaderIcon" class="fa-regular fa-file-code"></i>
+                    <span id="attachmentReaderTitle">File Viewer</span>
+                </div>
+                <div class="attachment-modal-actions">
+                    <button type="button" id="attachmentReaderCopyBtn" class="attachment-modal-btn" onclick="copyAttachmentReaderContent()">
+                        <i class="fa-regular fa-copy"></i> Copy
+                    </button>
+                    <a id="attachmentReaderDownloadBtn" class="attachment-modal-btn" href="#" download>
+                        <i class="fa-solid fa-download"></i> Download
+                    </a>
+                    <button type="button" class="attachment-modal-close" onclick="closeAttachmentModals()" aria-label="Close"><i class="fa-solid fa-xmark"></i></button>
+                </div>
+            </div>
+            <div id="attachmentReaderBody" class="attachment-modal-body attachment-code-body"></div>
+        </div>
+    </div>
+
     <!-- Folder context menu (Part 3) - positioned at cursor/button on open -->
     <div id="folderContextMenu" class="context-menu" data-folder-name="" data-folder-color="">
         <button type="button" class="context-menu-item" onclick="folderMenuRename()"><i class="fa-solid fa-pen"></i> Rename</button>
@@ -5032,6 +5831,55 @@
         <div class="context-menu-colors" id="folderMenuColors"></div>
         <div class="context-menu-divider"></div>
         <button type="button" class="context-menu-item danger" onclick="folderMenuDelete()"><i class="fa-solid fa-trash"></i> Delete folder</button>
+    </div>
+
+    <!-- SIMBA Desktop Agent Device & Setup Modal -->
+    <div id="desktopAgentModal" class="attachment-modal-overlay" style="display:none;" onclick="if(event.target===this) closeDesktopAgentModal();">
+        <div class="agent-modal-card">
+            <div class="agent-modal-header">
+                <div class="agent-modal-title">
+                    <i class="fa-solid fa-desktop"></i>
+                    <span>SIMBA DESKTOP AGENT</span>
+                </div>
+                <button type="button" class="attachment-modal-close" onclick="closeDesktopAgentModal()" aria-label="Close">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+
+            <div class="agent-status-row">
+                <div>
+                    <div style="font-size:11px; color:var(--text-dim); text-transform:uppercase; font-family:'JetBrains Mono',monospace;">Connection Status</div>
+                    <div id="modalAgentStatusText" style="font-size:14px; font-weight:700; color:#ff6b6b; margin-top:2px;">OFFLINE 🔴</div>
+                </div>
+                <div style="text-align:right;">
+                    <div style="font-size:11px; color:var(--text-dim); text-transform:uppercase; font-family:'JetBrains Mono',monospace;">Device</div>
+                    <div id="modalAgentDeviceText" style="font-size:13px; font-weight:600; color:var(--text); margin-top:2px;">Not Connected</div>
+                </div>
+            </div>
+
+            <div style="font-size:12px; color:var(--text-dim); line-height:1.5; margin-bottom:8px;">
+                Connect your Windows PC to enable real local operations (Opening Apps, Typing Text, Window Control, Shortcuts, Mouse Automation, Sandboxed Files).
+            </div>
+
+            <div style="margin-top:12px;">
+                <label style="font-size:11px; font-family:'JetBrains Mono',monospace; color:var(--accent); text-transform:uppercase; font-weight:700;">Desktop Agent Token</label>
+                <div class="agent-token-box">
+                    <span id="modalAgentTokenVal" style="color:var(--text); font-size:11.5px; user-select:all;">Loading token...</span>
+                    <div style="display:flex; gap:6px;">
+                        <button type="button" class="btn-mini" onclick="copyAgentToken()" title="Copy Token"><i class="fa-regular fa-copy"></i></button>
+                        <button type="button" class="btn-mini" onclick="regenerateAgentToken()" title="Regenerate Token"><i class="fa-solid fa-arrows-rotate"></i></button>
+                    </div>
+                </div>
+            </div>
+
+            <div style="margin-top:12px;">
+                <label style="font-size:11px; font-family:'JetBrains Mono',monospace; color:var(--accent); text-transform:uppercase; font-weight:700;">Windows Terminal Start Command</label>
+                <div class="agent-cli-command" id="modalAgentCliCmd">python simba_agent.py</div>
+                <button type="button" class="verify-email-btn primary" style="width:100%; padding:10px; margin-top:6px;" onclick="copyAgentLaunchCmd()">
+                    <i class="fa-regular fa-copy"></i> Copy Start Command
+                </button>
+            </div>
+        </div>
     </div>
 
     <!-- Generic confirmation dialog (Part 3/10) - replaces native confirm()
@@ -5097,6 +5945,10 @@
                     <span class="dot"></span>
                     <span class="status-text">CORE ONLINE</span>
                 </div>
+                <div class="desktop-agent-badge agent-offline" id="desktopAgentBadge" onclick="openDesktopAgentModal()" title="SIMBA Desktop Agent Status — Click to configure">
+                    <span class="agent-dot"></span>
+                    <span class="agent-text" id="desktopAgentText">PC OFFLINE</span>
+                </div>
             </div>
             <button type="button" class="sidebar-collapse-btn" id="sidebarCollapseBtn" onclick="toggleSidebarCollapse()" title="Collapse sidebar">
                 <i class="fa-solid fa-angles-left"></i>
@@ -5109,6 +5961,7 @@
 
         <div class="sidebar-icon-rail">
             <a href="/" class="rail-icon-btn rail-icon-primary" title="New chat"><i class="fa-solid fa-plus"></i></a>
+            <button type="button" class="rail-icon-btn" title="Desktop Agent" onclick="openDesktopAgentModal()"><i class="fa-solid fa-desktop"></i></button>
             <button type="button" class="rail-icon-btn" title="Search chats" onclick="expandSidebarAndFocusSearch()"><i class="fa-solid fa-magnifying-glass"></i></button>
             <button type="button" class="rail-icon-btn" title="Bookmarks" onclick="openBookmarksPanel()"><i class="fa-solid fa-bookmark"></i></button>
             <button type="button" class="rail-icon-btn" title="Prompt Library" onclick="openPromptLibrary()"><i class="fa-solid fa-book-bookmark"></i></button>
@@ -5522,8 +6375,64 @@
 
             {% for m in messages %}
             <div class="chat-block user-block" data-message-id="{{ m.user_message_id }}">
-                <span class="msg-label">{{ profile.display_name|default:request.user.get_full_name|default:request.user.username|upper }}_INPUT</span>
-                <div class="content">{{ m.user_query }}</div>
+                <span class="msg-label">
+                    <div class="avatar user">U</div>
+                    {{ profile.display_name|default:request.user.get_full_name|default:request.user.username|upper }}_INPUT
+                </span>
+                <div class="content">
+                    {{ m.user_query }}
+                    {% if m.user_attachments %}
+                    <div class="message-attachments-container">
+                        {% for att in m.user_attachments %}
+                            {% if att.file_type == 'image' %}
+                            <div class="msg-attachment-card image-card" onclick="openAttachmentImageViewer('{{ att.url }}', '{{ att.name|escapejs }}', '{{ att.size }}')" title="{{ att.name }} (Click to view)">
+                                <div class="msg-attachment-thumb-wrapper">
+                                    <img class="msg-attachment-thumb" src="{{ att.url }}" alt="{{ att.name }}" loading="lazy">
+                                </div>
+                                <span class="msg-attachment-name">{{ att.name }}</span>
+                            </div>
+                            {% else %}
+                            <div class="msg-attachment-card file-card" onclick="openAttachmentViewer('{{ att.id }}', '{{ att.name|escapejs }}', '{{ att.file_type }}', '{{ att.url }}')" title="{{ att.name }} (Click to read/view)">
+                                <div class="msg-attachment-icon">
+                                    {% if att.file_type == 'pdf' %}<i class="fa-solid fa-file-pdf"></i>
+                                    {% elif att.file_type == 'code' %}<i class="fa-solid fa-file-code"></i>
+                                    {% else %}<i class="fa-solid fa-file-lines"></i>{% endif %}
+                                </div>
+                                <div class="msg-attachment-info">
+                                    <span class="msg-attachment-name">{{ att.name }}</span>
+                                    <span class="msg-attachment-size">{{ att.size|filesizeformat }}</span>
+                                </div>
+                            </div>
+                            {% endif %}
+                        {% endfor %}
+                    </div>
+                    {% elif m.user_extra_data and m.user_extra_data.attachments %}
+                    <div class="message-attachments-container">
+                        {% for att in m.user_extra_data.attachments %}
+                            {% if att.file_type == 'image' %}
+                            <div class="msg-attachment-card image-card" onclick="openAttachmentImageViewer('{{ att.url }}', '{{ att.name|escapejs }}', '{{ att.size }}')" title="{{ att.name }} (Click to view)">
+                                <div class="msg-attachment-thumb-wrapper">
+                                    <img class="msg-attachment-thumb" src="{{ att.url }}" alt="{{ att.name }}" loading="lazy">
+                                </div>
+                                <span class="msg-attachment-name">{{ att.name }}</span>
+                            </div>
+                            {% else %}
+                            <div class="msg-attachment-card file-card" onclick="openAttachmentViewer('{{ att.id }}', '{{ att.name|escapejs }}', '{{ att.file_type }}', '{{ att.url }}')" title="{{ att.name }} (Click to read/view)">
+                                <div class="msg-attachment-icon">
+                                    {% if att.file_type == 'pdf' %}<i class="fa-solid fa-file-pdf"></i>
+                                    {% elif att.file_type == 'code' %}<i class="fa-solid fa-file-code"></i>
+                                    {% else %}<i class="fa-solid fa-file-lines"></i>{% endif %}
+                                </div>
+                                <div class="msg-attachment-info">
+                                    <span class="msg-attachment-name">{{ att.name }}</span>
+                                    <span class="msg-attachment-size">{{ att.size|filesizeformat }}</span>
+                                </div>
+                            </div>
+                            {% endif %}
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                </div>
                 <textarea class="raw-query" style="display:none;">{{ m.user_query }}</textarea>
                 {% if not m.extra_data %}
                 <button class="edit-msg-btn" onclick="editUserMessage(this)" title="Edit and regenerate" aria-label="Edit message">
@@ -5540,6 +6449,16 @@
                     <button class="branch-nav-btn" onclick="switchBranch(this, 1)" aria-label="Next version"><i class="fa-solid fa-chevron-right"></i></button>
                 </div>
                 {% endif %}
+                <div class="message-reactions" data-message-id="{{ m.user_message_id }}" data-message-role="user">
+                    {% if m.extra_data and m.extra_data.reactions %}
+                        {% for reaction, count in m.extra_data.reactions.items %}
+                        <button class="reaction-button" data-reaction="{{ reaction }}" onclick="toggleReaction(this, '{{ m.user_message_id }}', 'user', '{{ reaction }}')">
+                            {{ reaction|title }}
+                        </button>
+                        <span class="reaction-count">{{ count }}</span>
+                        {% endfor %}
+                    {% endif %}
+                </div>
             </div>
             {% if m.extra_data and m.extra_data.type == "image" %}
             <div class="chat-block simba-block" data-message-id="{{ m.id }}">
@@ -5586,12 +6505,22 @@
                         </div>
                     </div>
                 </div>
-                <div class="reply-mini-actions">
-                    <button class="reply-mini-btn" onclick="editPromptFromReply(this)" title="Edit the prompt that produced this image">
-                        <i class="fa-solid fa-pen"></i> Edit Prompt
-                    </button>
-                </div>
-            </div>
+                 <div class="reply-mini-actions">
+                     <button class="reply-mini-btn" onclick="editPromptFromReply(this)" title="Edit the prompt that produced this image">
+                         <i class="fa-solid fa-pen"></i>
+                     </button>
+                 </div>
+                 <div class="message-reactions" data-message-id="{{ m.id }}" data-message-role="assistant">
+                     {% if m.extra_data and m.extra_data.reactions %}
+                         {% for reaction, count in m.extra_data.reactions.items %}
+                         <button class="reaction-button" data-reaction="{{ reaction }}" onclick="toggleReaction(this, '{{ m.id }}', 'assistant', '{{ reaction }}')">
+                             {{ reaction|title }}
+                         </button>
+                         <span class="reaction-count">{{ count }}</span>
+                         {% endfor %}
+                     {% endif %}
+                 </div>
+             </div>
             {% elif m.extra_data and m.extra_data.type == "vision" %}
             <div class="chat-block simba-block" data-message-id="{{ m.id }}">
                 <span class="msg-label">
@@ -5600,11 +6529,11 @@
                 {% if m.extra_data.image_previews %}
                 <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
                     {% for preview in m.extra_data.image_previews %}
-                    <img src="{{ preview }}" style="max-width:160px;max-height:160px;border-radius:8px;object-fit:cover;" alt="Attached image">
+                    <img src="{{ preview }}" onclick="openAttachmentImageViewer('{{ preview|escapejs }}', 'Vision Attached Image')" style="max-width:160px;max-height:160px;border-radius:8px;object-fit:cover;cursor:pointer;transition:transform 0.2s;" onmouseover="this.style.transform='scale(1.03)'" onmouseout="this.style.transform='none'" alt="Attached image">
                     {% endfor %}
                 </div>
                 {% elif m.extra_data.image_preview %}
-                <img src="{{ m.extra_data.image_preview }}" style="max-width:200px;border-radius:8px;margin-bottom:10px;display:block;" alt="Attached image">
+                <img src="{{ m.extra_data.image_preview }}" onclick="openAttachmentImageViewer('{{ m.extra_data.image_preview|escapejs }}', 'Vision Attached Image')" style="max-width:200px;border-radius:8px;margin-bottom:10px;display:block;cursor:pointer;transition:transform 0.2s;" onmouseover="this.style.transform='scale(1.03)'" onmouseout="this.style.transform='none'" alt="Attached image">
                 {% endif %}
                 <textarea style="display:none;" class="raw-data">{{ m.ai_response }}</textarea>
                 <div class="content markdown-content">{{ m.ai_response }}</div>
@@ -5634,6 +6563,16 @@
                     <button class="reply-mini-btn" onclick="copyPromptFromReply(this)" title="Copy the prompt that produced this reply">
                         <i class="fa-solid fa-copy"></i> Copy Prompt
                     </button>
+                </div>
+                <div class="message-reactions" data-message-id="{{ m.id }}" data-message-role="assistant">
+                    {% if m.extra_data and m.extra_data.reactions %}
+                        {% for reaction, count in m.extra_data.reactions.items %}
+                        <button class="reaction-button" data-reaction="{{ reaction }}" onclick="toggleReaction(this, '{{ m.id }}', 'assistant', '{{ reaction }}')">
+                            {{ reaction|title }}
+                        </button>
+                        <span class="reaction-count">{{ count }}</span>
+                        {% endfor %}
+                    {% endif %}
                 </div>
             </div>
             {% else %}
@@ -5686,9 +6625,19 @@
                     <button class="reply-mini-btn" onclick="suggestFollowups(this)" title="Suggest what to ask next">
                         <i class="fa-solid fa-wand-magic-sparkles"></i> Suggest Follow-ups
                     </button>
-                </div>
-                <div class="followup-suggestions"></div>
-            </div>
+                 </div>
+                 <div class="message-reactions" data-message-id="{{ m.id }}" data-message-role="assistant">
+                     {% if m.extra_data and m.extra_data.reactions %}
+                         {% for reaction, count in m.extra_data.reactions.items %}
+                         <button class="reaction-button" data-reaction="{{ reaction }}" onclick="toggleReaction(this, '{{ m.id }}', 'assistant', '{{ reaction }}')">
+                             {{ reaction|title }}
+                         </button>
+                         <span class="reaction-count">{{ count }}</span>
+                         {% endfor %}
+                     {% endif %}
+                 </div>
+                 <div class="followup-suggestions"></div>
+             </div>
             {% endif %}
             {% endfor %}
         </div>
@@ -7716,7 +8665,8 @@
 
                 // સર્વરના સેશનને પણ તે જ સમયે અપડેટ કરો [cite: 2026-03-01]
                 try {
-                    await fetch(`/update_model/?model_id=${value}`);
+                    const currentSessionId = new URLSearchParams(window.location.search).get('session') || '';
+                    await fetch(`/update_model/?model_id=${encodeURIComponent(value)}&session_id=${encodeURIComponent(currentSessionId)}`);
                 } catch (err) {
                     // Non-fatal: the model is already selected client-side and
                     // in localStorage above: worst case the server-side
@@ -8080,15 +9030,29 @@
         let pendingAttachments = []; // [{file, name, size, isImage, previewUrl}], sent with the next sendQuery()
         let cameraStream = null;
 
-        const ACCEPTED_ATTACHMENT_RE = /\.(jpe?g|png|webp|gif|bmp|pdf|csv|txt)$/i;
+        const ACCEPTED_ATTACHMENT_RE = /\.(jpe?g|png|webp|gif|bmp|pdf|csv|tsv|txt|md|json|xml|yaml|yml|log|env|sql|ini|cfg|conf|toml|py|js|jsx|ts|tsx|html|css|scss|sass|java|c|cpp|cc|cxx|h|hpp|cs|rs|go|php|rb|swift|kt|sh|bash|zsh|bat|ps1|doc|docx)$/i;
         const ACCEPTED_IMAGE_RE = /\.(jpe?g|png|webp|gif|bmp)$/i;
         const MAX_ATTACHMENTS = 6;
         const MAX_ATTACHMENT_BYTES = 10 * 1024 * 1024; // mirrors the backend's per-file limit
 
         function formatFileSize(bytes) {
+            if (!bytes || bytes <= 0) return '0 B';
             if (bytes < 1024) return `${bytes} B`;
             if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
             return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+        }
+
+        function getFileIconClass(filename) {
+            const ext = (filename || "").split('.').pop().toLowerCase();
+            if (['jpg', 'jpeg', 'png', 'webp', 'gif', 'bmp'].includes(ext)) return 'fa-regular fa-image';
+            if (ext === 'pdf') return 'fa-solid fa-file-pdf';
+            if (['py', 'js', 'jsx', 'ts', 'tsx', 'html', 'css', 'scss', 'sass', 'java', 'c', 'cpp', 'cc', 'cxx', 'h', 'hpp', 'cs', 'rs', 'go', 'php', 'rb', 'swift', 'kt', 'sh', 'bash', 'zsh', 'bat', 'ps1', 'sql'].includes(ext)) {
+                return 'fa-solid fa-file-code';
+            }
+            if (['txt', 'md', 'json', 'xml', 'yaml', 'yml', 'log', 'env', 'csv', 'tsv', 'ini', 'cfg', 'conf', 'toml'].includes(ext)) {
+                return 'fa-solid fa-file-lines';
+            }
+            return 'fa-regular fa-file';
         }
 
         function isDuplicateAttachment(file) {
@@ -8156,7 +9120,7 @@
                 <div class="attachment-chip" data-index="${i}" title="Click to preview">
                     ${a.isImage
                         ? (a.previewUrl ? `<img src="${a.previewUrl}" alt="${escapeHtml(a.name)}">` : `<div class="attachment-chip-placeholder"></div>`)
-                        : '<i class="fa-solid fa-file-lines"></i>'}
+                        : `<i class="${getFileIconClass(a.name)}"></i>`}
                     <div class="attachment-chip-meta">
                         <span class="attachment-chip-name">${escapeHtml(a.name)}</span>
                         <span class="attachment-chip-size">${formatFileSize(a.size)}</span>
@@ -8164,6 +9128,180 @@
                     <button type="button" class="attachment-chip-remove" aria-label="Remove ${escapeHtml(a.name)}"><i class="fa-solid fa-xmark"></i></button>
                 </div>
             `).join("");
+        }
+
+        // ================= Attachment Viewers & Modals =================
+        let currentReaderContent = "";
+
+        function openAttachmentImageViewer(url, name, size) {
+            const modal = document.getElementById("attachmentImageViewerModal");
+            const img = document.getElementById("attachmentImageModalImg");
+            const title = document.getElementById("attachmentImageModalTitle");
+            const downloadBtn = document.getElementById("attachmentImageDownloadBtn");
+            const openTabBtn = document.getElementById("attachmentImageOpenTabBtn");
+            if (!modal || !img) return;
+
+            img.src = url;
+            if (title) title.textContent = name || "Image Preview";
+            const dlUrl = url.startsWith("data:") ? url : (url.includes("?") ? `${url}&download=1` : `${url.replace(/\/+$/, "")}/?download=1`);
+            if (downloadBtn) {
+                downloadBtn.href = dlUrl;
+                downloadBtn.setAttribute("download", name || "image.png");
+            }
+            if (openTabBtn) {
+                openTabBtn.href = url;
+            }
+            modal.classList.add("show");
+        }
+
+        function detectLangForPrism(filename) {
+            const ext = (filename || "").split('.').pop().toLowerCase();
+            const map = {
+                js: 'javascript', jsx: 'javascript', ts: 'typescript', tsx: 'typescript',
+                py: 'python', html: 'markup', xml: 'markup', css: 'css', scss: 'css',
+                json: 'json', md: 'markdown', yaml: 'yaml', yml: 'yaml', sql: 'sql',
+                sh: 'bash', bash: 'bash', zsh: 'bash', java: 'java', c: 'c', cpp: 'cpp',
+                cs: 'csharp', rs: 'rust', go: 'go', php: 'php', rb: 'ruby',
+            };
+            return map[ext] || 'none';
+        }
+
+        async function openAttachmentViewer(attachmentId, name, fileType, url) {
+            const modal = document.getElementById("attachmentReaderModal");
+            const title = document.getElementById("attachmentReaderTitle");
+            const icon = document.getElementById("attachmentReaderIcon");
+            const body = document.getElementById("attachmentReaderBody");
+            const downloadBtn = document.getElementById("attachmentReaderDownloadBtn");
+            const copyBtn = document.getElementById("attachmentReaderCopyBtn");
+            if (!modal || !body) return;
+
+            if (title) title.textContent = name || "Attachment Viewer";
+            if (icon) icon.className = getFileIconClass(name);
+            const viewUrl = url || `/attachments/${attachmentId}/`;
+            const dlUrl = viewUrl.includes("?") ? `${viewUrl}&download=1` : `${viewUrl.replace(/\/+$/, "")}/?download=1`;
+            if (downloadBtn) {
+                downloadBtn.href = dlUrl;
+                downloadBtn.setAttribute("download", name || "attachment");
+            }
+            if (copyBtn) copyBtn.style.display = (fileType === "pdf") ? "none" : "inline-flex";
+
+            modal.classList.add("show");
+            body.className = "attachment-modal-body";
+
+            if (fileType === "pdf") {
+                body.classList.add("attachment-pdf-body");
+                body.innerHTML = `<iframe class="attachment-pdf-iframe" src="${viewUrl}" title="${escapeHtml(name)}"></iframe>`;
+                currentReaderContent = "";
+                return;
+            }
+
+            body.classList.add("attachment-code-body");
+            body.innerHTML = `<div style="padding: 24px; text-align: center; color: var(--text-dim);"><i class="fa-solid fa-spinner fa-spin"></i> Loading content...</div>`;
+
+            try {
+                const res = await fetch(`/attachments/${attachmentId}/content/`);
+                if (!res.ok) throw new Error("Failed to load attachment content");
+                const data = await res.json();
+                if (data.status === "success" && data.content !== undefined) {
+                    currentReaderContent = data.content;
+                    const lang = detectLangForPrism(name);
+                    const truncatedNotice = data.truncated ? `<div style="padding: 6px 12px; background: rgba(255,185,80,0.15); color: #ffb950; font-size: 11px; font-family: monospace; border-bottom: 1px solid rgba(255,185,80,0.2);">Showing first 500 KB of file. Use Download for complete file.</div>` : "";
+                    body.innerHTML = `${truncatedNotice}<pre class="attachment-code-pre line-numbers"><code class="language-${lang}">${escapeHtml(data.content)}</code></pre>`;
+                    if (window.Prism) Prism.highlightAllUnder(body);
+                } else if (data.status === "success" && data.file_type === "image") {
+                    closeAttachmentModals();
+                    openAttachmentImageViewer(data.url, data.name, data.size);
+                } else {
+                    body.innerHTML = `
+                        <div style="padding: 40px 20px; text-align: center; color: var(--text-dim);">
+                            <i class="${getFileIconClass(name)}" style="font-size: 40px; margin-bottom: 16px; color: var(--accent);"></i>
+                            <div style="font-size: 13px; font-weight: 500; color: var(--text);">${escapeHtml(name)}</div>
+                            <div style="font-size: 11px; margin-top: 4px; margin-bottom: 20px;">Binary file preview unavailable.</div>
+                            <a class="attachment-modal-btn" href="${dlUrl}" download="${escapeHtml(name)}"><i class="fa-solid fa-download"></i> Download File</a>
+                        </div>
+                    `;
+                }
+            } catch (err) {
+                body.innerHTML = `
+                    <div style="padding: 40px 20px; text-align: center; color: var(--text-dim);">
+                        <div style="color: #ff5555; margin-bottom: 12px;"><i class="fa-solid fa-triangle-exclamation"></i> Could not load preview</div>
+                        <div style="font-size: 11px; margin-bottom: 18px;">${escapeHtml(err.message || "Unknown error")}</div>
+                        <a class="attachment-modal-btn" href="${dlUrl}" download="${escapeHtml(name)}"><i class="fa-solid fa-download"></i> Download File</a>
+                    </div>
+                `;
+            }
+        }
+
+        function openPendingFileViewer(index) {
+            const att = pendingAttachments[index];
+            if (!att) return;
+            if (att.isImage && att.previewUrl) {
+                openAttachmentImageViewer(att.previewUrl, att.name, att.size);
+                return;
+            }
+            const modal = document.getElementById("attachmentReaderModal");
+            const title = document.getElementById("attachmentReaderTitle");
+            const icon = document.getElementById("attachmentReaderIcon");
+            const body = document.getElementById("attachmentReaderBody");
+            const downloadBtn = document.getElementById("attachmentReaderDownloadBtn");
+            const copyBtn = document.getElementById("attachmentReaderCopyBtn");
+            if (!modal || !body) return;
+
+            if (title) title.textContent = att.name;
+            if (icon) icon.className = getFileIconClass(att.name);
+            const blobUrl = URL.createObjectURL(att.file);
+            if (downloadBtn) {
+                downloadBtn.href = blobUrl;
+                downloadBtn.setAttribute("download", att.name);
+            }
+            if (copyBtn) copyBtn.style.display = (att.name.toLowerCase().endsWith('.pdf')) ? "none" : "inline-flex";
+
+            modal.classList.add("show");
+            body.className = "attachment-modal-body";
+
+            if (att.name.toLowerCase().endsWith('.pdf')) {
+                body.classList.add("attachment-pdf-body");
+                body.innerHTML = `<iframe class="attachment-pdf-iframe" src="${blobUrl}" title="${escapeHtml(att.name)}"></iframe>`;
+                currentReaderContent = "";
+                return;
+            }
+
+            body.classList.add("attachment-code-body");
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const text = e.target.result;
+                currentReaderContent = text;
+                const lang = detectLangForPrism(att.name);
+                body.innerHTML = `<pre class="attachment-code-pre line-numbers"><code class="language-${lang}">${escapeHtml(text)}</code></pre>`;
+                if (window.Prism) Prism.highlightAllUnder(body);
+            };
+            reader.onerror = () => {
+                body.innerHTML = `<div style="padding: 24px; text-align: center; color: #ff5555;">Could not read local file.</div>`;
+            };
+            reader.readAsText(att.file.slice(0, 500 * 1024));
+        }
+
+        function copyAttachmentReaderContent() {
+            if (!currentReaderContent) return;
+            navigator.clipboard.writeText(currentReaderContent).then(() => {
+                const btn = document.getElementById("attachmentReaderCopyBtn");
+                if (btn) {
+                    const original = btn.innerHTML;
+                    btn.innerHTML = '<i class="fa-solid fa-check"></i> Copied!';
+                    setTimeout(() => { btn.innerHTML = original; }, 2000);
+                }
+            });
+        }
+
+        function closeAttachmentModals() {
+            document.getElementById("attachmentImageViewerModal")?.classList.remove("show");
+            const readerModal = document.getElementById("attachmentReaderModal");
+            if (readerModal) {
+                readerModal.classList.remove("show");
+                const body = document.getElementById("attachmentReaderBody");
+                if (body) body.innerHTML = "";
+            }
+            currentReaderContent = "";
         }
 
         // ================= Email verification modal =================
@@ -8326,9 +9464,9 @@
                 return;
             }
             if (attachment.isImage && attachment.previewUrl) {
-                openImageLightbox(attachment.previewUrl);
+                openAttachmentImageViewer(attachment.previewUrl, attachment.name, attachment.size);
             } else if (!attachment.isImage) {
-                window.open(URL.createObjectURL(attachment.file), "_blank");
+                openPendingFileViewer(index);
             }
         });
 
@@ -8778,7 +9916,10 @@
         }
 
         document.addEventListener("keydown", (e) => {
-            if (e.key === "Escape") closeImageLightbox();
+            if (e.key === "Escape") {
+                closeImageLightbox();
+                closeAttachmentModals();
+            }
         });
 
         // Event delegation: any generated image, live or from history, opens the
@@ -8895,14 +10036,40 @@
                 formattedQuery = `<pre><code class="language-js">${escapedQuery}</code></pre>`;
             }
 
-            const attachmentBadge = attachmentsToSend.length > 0
-                ? `<div style="margin-top:6px;font-size:11px;opacity:0.7;display:flex;flex-direction:column;gap:2px;">${attachmentsToSend.map(a => `<span><i class="fa-solid fa-paperclip"></i> ${escapeHtml(a.name)}</span>`).join("")}</div>`
+            const attachmentCardsHTML = attachmentsToSend.length > 0
+                ? `
+                    <div class="message-attachments-container">
+                        ${attachmentsToSend.map((a, idx) => {
+                            if (a.isImage && a.previewUrl) {
+                                return `
+                                    <div class="msg-attachment-card image-card" onclick="openAttachmentImageViewer('${escapeHtml(a.previewUrl)}', '${escapeHtml(a.name)}', ${a.size})" title="${escapeHtml(a.name)} (Click to view)">
+                                        <div class="msg-attachment-thumb-wrapper">
+                                            <img class="msg-attachment-thumb" src="${a.previewUrl}" alt="${escapeHtml(a.name)}">
+                                        </div>
+                                        <span class="msg-attachment-name">${escapeHtml(a.name)}</span>
+                                    </div>
+                                `;
+                            } else {
+                                const iconClass = getFileIconClass(a.name);
+                                return `
+                                    <div class="msg-attachment-card file-card" onclick="openPendingFileViewer(${idx})" title="${escapeHtml(a.name)} (Click to read/view)">
+                                        <div class="msg-attachment-icon"><i class="${iconClass}"></i></div>
+                                        <div class="msg-attachment-info">
+                                            <span class="msg-attachment-name">${escapeHtml(a.name)}</span>
+                                            <span class="msg-attachment-size">${formatFileSize(a.size)}</span>
+                                        </div>
+                                    </div>
+                                `;
+                            }
+                        }).join("")}
+                    </div>
+                `
                 : "";
 
             cf.insertAdjacentHTML("beforeend", `
 <div class="chat-block user-block">
 <span class="msg-label">{{ profile.display_name|default:request.user.get_full_name|default:request.user.username|upper|escapejs }}_INPUT</span>
-<div class="content">${formattedQuery}${attachmentBadge}</div>
+<div class="content">${formattedQuery}${attachmentCardsHTML}</div>
 <textarea class="raw-query" style="display:none;">${escapedQuery}</textarea>
 </div>
 `);
@@ -9119,11 +10286,24 @@
                     const thoughtContent = contentDiv.querySelector('.thought-content');
                     const thinkingBox = contentDiv.querySelector('.thinking-box');
 
+                    // Handle agent live status
+                    let cleanChunk = chunk;
+                    if (cleanChunk.includes("SIMBA_STATUS:")) {
+                        const statusMatch = cleanChunk.match(/SIMBA_STATUS:\s*([^\n\r]+)/);
+                        if (statusMatch && statusMatch[1]) {
+                            const agentStatus = statusMatch[1].trim();
+                            labelElement.innerText = "SIMBA_AGENT";
+                            setStatus("status-online", agentStatus);
+                        }
+                        cleanChunk = cleanChunk.replace(/SIMBA_STATUS:\s*[^\n\r]+(\r?\n)*/g, "");
+                    }
+                    if (!cleanChunk) continue;
+
                     // Handle thinking mode
-                    if (chunk.includes("<think>")) isThinking = true;
+                    if (cleanChunk.includes("<think>")) isThinking = true;
 
                     if (isThinking) {
-                        let part = chunk.replace("<think>", "");
+                        let part = cleanChunk.replace("<think>", "");
 
                         if (part.includes("</think>")) {
                             let splitParts = part.split("</think>");
@@ -9140,7 +10320,7 @@
                                 thoughtContent.innerText += part;
                         }
                     } else {
-                        fullResponse += chunk.replace("</think>", "");
+                        fullResponse += cleanChunk.replace("</think>", "");
                     }
 
                     // ⚡ LIGHTER UPDATE (no Prism here) - throttled to one per frame
@@ -9594,6 +10774,35 @@
                 return;
             }
 
+            const originalBtnHTML = btn.innerHTML;
+            const originalTitle = btn.getAttribute("title") || "Extend this reply if it got cut short";
+            const originalAriaLabel = btn.getAttribute("aria-label") || "";
+
+            const setButtonGenerating = () => {
+                btn.disabled = true;
+                btn.classList.add("is-generating");
+                btn.setAttribute("aria-busy", "true");
+                btn.setAttribute("aria-label", "Generating continuation...");
+                btn.innerHTML = '<i class="fa-solid fa-forward"></i> Continue <span class="continue-dots" aria-hidden="true"><span class="continue-dot"></span><span class="continue-dot"></span><span class="continue-dot"></span></span>';
+            };
+
+            const restoreButtonState = () => {
+                if (btn && btn.isConnected) {
+                    btn.disabled = false;
+                    btn.classList.remove("is-generating");
+                    btn.removeAttribute("aria-busy");
+                    if (originalAriaLabel) {
+                        btn.setAttribute("aria-label", originalAriaLabel);
+                    } else {
+                        btn.removeAttribute("aria-label");
+                    }
+                    btn.setAttribute("title", originalTitle);
+                    btn.innerHTML = originalBtnHTML;
+                }
+            };
+
+            setButtonGenerating();
+
             isSendingQuery = true;
             currentAbortController = new AbortController();
             armWatchdog(currentAbortController, TEXT_REQUEST_TIMEOUT_MS);
@@ -9626,6 +10835,8 @@
                 const reader = res.body.getReader();
                 const decoder = new TextDecoder();
                 let addedResponse = "";
+                let firstChunkReceived = false;
+
                 const renderer = createThrottledStreamRenderer(
                     () => markdownDiv, () => existingContent + addedResponse, cf,
                 );
@@ -9635,6 +10846,10 @@
                     if (done) break;
                     resetWatchdog(currentAbortController, TEXT_REQUEST_TIMEOUT_MS);
                     const chunk = decoder.decode(value, { stream: true });
+                    if (!firstChunkReceived && chunk) {
+                        firstChunkReceived = true;
+                        restoreButtonState();
+                    }
                     addedResponse += chunk.replace("<think>", "").replace("</think>", "");
                     renderer.schedule();
                 }
@@ -9655,6 +10870,7 @@
                     alert("Continue failed. The original response is unchanged.");
                 }
             } finally {
+                restoreButtonState();
                 clearWatchdog();
                 isSendingQuery = false;
                 currentAbortController = null;
@@ -10402,8 +11618,77 @@
         // પેજ લોડ થાય એટલે તરત જ આ ફંક્શન ચલાવો (ટાઈમર ઓછું કરી દીધું છે)
         setTimeout(fetchEnvIntel, 300);
 
+        // ================= AGENT CONFIRMATION HANDLERS =================
+        async function confirmAgentAction(buttonEl, actionDataJson) {
+            try {
+                const data = typeof actionDataJson === 'string' ? JSON.parse(actionDataJson) : actionDataJson;
+                buttonEl.disabled = true;
+                buttonEl.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Executing...';
+
+                const formData = new FormData();
+                formData.append('tool_name', data.tool_name);
+                formData.append('args', JSON.stringify(data.args || {}));
+
+                const res = await fetch('/agent/confirm/', {
+                    method: 'POST',
+                    headers: { 'X-CSRFToken': csrfToken },
+                    body: formData
+                });
+                const result = await res.json();
+                const cardEl = buttonEl.closest('.simba-action-card');
+                if (cardEl) {
+                    const statusEl = cardEl.querySelector('.action-status');
+                    const stepEl = buttonEl.closest('.action-step');
+                    const actionsContainer = buttonEl.closest('.agent-confirm-actions');
+
+                    if (result.success) {
+                        if (statusEl) {
+                            statusEl.className = 'action-status success';
+                            statusEl.innerHTML = '<i class="fa-solid fa-circle-check"></i> Completed';
+                        }
+                        if (stepEl) {
+                            stepEl.className = 'action-step completed';
+                        }
+                        if (actionsContainer) {
+                            actionsContainer.innerHTML = `<div class="action-substep" style="color:var(--accent,#0edb2a);"><i class="fa-solid fa-check"></i> ${escapeHtml(result.output || 'Action completed successfully.')}</div>`;
+                        }
+                    } else {
+                        if (statusEl) {
+                            statusEl.className = 'action-status failed';
+                            statusEl.innerHTML = '<i class="fa-solid fa-circle-xmark"></i> Failed';
+                        }
+                        if (stepEl) {
+                            stepEl.className = 'action-step error';
+                        }
+                        if (actionsContainer) {
+                            actionsContainer.innerHTML = `<div class="action-substep text-danger" style="color:#ff4b4b;"><i class="fa-solid fa-xmark"></i> ${escapeHtml(result.error || 'Execution failed.')}</div>`;
+                        }
+                    }
+                }
+            } catch (e) {
+                console.error("Agent confirmation error:", e);
+                buttonEl.disabled = false;
+                buttonEl.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i> Retry';
+            }
+        }
+
+        function cancelAgentAction(buttonEl) {
+            const cardEl = buttonEl.closest('.simba-action-card');
+            const actionsContainer = buttonEl.closest('.agent-confirm-actions');
+            if (cardEl) {
+                const statusEl = cardEl.querySelector('.action-status');
+                if (statusEl) {
+                    statusEl.className = 'action-status failed';
+                    statusEl.innerHTML = '<i class="fa-solid fa-ban"></i> Cancelled';
+                }
+            }
+            if (actionsContainer) {
+                actionsContainer.innerHTML = '<div class="action-substep text-muted"><i class="fa-solid fa-ban"></i> Action cancelled by user.</div>';
+            }
+        }
 
         // ===== SIMBA MIC VOICE SYSTEM =====
+
 
         const micBtn = document.getElementById("micBtn")
         const inputBox = document.getElementById("user-input")
@@ -10413,58 +11698,7 @@
         let listening = false
 
 
-        // ---- COMMAND ENGINE ----
-        function runVoiceCommand(text) {
-
-            text = text.toLowerCase().trim()
-
-            if (text.includes("open youtube")) {
-                window.open("https://youtube.com", "_blank")
-                return true
-            }
-
-            if (text.includes("open google")) {
-                window.open("https://google.com", "_blank")
-                return true
-            }
-
-            if (text.includes("open github")) {
-                window.open("https://github.com", "_blank")
-                return true
-            }
-
-            if (text.includes("open reddit")) {
-                window.open("https://reddit.com", "_blank")
-                return true
-            }
-
-            if (text.startsWith("open ")) {
-                let site = text.replace("open ", "").trim()
-                window.open("https://" + site + ".com", "_blank")
-                return true
-            }
-
-            if (text.startsWith("play ")) {
-
-                let song = text.replace("play ", "")
-
-                let url = "https://www.youtube.com/results?search_query=" + encodeURIComponent(song)
-
-                window.open(url, "_blank")
-
-                return true
-            }
-
-            // if (text.includes("play music")) {
-            //     window.open("https://music.youtube.com/search?q=lofi", "_blank")
-            //     return true
-            // }
-
-            return false
-        }
-
-
-        // ---- SPEECH ENGINE ----
+        // ---- SPEECH ENGINE (Unified with SIMBA Desktop Agent Pipeline) ----
         if ('webkitSpeechRecognition' in window) {
 
             recognition = new webkitSpeechRecognition()
@@ -10474,18 +11708,13 @@
             recognition.lang = "en-US"
 
             recognition.onstart = () => {
-
                 micBtn.classList.add("mic-active")
-
                 if (waveContainer) {
                     waveContainer.style.display = "flex"
                 }
-
             }
 
-
             recognition.onresult = (event) => {
-
                 let transcript = ""
 
                 for (let i = event.resultIndex; i < event.results.length; i++) {
@@ -10497,39 +11726,32 @@
                 // show live speech
                 inputBox.value = transcript
 
-
                 if (event.results[event.results.length - 1].isFinal) {
+                    const finalTranscript = transcript;
+                    inputBox.value = finalTranscript;
+                    listening = false;
+                    try {
+                        recognition.stop();
+                    } catch (e) {}
 
-                    let executed = runVoiceCommand(transcript)
-
-                    if (executed) {
-
-                        inputBox.value = ""
-
-                        listening = false
-                        recognition.stop()
-
+                    // Feed directly into the unified Agent / Chat pipeline
+                    if (finalTranscript) {
+                        sendQuery(finalTranscript);
                     }
-
                 }
-
             }
 
-
             recognition.onend = () => {
-
                 micBtn.classList.remove("mic-active")
-
                 if (waveContainer) {
                     waveContainer.style.display = "none"
                 }
-
                 if (listening) {
-                    recognition.start()
+                    try {
+                        recognition.start()
+                    } catch (e) {}
                 }
-
             }
-
         }
 
 
@@ -10595,7 +11817,7 @@
             }
         }
 
-        function checkUnlock(e) {
+                function checkUnlock(e) {
             if (e.key === 'Enter') {
                 const pass = document.getElementById('lock-pass');
                 // Cosmetic-only "lockdown" Easter egg (real access control is
@@ -10604,18 +11826,213 @@
                 if (pass.value === 'admin') {
                     document.getElementById('lockdown-screen').style.display = 'none';
                     pass.value = '';
-                    pass.style.borderColor = 'rgba(255, 68, 68, 0.4)'; // reset color
-                    pass.placeholder = "PASSCODE..."; // reset placeholder
-                    // playBlip(); // જો તમે Blip સાઉન્ડ એડ કર્યો હોય તો
+                    pass.style.borderColor = 'rgba(255, 68, 68, 0.4)';
+                    pass.placeholder = "PASSCODE...";
                 } else {
-                    // જો પાસવર્ડ ખોટો હોય
                     pass.style.borderColor = 'red';
                     pass.value = '';
-                    pass.placeholder = "ACCESS DENIED!"; // ચેતવણી આપવા માટે
+                    pass.placeholder = "ACCESS DENIED!";
                 }
             }
         }
-    </script>
+
+         // ================= MESSAGE REACTIONS =================
+         function toggleReaction(button, messageId, role, reaction) {
+             // Toggle active state on button
+             button.classList.toggle('active');
+             
+             // Get the reaction count element (next sibling)
+             const countSpan = button.nextElementSibling;
+             let count = parseInt(countSpan.textContent || '0');
+             
+             // If button is now active, increment count, else decrement
+             if (button.classList.contains('active')) {
+                 count++;
+             } else {
+                 count = Math.max(0, count - 1); // Don't go below 0
+             }
+             
+             countSpan.textContent = count;
+             
+             // Send AJAX request to update reactions in database
+             fetch(`/update_reaction/`, {
+                 method: 'POST',
+                 headers: {
+                     'Content-Type': 'application/json',
+                     'X-CSRFToken': getCookie('csrftoken')
+                 },
+                 body: JSON.stringify({
+                     message_id: messageId,
+                     role: role,
+                     reaction: reaction
+                 })
+             }).then(response => {
+                 if (!response.ok) {
+                     // Revert the UI change on failure
+                     button.classList.toggle('active');
+                     countSpan.textContent = button.classList.contains('active') ? 
+                                             (parseInt(countSpan.textContent || '0') + 1) : 
+                                             Math.max(0, (parseInt(countSpan.textContent || '0') - 1));
+                 }
+             }).catch(error => {
+                 // Revert the UI change on error
+                 button.classList.toggle('active');
+                 countSpan.textContent = button.classList.contains('active') ? 
+                                         (parseInt(countSpan.textContent || '0') + 1) : 
+                                         Math.max(0, (parseInt(countSpan.textContent || '0') - 1));
+                 console.error('Error updating reaction:', error);
+             });
+         }
+
+         // Helper function to get CSRF token
+         function getCookie(name) {
+             let cookieValue = null;
+             if (document.cookie && document.cookie !== '') {
+                 const cookies = document.cookie.split(';');
+                 for (let i = 0; i < cookies.length; i++) {
+                     const cookie = cookies[i].trim();
+                     if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                         cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                         break;
+                     }
+                 }
+             }
+             return cookieValue;
+         }
+
+        // ================= SIMBA DESKTOP AGENT LIVE STATUS & MODAL =================
+        let currentAgentToken = '';
+
+        async function checkDesktopAgentStatus() {
+            try {
+                const res = await fetch('/api/agent/status/');
+                if (!res.ok) return;
+                const data = await res.json();
+                
+                const badge = document.getElementById('desktopAgentBadge');
+                const badgeText = document.getElementById('desktopAgentText');
+                const modalStatus = document.getElementById('modalAgentStatusText');
+                const modalDevice = document.getElementById('modalAgentDeviceText');
+                const tokenVal = document.getElementById('modalAgentTokenVal');
+                const cliCmd = document.getElementById('modalAgentCliCmd');
+
+                if (data.agent_token) {
+                    currentAgentToken = data.agent_token;
+                    if (tokenVal) tokenVal.innerText = currentAgentToken;
+                    const serverOrigin = window.location.origin;
+                    if (cliCmd) {
+                        cliCmd.innerText = `python simba_agent.py --server ${serverOrigin} --token ${currentAgentToken}`;
+                    }
+                }
+
+                if (data.connected) {
+                    if (badge) {
+                        badge.className = 'desktop-agent-badge agent-online';
+                        badge.title = `SIMBA Desktop Agent Connected (${data.device.hostname || 'Windows PC'}) — Click for options`;
+                    }
+                    if (badgeText) badgeText.innerText = 'PC CONNECTED';
+                    if (modalStatus) {
+                        modalStatus.innerHTML = 'ONLINE 🟢';
+                        modalStatus.style.color = '#0edb2a';
+                    }
+                    if (modalDevice) {
+                        modalDevice.innerText = `${data.device.hostname || 'PC'} (${data.device.platform || 'Windows'})`;
+                    }
+                } else {
+                    if (badge) {
+                        badge.className = 'desktop-agent-badge agent-offline';
+                        badge.title = 'SIMBA Desktop Agent Offline — Click to connect';
+                    }
+                    if (badgeText) badgeText.innerText = 'PC OFFLINE';
+                    if (modalStatus) {
+                        modalStatus.innerHTML = 'OFFLINE 🔴';
+                        modalStatus.style.color = '#ff6b6b';
+                    }
+                    if (modalDevice) {
+                        modalDevice.innerText = data.device && data.device.hostname && data.device.hostname !== 'Not Connected' ? 
+                            `${data.device.hostname} (Disconnected)` : 'Not Connected';
+                    }
+                }
+            } catch (e) {
+                console.debug('Agent status poll error:', e);
+            }
+        }
+
+        function openDesktopAgentModal() {
+            const modal = document.getElementById('desktopAgentModal');
+            if (modal) {
+                modal.style.display = 'flex';
+                checkDesktopAgentStatus();
+            }
+        }
+
+        function closeDesktopAgentModal() {
+            const modal = document.getElementById('desktopAgentModal');
+            if (modal) {
+                modal.style.display = 'none';
+            }
+        }
+
+        function copyAgentToken() {
+            if (currentAgentToken) {
+                navigator.clipboard.writeText(currentAgentToken);
+                if (typeof showToast === 'function') {
+                    showToast('Agent token copied to clipboard!', 'success');
+                } else {
+                    alert('Agent token copied to clipboard!');
+                }
+            }
+        }
+
+        function copyAgentLaunchCmd() {
+            const cliCmd = document.getElementById('modalAgentCliCmd');
+            if (cliCmd && cliCmd.innerText) {
+                navigator.clipboard.writeText(cliCmd.innerText);
+                if (typeof showToast === 'function') {
+                    showToast('Start command copied to clipboard! Paste into Windows Terminal.', 'success');
+                } else {
+                    alert('Start command copied to clipboard!');
+                }
+            }
+        }
+
+        async function regenerateAgentToken() {
+            if (!confirm('Regenerate your Desktop Agent token? Any running agent will need to be restarted with the new token.')) {
+                return;
+            }
+            try {
+                const res = await fetch('/api/agent/token/regenerate/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': getCookie('csrftoken'),
+                    }
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    if (typeof showToast === 'function') {
+                        showToast('New agent token generated!', 'success');
+                    }
+                    checkDesktopAgentStatus();
+                } else {
+                    if (typeof showToast === 'function') {
+                        showToast('Failed to regenerate token.', 'error');
+                    }
+                }
+            } catch (e) {
+                if (typeof showToast === 'function') {
+                    showToast('Network error regenerating token.', 'error');
+                }
+            }
+        }
+
+        // Poll Desktop Agent status on load, every 10s, and on window focus
+        document.addEventListener('DOMContentLoaded', () => {
+            checkDesktopAgentStatus();
+            setInterval(checkDesktopAgentStatus, 10000);
+        });
+        window.addEventListener('focus', checkDesktopAgentStatus);
+     </script>
 
 
 </body>

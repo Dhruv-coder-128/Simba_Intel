@@ -41,6 +41,21 @@ class ModelRegistryTests(TestCase):
         models = list_available_models()
         self.assertTrue(all({"id", "display_name", "provider"} <= set(m) for m in models))
 
+    def test_ox_alpha_is_registered_and_configured(self):
+        config = get_model_config("ox-alpha")
+        self.assertEqual(config.provider, "openrouter")
+        self.assertEqual(config.actual_model, "nvidia/nemotron-3-super-120b-a12b:free")
+        self.assertEqual(config.display_name, "Ox Alpha")
+        self.assertFalse(config.supports_vision)
+
+        models = list_available_models()
+        ids = {m["id"] for m in models}
+        self.assertIn("ox-alpha", ids)
+
+        from chat.services.model_registry import get_fallback_chain
+        fallback = get_fallback_chain("ox-alpha")
+        self.assertIn("nova-mind", fallback)
+
 
 class PollinationsImageProviderTests(TestCase):
     def setUp(self):
@@ -125,6 +140,88 @@ class GroqProviderTests(TestCase):
             mock_create.assert_called_once()
         self.assertEqual(result, "a cat")
         self.assertNotIn("on_usage", received_kwargs)
+
+
+class OpenRouterProviderTests(TestCase):
+    def test_openrouter_initialization_and_client(self):
+        from chat.providers.openrouter_provider import OpenRouterProvider
+        provider = OpenRouterProvider(api_key="test-openrouter-key")
+        self.assertEqual(provider.get_provider_name(), "openrouter")
+        self.assertEqual(provider.OPENROUTER_API_BASE_URL, "https://openrouter.ai/api/v1")
+        self.assertTrue(provider.is_model_supported("nvidia/nemotron-3-super-120b-a12b:free"))
+
+    def test_chat_non_streaming(self):
+        from chat.providers.openrouter_provider import OpenRouterProvider
+        provider = OpenRouterProvider(api_key="test-key")
+
+        fake_response = MagicMock()
+        fake_response.choices = [MagicMock(message=MagicMock(content="Ox Alpha response"))]
+
+        with patch.object(provider.client.chat.completions, "create", return_value=fake_response) as mock_create:
+            result = provider.chat([{"role": "user", "content": "Hello"}], "nvidia/nemotron-3-super-120b-a12b:free")
+            mock_create.assert_called_once()
+            self.assertEqual(result, "Ox Alpha response")
+
+    def test_chat_stream_and_usage_callback(self):
+        from chat.providers.openrouter_provider import OpenRouterProvider
+
+        class FakeDelta:
+            def __init__(self, content):
+                self.content = content
+
+        class FakeChoice:
+            def __init__(self, content):
+                self.delta = FakeDelta(content)
+
+        class FakeUsage:
+            prompt_tokens = 12
+            completion_tokens = 25
+
+        class FakeChunk:
+            def __init__(self, choices, usage=None):
+                self.choices = choices
+                self.usage = usage
+
+        fake_stream = [
+            FakeChunk([FakeChoice("Ox")]),
+            FakeChunk([]),  # empty chunk
+            FakeChunk([FakeChoice(" Alpha")]),
+            FakeChunk([], usage=FakeUsage()),
+        ]
+
+        provider = OpenRouterProvider(api_key="test-key")
+        captured_usage = {}
+
+        with patch.object(provider.client.chat.completions, "create", return_value=fake_stream):
+            tokens = list(provider.chat_stream(
+                [{"role": "user", "content": "Hello"}],
+                "nvidia/nemotron-3-super-120b-a12b:free",
+                on_usage=captured_usage.update,
+            ))
+
+        self.assertEqual(tokens, ["Ox", " Alpha"])
+        self.assertEqual(captured_usage, {"prompt_tokens": 12, "completion_tokens": 25})
+
+    def test_vision_and_image_gen(self):
+        from chat.providers.openrouter_provider import OpenRouterProvider
+        provider = OpenRouterProvider(api_key="test-key")
+
+        fake_response = MagicMock()
+        fake_response.choices = [MagicMock(message=MagicMock(content="Vision analysis"))]
+        fake_response.usage = MagicMock(prompt_tokens=15, completion_tokens=30)
+
+        captured_usage = {}
+        with patch.object(provider.client.chat.completions, "create", return_value=fake_response):
+            result = provider.vision(
+                [{"role": "user", "content": "describe this"}],
+                "nvidia/nemotron-3-super-120b-a12b:free",
+                on_usage=captured_usage.update,
+            )
+            self.assertEqual(result, "Vision analysis")
+            self.assertEqual(captured_usage, {"prompt_tokens": 15, "completion_tokens": 30})
+
+        with self.assertRaises(NotImplementedError):
+            provider.generate_image("a dog", "nvidia/nemotron-3-super-120b-a12b:free")
 
 
 class _RateLimitError(Exception):
@@ -679,6 +776,68 @@ class QuantumCoreViewIntegrationTests(TestCase):
         self.assertEqual(data["type"], "vision")
         self.assertEqual(data["response"], "A handwritten note that says hello.")
         mock_vision.assert_called_once()
+
+
+class OxAlphaViewIntegrationTests(TestCase):
+    """End-to-end coverage for Ox Alpha through ask_ai, regenerate_message,
+    fallback, and usage logging."""
+
+    def setUp(self):
+        self.user = User.objects.create_user(username="ox_alpha_user", password="x")
+        self.client.force_login(self.user)
+
+    def test_ox_alpha_ask_ai_stream_end_to_end(self):
+        from chat.services.provider_manager import get_provider
+
+        provider = get_provider("openrouter")
+        fake_client = MagicMock()
+
+        def create(model, messages, stream=False, **kwargs):
+            self.assertEqual(model, "nvidia/nemotron-3-super-120b-a12b:free")
+            return iter([_fake_stream_chunk("Hello from Ox Alpha.")])
+
+        fake_client.chat.completions.create.side_effect = create
+        provider.client = fake_client
+
+        with patch("chat.services.conversation_intelligence.ai_chat") as mock_title:
+            mock_title.return_value = "Ox Alpha Conversation"
+            response = self.client.post(reverse("ask_ai"), {
+                "query": "hello ox alpha", "model_id": "ox-alpha", "session_id": "",
+            })
+            self.assertEqual(response.status_code, 200)
+            body = b"".join(response.streaming_content).decode()
+
+        self.assertEqual(body, "Hello from Ox Alpha.")
+
+        # Verify UsageEvent logged
+        event = UsageEvent.objects.filter(user=self.user, model_id="ox-alpha").first()
+        self.assertIsNotNone(event)
+        self.assertEqual(event.provider, "openrouter")
+        self.assertEqual(event.event_type, "chat")
+
+    def test_ox_alpha_fails_over_gracefully(self):
+        from chat.services.provider_manager import get_provider
+
+        openrouter_provider = get_provider("openrouter")
+        openrouter_client = MagicMock()
+        openrouter_client.chat.completions.create.side_effect = RuntimeError("OpenRouter connection failed")
+        openrouter_provider.client = openrouter_client
+
+        groq_provider = get_provider("groq")
+        groq_client = MagicMock()
+        groq_client.chat.completions.create.return_value = iter([_fake_stream_chunk("Fallback reply from Nova Mind.")])
+        groq_provider.client = groq_client
+
+        with patch("chat.services.conversation_intelligence.ai_chat") as mock_title:
+            mock_title.return_value = "Fallback Title"
+            response = self.client.post(reverse("ask_ai"), {
+                "query": "hello", "model_id": "ox-alpha", "session_id": "",
+            })
+            self.assertEqual(response.status_code, 200)
+            body = b"".join(response.streaming_content).decode()
+
+        self.assertIn("Switched to Nova Mind", body)
+        self.assertIn("Fallback reply from Nova Mind.", body)
 
 
 class ConversationHistoryTests(TestCase):
@@ -3015,3 +3174,612 @@ class SafetyBehaviorTests(TestCase):
         called_messages = mock_provider.vision.call_args[0][0]
         self.assertEqual(called_messages[0]["role"], "system")
         self.assertEqual(called_messages[0]["content"], SAFETY_INSTRUCTION)
+
+
+class AttachmentSystemTests(TestCase):
+    """Tests for persistent MessageAttachment model, file_analyzer, secure endpoints, and ask_ai integration."""
+
+    def setUp(self):
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        from chat.models import MessageAttachment
+        self.user = User.objects.create_user(username="attach_user", password="password123", email="attach@test.com")
+        self.other_user = User.objects.create_user(username="other_attach_user", password="password123", email="other@test.com")
+        self.session = ChatSession.objects.create(user=self.user, title="Attachment Chat")
+        self.client.login(username="attach_user", password="password123")
+
+    def test_message_attachment_creation_and_to_dict(self):
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        from chat.models import MessageAttachment
+        code_file = SimpleUploadedFile("sample_script.py", b"def add(a, b):\n    return a + b\n", content_type="text/x-python")
+        attachment = MessageAttachment.objects.create(
+            session=self.session,
+            user=self.user,
+            original_name="sample_script.py",
+            file_size=len(code_file),
+            mime_type="text/x-python",
+            file_type="code",
+        )
+        attachment.file.save("sample_script.py", code_file, save=True)
+
+        d = attachment.to_dict()
+        self.assertEqual(d["name"], "sample_script.py")
+        self.assertEqual(d["file_type"], "code")
+        self.assertTrue(d["url"].startswith("/attachments/"))
+        self.assertEqual(d["mime_type"], "text/x-python")
+
+        # Cleanup
+        attachment.delete()
+
+    def test_file_analyzer_supports_code_and_text(self):
+        import os
+        import tempfile
+        from chat.file_analyzer import analyze_file
+        with tempfile.NamedTemporaryFile(suffix=".py", mode="w+", delete=False) as f:
+            f.write("print('Hello from test')")
+            f_path = f.name
+
+        try:
+            analyzed = analyze_file(f_path)
+            self.assertIn("Hello from test", analyzed)
+        finally:
+            if os.path.exists(f_path):
+                os.remove(f_path)
+
+    def test_serve_attachment_authenticated_user_succeeds(self):
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        from chat.models import MessageAttachment
+        test_file = SimpleUploadedFile("notes.txt", b"Secret note content", content_type="text/plain")
+        attachment = MessageAttachment.objects.create(
+            session=self.session,
+            user=self.user,
+            original_name="notes.txt",
+            file_size=len(test_file),
+            mime_type="text/plain",
+            file_type="text",
+        )
+        attachment.file.save("notes.txt", test_file, save=True)
+
+        response = self.client.get(f"/attachments/{attachment.id}/")
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("inline", response["Content-Disposition"])
+        self.assertEqual(response["Content-Type"], "text/plain")
+
+        attachment.delete()
+
+    def test_serve_attachment_unauthorized_user_forbidden(self):
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        from chat.models import MessageAttachment
+        test_file = SimpleUploadedFile("private.txt", b"Private data", content_type="text/plain")
+        attachment = MessageAttachment.objects.create(
+            session=self.session,
+            user=self.user,
+            original_name="private.txt",
+            file_size=len(test_file),
+            mime_type="text/plain",
+            file_type="text",
+        )
+        attachment.file.save("private.txt", test_file, save=True)
+
+        # Login as other user
+        self.client.login(username="other_attach_user", password="password123")
+        response = self.client.get(f"/attachments/{attachment.id}/")
+        self.assertEqual(response.status_code, 403)
+
+        attachment.delete()
+
+    def test_attachment_content_endpoint_returns_json(self):
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        from chat.models import MessageAttachment
+        test_file = SimpleUploadedFile("calc.js", b"function multiply(x, y) { return x * y; }", content_type="application/javascript")
+        attachment = MessageAttachment.objects.create(
+            session=self.session,
+            user=self.user,
+            original_name="calc.js",
+            file_size=len(test_file),
+            mime_type="application/javascript",
+            file_type="code",
+        )
+        attachment.file.save("calc.js", test_file, save=True)
+
+        response = self.client.get(f"/attachments/{attachment.id}/content/")
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data["status"], "success")
+        self.assertEqual(data["file_type"], "code")
+        self.assertIn("multiply", data["content"])
+
+        attachment.delete()
+
+    @patch("chat.views._stream_with_failover")
+    def test_ask_ai_with_attachment_persists_to_tree(self, mock_stream):
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        from chat.models import MessageAttachment, Message
+        mock_stream.return_value = (iter([("Here is your analysis", False)]), {"model_id": "cyber-max"}, {"model_id": "cyber-max"})
+
+        code_upload = SimpleUploadedFile("test_algo.py", b"def algo(): pass", content_type="text/x-python")
+        response = self.client.post("/ask_ai/", {
+            "query": "Review this code",
+            "model_id": "cyber-max",
+            "session_id": str(self.session.id),
+            "attachment": code_upload,
+        })
+        self.assertEqual(response.status_code, 200)
+        # Consume streaming generator to trigger turn completion
+        _content = b"".join(response.streaming_content)
+        
+        # Verify MessageAttachment was created in DB
+        attachments = MessageAttachment.objects.filter(session=self.session)
+        self.assertEqual(attachments.count(), 1)
+        att = attachments.first()
+        self.assertEqual(att.original_name, "test_algo.py")
+        self.assertEqual(att.file_type, "code")
+        self.assertIsNotNone(att.message)
+
+        # Verify user message extra_data contains attachment metadata
+        user_msg = att.message
+        self.assertEqual(user_msg.role, "user")
+        self.assertTrue("attachments" in (user_msg.extra_data or {}))
+        self.assertEqual(user_msg.extra_data["attachments"][0]["name"], "test_algo.py")
+
+        att.delete()
+
+    def test_serve_pdf_inline_and_download_dispositions(self):
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        from chat.models import MessageAttachment
+        pdf_file = SimpleUploadedFile("sample_report.pdf", b"%PDF-1.4 ... test pdf content ... %%EOF", content_type="application/pdf")
+        attachment = MessageAttachment.objects.create(
+            session=self.session,
+            user=self.user,
+            original_name="sample_report.pdf",
+            file_size=len(pdf_file),
+            mime_type="application/pdf",
+            file_type="pdf",
+        )
+        attachment.file.save("sample_report.pdf", pdf_file, save=True)
+
+        # 1. Inline view (for iframe inside modal)
+        response_inline = self.client.get(f"/attachments/{attachment.id}/")
+        self.assertEqual(response_inline.status_code, 200)
+        self.assertEqual(response_inline["Content-Type"], "application/pdf")
+        self.assertIn("inline", response_inline["Content-Disposition"])
+        self.assertEqual(response_inline["X-Frame-Options"], "SAMEORIGIN")
+
+        # 2. Download action (?download=1)
+        response_download = self.client.get(f"/attachments/{attachment.id}/?download=1")
+        self.assertEqual(response_download.status_code, 200)
+        self.assertEqual(response_download["Content-Type"], "application/pdf")
+        self.assertIn("attachment", response_download["Content-Disposition"])
+        self.assertIn("sample_report.pdf", response_download["Content-Disposition"])
+
+        attachment.delete()
+
+
+class OxAlphaDefaultModelTests(TestCase):
+    """Tests that Ox Alpha is the default model on new sessions, preserves per-session switches, and leaves all models available."""
+
+    def setUp(self):
+        self.user = User.objects.create_user(username="ox_user", password="password123", email="ox@test.com")
+        self.client.login(username="ox_user", password="password123")
+
+    def test_new_profile_defaults_to_ox_alpha(self):
+        profile = UserProfile.get_or_create_for(self.user)
+        self.assertEqual(profile.default_model, "ox-alpha")
+
+    def test_chat_home_new_session_defaults_to_ox_alpha(self):
+        response = self.client.get(reverse("home"))
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["selected_model"], "ox-alpha")
+
+    def test_switch_model_in_session_persists_on_reload(self):
+        session = ChatSession.objects.create(user=self.user, title="Test Session")
+        # Update model for this session
+        update_resp = self.client.get(reverse("update_model"), {"model_id": "nova-mind", "session_id": str(session.id)})
+        self.assertEqual(update_resp.status_code, 200)
+
+        # Reload the session
+        response = self.client.get(f"{reverse('home')}?session={session.id}")
+        self.assertEqual(response.context["selected_model"], "nova-mind")
+
+    def test_new_session_after_switching_still_defaults_to_ox_alpha(self):
+        session = ChatSession.objects.create(user=self.user, title="Session 1")
+        # Open brand new session (no ?session param)
+        new_session_resp = self.client.get(reverse("home"))
+        self.assertEqual(new_session_resp.context["selected_model"], "ox-alpha")
+
+    def test_all_models_remain_available(self):
+        response = self.client.get(reverse("home"))
+        available_ids = [m["id"] for m in response.context["models"]]
+        self.assertIn("ox-alpha", available_ids)
+        self.assertIn("cyber-max", available_ids)
+        self.assertIn("nova-mind", available_ids)
+        self.assertIn("sky-net", available_ids)
+        self.assertIn("quantum-core", available_ids)
+
+
+class AgentSystemTests(TestCase):
+    """Tests for the SIMBA_INTEL Agentic Desktop AI Assistant layer."""
+
+    def setUp(self):
+        self.user = User.objects.create_user(username="agent_user", password="password123", email="agent@test.com")
+        self.client.login(username="agent_user", password="password123")
+        self.session = ChatSession.objects.create(user=self.user, title="Agent Session")
+
+    def test_tool_registry_and_schemas(self):
+        from chat.agent.tools.registry import global_tool_registry
+        tools = global_tool_registry.list_tools()
+        tool_names = [t.name for t in tools]
+        expected = [
+            "open_url", "browser_search", "open_application", "open_folder",
+            "type_text", "press_key", "hotkey", "create_file", "write_file",
+            "read_file", "list_directory",
+        ]
+        for name in expected:
+            self.assertIn(name, tool_names)
+
+        schemas = global_tool_registry.get_llm_schemas()
+        self.assertTrue(len(schemas) >= len(expected))
+        for schema in schemas:
+            self.assertIn("name", schema)
+            self.assertIn("description", schema)
+            self.assertIn("parameters", schema)
+
+    @patch("webbrowser.open")
+    def test_browser_search_and_url_tools(self, mock_web_open):
+        from chat.agent.tools.browser_tools import browser_search, open_url
+        mock_web_open.return_value = True
+
+        res = browser_search("Roblox", engine="youtube")
+        self.assertTrue(res.success)
+        self.assertIn("youtube.com", res.details["url"])
+        self.assertIn("Roblox", res.details["url"])
+
+        res2 = open_url("github.com")
+        self.assertTrue(res2.success)
+        self.assertEqual(res2.details["url"], "https://github.com")
+
+    @patch("subprocess.Popen")
+    def test_desktop_app_allowlist_and_blocking(self, mock_popen):
+        from chat.agent.tools.desktop_tools import open_application
+        mock_popen.return_value = MagicMock()
+
+        # Allowed app
+        res_notepad = open_application("notepad")
+        self.assertTrue(res_notepad.success)
+        self.assertEqual(res_notepad.details["app"], "Notepad")
+
+        # Disallowed app
+        res_blocked = open_application("malicious_shell.exe")
+        self.assertFalse(res_blocked.success)
+        self.assertIn("not in the allowlist", res_blocked.error)
+
+    @patch("os.startfile")
+    def test_open_folder_resolution(self, mock_startfile):
+        from chat.agent.tools.desktop_tools import open_folder
+        res_dl = open_folder("downloads")
+        self.assertTrue(res_dl.success)
+        self.assertEqual(res_dl.details["folder"], "Downloads")
+
+        res_doc = open_folder("documents")
+        self.assertTrue(res_doc.success)
+        self.assertEqual(res_doc.details["folder"], "Documents")
+
+    def test_sandboxed_file_operations(self):
+        import tempfile
+        import os
+        from chat.agent.tools.filesystem_tools import create_file, read_file, write_file, _sanitize_path
+
+        # Test system root protection
+        with self.assertRaises(PermissionError):
+            _sanitize_path(r"C:\Windows\System32\cmd.exe")
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            test_file = os.path.join(tmpdir, "agent_notes.txt")
+
+            # 1. Create file
+            res_create = create_file(test_file, content="Simba Agent Test Content")
+            self.assertTrue(res_create.success)
+
+            # 2. Read file
+            res_read = read_file(test_file)
+            self.assertTrue(res_read.success)
+            self.assertEqual(res_read.output, "Simba Agent Test Content")
+
+            # 3. Overwrite protection
+            res_write_no_overwrite = write_file(test_file, content="New Content", overwrite=False)
+            self.assertFalse(res_write_no_overwrite.success)
+            self.assertTrue(res_write_no_overwrite.is_sensitive)
+
+            # 4. Overwrite allowed
+            res_write_overwrite = write_file(test_file, content="New Content", overwrite=True)
+            self.assertTrue(res_write_overwrite.success)
+
+    def test_fast_planner_intent_matching(self):
+        from chat.agent.planner import default_planner
+
+        # Browser search
+        p1 = default_planner.plan_query("Open YouTube and search Roblox")
+        self.assertTrue(p1.is_agent_action)
+        self.assertEqual(len(p1.steps), 1)
+        self.assertEqual(p1.steps[0].tool, "browser_search")
+        self.assertEqual(p1.steps[0].args["query"], "Roblox")
+        self.assertEqual(p1.steps[0].args["engine"], "youtube")
+
+        # Multi-step App + Write
+        p2 = default_planner.plan_query("Open Notepad and write Python code to create a calculator")
+        self.assertTrue(p2.is_agent_action)
+        self.assertEqual(len(p2.steps), 2)
+        self.assertEqual(p2.steps[0].tool, "open_application")
+        self.assertEqual(p2.steps[1].tool, "type_text")
+        self.assertTrue(p2.steps[1].needs_generation)
+
+        # Open App
+        p3 = default_planner.plan_query("Open Calculator")
+        self.assertTrue(p3.is_agent_action)
+        self.assertEqual(p3.steps[0].tool, "open_application")
+
+        # Open Folder
+        p4 = default_planner.plan_query("Open the Downloads folder")
+        self.assertTrue(p4.is_agent_action)
+        self.assertEqual(p4.steps[0].tool, "open_folder")
+
+        # Non-action conversation
+        p5 = default_planner.plan_query("Explain how quantum mechanics works")
+        self.assertFalse(p5.is_agent_action)
+
+    @patch("chat.agent.tools.browser_tools._launch_browser_url")
+    def test_open_facebook_and_supported_sites(self, mock_launch):
+        from chat.agent.planner import default_planner
+        from chat.agent.controller import default_agent_controller
+        mock_launch.return_value = True
+
+        # 1. Open Facebook
+        p_fb = default_planner.plan_query("open facebook")
+        self.assertTrue(p_fb.is_agent_action)
+        self.assertEqual(p_fb.steps[0].tool, "open_url")
+        self.assertEqual(p_fb.steps[0].args["url"], "https://www.facebook.com")
+
+        # Execute through controller
+        chunks = list(default_agent_controller.execute_and_stream("open facebook"))
+        combined = "".join(chunks)
+        self.assertIn("Done — Facebook is open.", combined)
+        self.assertIn("simba-action-card", combined)
+        self.assertIn("Completed", combined)
+        mock_launch.assert_called_with("https://www.facebook.com")
+
+        # 2. Supported sites & natural variations
+        variations = [
+            ("open youtube", "https://www.youtube.com"),
+            ("launch youtube", "https://www.youtube.com"),
+            ("start youtube", "https://www.youtube.com"),
+            ("go to youtube", "https://www.youtube.com"),
+            ("open google", "https://www.google.com"),
+            ("open github", "https://github.com"),
+            ("open reddit", "https://reddit.com"),
+            ("open instagram", "https://www.instagram.com"),
+            ("open gmail", "https://mail.google.com"),
+            ("visit facebook", "https://www.facebook.com"),
+        ]
+        for query, expected_url in variations:
+            plan = default_planner.plan_query(query)
+            self.assertTrue(plan.is_agent_action, f"Failed for {query}")
+            self.assertEqual(plan.steps[0].tool, "open_url", f"Failed for {query}")
+            self.assertEqual(plan.steps[0].args["url"], expected_url, f"Failed for {query}")
+
+    @patch("webbrowser.open")
+    def test_compound_commands_youtube_and_facebook_search(self, mock_web_open):
+        from chat.agent.planner import default_planner
+        from chat.agent.controller import default_agent_controller
+        mock_web_open.return_value = True
+
+        # "open youtube and search roblox"
+        p_yt = default_planner.plan_query("open youtube and search roblox")
+        self.assertTrue(p_yt.is_agent_action)
+        self.assertEqual(p_yt.steps[0].tool, "browser_search")
+        self.assertEqual(p_yt.steps[0].args["engine"], "youtube")
+        self.assertEqual(p_yt.steps[0].args["query"], "roblox")
+
+        chunks_yt = "".join(default_agent_controller.execute_and_stream("open youtube and search roblox"))
+        self.assertIn("YouTube", chunks_yt)
+        self.assertIn("roblox", chunks_yt)
+
+        # "open facebook and search dhruv"
+        p_fb = default_planner.plan_query("open facebook and search dhruv")
+        self.assertTrue(p_fb.is_agent_action)
+        self.assertEqual(p_fb.steps[0].tool, "browser_search")
+        self.assertEqual(p_fb.steps[0].args["engine"], "facebook")
+        self.assertEqual(p_fb.steps[0].args["query"], "dhruv")
+
+        chunks_fb = "".join(default_agent_controller.execute_and_stream("open facebook and search dhruv"))
+        self.assertIn("Facebook", chunks_fb)
+        self.assertIn("dhruv", chunks_fb)
+
+    def test_coding_and_questions_do_not_trigger_agent_actions(self):
+        from chat.agent.planner import default_planner
+        non_actions = [
+            "what is facebook?",
+            "write Python code to open Facebook",
+            "how do I open facebook in python",
+            "how to open youtube using javascript",
+            "create a python script to search google",
+            "generate code to open github",
+            "explain how facebook works",
+            "what is youtube?",
+        ]
+        for query in non_actions:
+            plan = default_planner.plan_query(query)
+            self.assertFalse(plan.is_agent_action, f"Query incorrectly triggered agent action: {query}")
+
+    @patch("chat.agent.tools.browser_tools._launch_browser_url")
+    def test_ask_ai_routes_open_facebook_end_to_end(self, mock_launch):
+        mock_launch.return_value = True
+
+        response = self.client.post("/ask_ai/", {
+            "query": "open facebook",
+            "model_id": "ox-alpha",
+            "session_id": str(self.session.id),
+        })
+        self.assertEqual(response.status_code, 200)
+
+        stream_bytes = b"".join(response.streaming_content)
+        stream_text = stream_bytes.decode("utf-8")
+
+        self.assertIn("Done — Facebook is open.", stream_text)
+        self.assertIn("simba-action-card", stream_text)
+
+        messages = list(self.session.thread.order_by("created_at"))
+        self.assertTrue(len(messages) >= 2)
+        assistant_msg = messages[-1]
+        self.assertEqual(assistant_msg.role, "assistant")
+        self.assertEqual(assistant_msg.extra_data.get("type"), "agent_action")
+
+    @patch("chat.agent.tools.desktop_tools._launch_app_candidate")
+    def test_open_vscode_and_notepad(self, mock_launch):
+        from chat.agent.planner import default_planner
+        from chat.agent.controller import default_agent_controller
+        mock_launch.return_value = True
+
+        # 1. Open VS Code
+        p_vscode = default_planner.plan_query("open VS Code")
+        self.assertTrue(p_vscode.is_agent_action)
+        self.assertEqual(p_vscode.steps[0].tool, "open_application")
+        self.assertIn("vs code", p_vscode.steps[0].args["application"].lower())
+
+        chunks_vscode = "".join(default_agent_controller.execute_and_stream("open VS Code"))
+        self.assertIn("Completed", chunks_vscode)
+        self.assertIn("action-status success", chunks_vscode)
+        self.assertIn("Visual Studio Code", chunks_vscode)
+
+        # 2. Open Notepad
+        p_notepad = default_planner.plan_query("open notepad")
+        self.assertTrue(p_notepad.is_agent_action)
+        self.assertEqual(p_notepad.steps[0].tool, "open_application")
+        self.assertEqual(p_notepad.steps[0].args["application"].lower(), "notepad")
+
+        chunks_notepad = "".join(default_agent_controller.execute_and_stream("open notepad"))
+        self.assertIn("Completed", chunks_notepad)
+        self.assertIn("action-status success", chunks_notepad)
+        self.assertIn("Notepad", chunks_notepad)
+
+    def test_invalid_application_fails_properly(self):
+        from chat.agent.planner import default_planner
+        from chat.agent.controller import default_agent_controller
+
+        # Query for non-existent application
+        p_invalid = default_planner.plan_query("open xyz_nonexistent_application")
+        self.assertTrue(p_invalid.is_agent_action)
+        self.assertEqual(p_invalid.steps[0].tool, "open_application")
+        self.assertEqual(p_invalid.steps[0].args["application"], "xyz_nonexistent_application")
+
+        chunks = "".join(default_agent_controller.execute_and_stream("open xyz_nonexistent_application"))
+
+        # Must display Failed (NOT Completed)
+        self.assertIn("Failed", chunks)
+        self.assertIn("action-status failed", chunks)
+        self.assertNotIn("action-status success", chunks)
+        self.assertIn("not in the allowlist", chunks)
+
+    def test_compound_action_stops_on_failure(self):
+        from chat.agent.planner import AgentPlan, PlannedStep
+        from chat.agent.controller import AgentController
+        from chat.agent.executor import LocalExecutor
+
+        controller = AgentController()
+        # Mock executor with failing step 1
+        fake_plan = AgentPlan(
+            is_agent_action=True,
+            summary="Multi-step test",
+            steps=[
+                PlannedStep(tool="open_application", args={"application": "invalid_fake_app"}, description="Launch Fake"),
+                PlannedStep(tool="type_text", args={"text": "Hello"}, description="Type text"),
+            ]
+        )
+        with patch.object(controller.planner, "plan_query", return_value=fake_plan):
+            chunks = "".join(controller.execute_and_stream("test multi"))
+            self.assertIn("action-status failed", chunks)
+            self.assertIn("Failed", chunks)
+            # Step 2 should not have run
+            self.assertNotIn("Typed text", chunks)
+
+    def test_calculator_execution(self):
+        from chat.agent.planner import default_planner
+        from chat.agent.controller import default_agent_controller
+        from chat.agent.tools.calculator_tools import evaluate_expression
+
+        # Direct tool evaluation
+        res = evaluate_expression("25 * 8")
+        self.assertTrue(res.success)
+        self.assertEqual(res.output, "25 * 8 = 200")
+
+        res_div = evaluate_expression("125 / 5")
+        self.assertTrue(res_div.success)
+        self.assertEqual(res_div.output, "125 / 5 = 25")
+
+        # Plan through planner
+        p = default_planner.plan_query("25 * 8")
+        self.assertTrue(p.is_agent_action)
+        self.assertEqual(p.steps[0].tool, "calculator")
+
+        chunks = "".join(default_agent_controller.execute_and_stream("25 * 8"))
+        self.assertIn("200", chunks)
+        self.assertIn("action-status success", chunks)
+        self.assertIn("Completed", chunks)
+
+    def test_zero_token_local_fast_router_matrix(self):
+        from chat.agent.planner import default_planner
+
+        matrix = [
+            ("open youtube", True, "open_url", False),
+            ("open google", True, "open_url", False),
+            ("open facebook", True, "open_url", False),
+            ("open github", True, "open_url", False),
+            ("open notepad", True, "open_application", False),
+            ("open vs code", True, "open_application", False),
+            ("25 * 8", True, "calculator", False),
+            ("open youtube and search roblox", True, "browser_search", False),
+            ("open facebook and search dhruv", True, "browser_search", False),
+            ("open VS Code and write Python code to create a calculator", True, "open_application", True),
+            ("what is youtube?", False, None, False),
+            ("explain VS Code", False, None, False),
+            ("what is 25 * 8?", False, None, False),
+        ]
+        for query, expected_is_action, expected_tool, expected_gen in matrix:
+            plan = default_planner.plan_query(query)
+            self.assertEqual(plan.is_agent_action, expected_is_action, f"Failed for {query}")
+            if expected_is_action:
+                tools = [s.tool for s in plan.steps]
+                self.assertIn(expected_tool, tools, f"Tool {expected_tool} not in {tools} for {query}")
+                has_gen = any(s.needs_generation for s in plan.steps)
+                self.assertEqual(has_gen, expected_gen, f"Needs generation mismatch for {query}")
+
+    def test_ox_alpha_single_planning_call(self):
+        from chat.agent.planner import default_planner
+
+        # 1. Automation request mock
+        fake_llm_automation = lambda p: '{"intent": "desktop_automation", "summary": "Search Roblox on YouTube", "actions": [{"tool": "open_url", "args": {"url": "https://www.youtube.com"}}, {"tool": "browser_search", "args": {"query": "Roblox", "engine": "youtube"}}]}'
+        plan_auto = default_planner.plan_with_ox_alpha("Open YouTube and search Roblox", fake_llm_automation)
+        self.assertTrue(plan_auto.is_agent_action)
+        self.assertEqual(len(plan_auto.steps), 2)
+        self.assertEqual(plan_auto.steps[0].tool, "open_url")
+        self.assertEqual(plan_auto.steps[1].tool, "browser_search")
+
+        # 2. Conversational chat question mock
+        fake_llm_chat = lambda p: '{"intent": "chat", "response": "In Java, an interface is a reference type similar to a class."}'
+        plan_chat = default_planner.plan_with_ox_alpha("Explain Java interfaces", fake_llm_chat)
+        self.assertFalse(plan_chat.is_agent_action)
+        self.assertIn("In Java, an interface", plan_chat.chat_response)
+
+    def test_dangerous_command_blocked(self):
+        from chat.agent.tools.desktop_tools import run_command
+        res = run_command("rmdir /s /q c:\\")
+        self.assertFalse(res.success)
+        self.assertIn("blocked for security", res.error)
+
+    def test_auto_routing_prioritizes_ox_alpha(self):
+        from chat.services.smart_router import choose_model, OX_ALPHA_MODEL
+        chosen = choose_model("Any user command", False, "cyber-max")
+        self.assertEqual(chosen, OX_ALPHA_MODEL)
+
+
+
+
+

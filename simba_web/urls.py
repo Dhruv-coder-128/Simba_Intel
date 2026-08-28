@@ -81,8 +81,9 @@ urlpatterns = [
     path('sessions/search/', views.search_chats, name='search_chats'),
     path('ask_ai/', views.ask_ai, name='ask_ai'),
     path('update_model/', views.update_model_session, name='update_model'),
-    path('system_stats/', views.system_stats, name='system_stats'),
     path("upload/", views.upload_file),
+    path('attachments/<uuid:attachment_id>/', views.serve_attachment, name='serve_attachment'),
+    path('attachments/<uuid:attachment_id>/content/', views.attachment_content, name='attachment_content'),
     path('settings/', views.profile_settings, name='profile_settings'),
     path('settings/timezone/', views.set_timezone, name='set_timezone'),
     path('account/sessions/<int:session_id>/logout/', views.logout_session, name='logout_session'),
@@ -109,4 +110,16 @@ urlpatterns = [
     path('prompts/recent/', views.recent_prompts, name='recent_prompts'),
     path('messages/<int:message_id>/delete/', views.delete_message, name='delete_message'),
     path('messages/<int:message_id>/continue/', views.continue_message, name='continue_message'),
+    path('agent/confirm/', views.agent_confirm_action, name='agent_confirm_action'),
+    path('system_stats/', views.system_stats, name='system_stats'),
+    path('update_reaction/', views.update_reaction, name='update_reaction'),
+
+    # Desktop Agent API Endpoints (Phase 1: Cloud ↔ Local Desktop Agent Connection)
+    path('api/agent/connect/', views.agent_connect_view, name='agent_connect'),
+    path('api/agent/poll/', views.agent_poll_view, name='agent_poll'),
+    path('api/agent/result/', views.agent_result_view, name='agent_result'),
+    path('api/agent/heartbeat/', views.agent_heartbeat_view, name='agent_heartbeat'),
+    path('api/agent/disconnect/', views.agent_disconnect_view, name='agent_disconnect'),
+    path('api/agent/status/', views.agent_status_view, name='agent_status'),
+    path('api/agent/token/regenerate/', views.agent_regenerate_token_view, name='agent_regenerate_token'),
 ]

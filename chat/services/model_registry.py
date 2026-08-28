@@ -79,6 +79,12 @@ MODEL_REGISTRY: Dict[str, ModelConfig] = {
         actual_model="flux",
         supports_image_gen=True
     ),
+    "ox-alpha": ModelConfig(
+        display_name="Ox Alpha",
+        provider="openrouter",
+        actual_model="nvidia/nemotron-3-super-120b-a12b:free",
+        supports_vision=False,
+    ),
 }
 
 
@@ -93,6 +99,7 @@ PROVIDER_DISPLAY_NAMES: Dict[str, str] = {
     "openai": "Cyber Max Cloud",
     "nvidia": "Quantum Core Cloud",
     "pollinations": "Image Studio Engine",
+    "openrouter": "Ox Alpha Cloud",
 }
 
 
@@ -110,6 +117,7 @@ FALLBACK_CHAINS: Dict[str, list] = {
     "nova-mind": ["cyber-max", "sky-net-mini"],
     "sky-net": ["sky-net-mini"],
     "sky-net-mini": ["sky-net"],
+    "ox-alpha": ["nova-mind", "cyber-max"],
 }
 
 

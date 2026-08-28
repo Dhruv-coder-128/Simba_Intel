@@ -1,4 +1,5 @@
 import secrets
+import uuid
 
 from django.contrib.auth.hashers import check_password, make_password
 from django.core.cache import cache
@@ -128,6 +129,49 @@ class Message(models.Model):
         return f"{self.role}: {preview}"
 
 
+class MessageAttachment(models.Model):
+    """Stores uploaded file attachments associated with a user message and session."""
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    message = models.ForeignKey(Message, on_delete=models.CASCADE, related_name='attachments', null=True, blank=True)
+    session = models.ForeignKey(ChatSession, on_delete=models.CASCADE, related_name='attachments')
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='attachments')
+    file = models.FileField(upload_to='attachments/%Y/%m/%d/')
+    original_name = models.CharField(max_length=255)
+    file_size = models.PositiveIntegerField(default=0)
+    mime_type = models.CharField(max_length=100, blank=True, default='')
+    file_type = models.CharField(max_length=20, default='file')  # 'image', 'pdf', 'text', 'code', 'file'
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=['session', 'created_at']),
+            models.Index(fields=['user', 'created_at']),
+            models.Index(fields=['message']),
+        ]
+
+    def __str__(self):
+        return f"{self.original_name} ({self.file_size} bytes)"
+
+    def delete(self, *args, **kwargs):
+        if self.file:
+            try:
+                self.file.delete(save=False)
+            except Exception:
+                pass
+        super().delete(*args, **kwargs)
+
+    def to_dict(self):
+        return {
+            "id": str(self.id),
+            "name": self.original_name,
+            "size": self.file_size,
+            "mime_type": self.mime_type,
+            "file_type": self.file_type,
+            "url": f"/attachments/{self.id}/",
+            "content_url": f"/attachments/{self.id}/content/",
+        }
+
+
 class UserProfile(models.Model):
     THEME_CHOICES = [
         ("cyberpunk", "Cyber Dark (default)"),
@@ -198,7 +242,7 @@ class UserProfile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
     display_name = models.CharField(max_length=100, blank=True)
     avatar_url = models.URLField(blank=True)
-    default_model = models.CharField(max_length=50, default='quantum-core')
+    default_model = models.CharField(max_length=50, default='ox-alpha')
     theme = models.CharField(max_length=20, choices=THEME_CHOICES, default='cyberpunk')
     accent_override = models.CharField(max_length=20, choices=ACCENT_OVERRIDE_CHOICES, blank=True, default='')
     density = models.CharField(max_length=20, choices=DENSITY_CHOICES, default='comfortable')
@@ -208,6 +252,28 @@ class UserProfile(models.Model):
     memory_enabled = models.BooleanField(default=False)
     notifications_enabled = models.BooleanField(default=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+    # --- SIMBA Desktop Agent Connection (Phase 1) ---
+    # Secret authentication token and metadata for the user's local Windows PC agent
+    agent_token = models.CharField(max_length=64, blank=True, default='', db_index=True)
+    agent_device_name = models.CharField(max_length=100, blank=True, default='')
+    agent_platform = models.CharField(max_length=100, blank=True, default='')
+    agent_last_seen = models.DateTimeField(null=True, blank=True)
+
+    def get_or_create_agent_token(self) -> str:
+        """Returns the user's existing desktop agent token or generates a secure new one."""
+        if not self.agent_token:
+            import secrets
+            self.agent_token = f"simba_at_{secrets.token_hex(24)}"
+            self.save(update_fields=['agent_token'])
+        return self.agent_token
+
+    def regenerate_agent_token(self) -> str:
+        """Regenerates the desktop agent token, invalidating previous desktop sessions."""
+        import secrets
+        self.agent_token = f"simba_at_{secrets.token_hex(24)}"
+        self.save(update_fields=['agent_token'])
+        return self.agent_token
 
     # --- Timezone (single source of truth for every timestamp in the app -
     # see chat.middleware.TimezoneMiddleware) ---

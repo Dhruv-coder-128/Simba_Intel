@@ -204,6 +204,13 @@ STATIC_ROOT = BASE_DIR / "staticfiles"
 
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
+# Media Files (User Uploads / Attachments)
+MEDIA_URL = '/media/'
+MEDIA_ROOT = BASE_DIR / 'media'
+
+# Frame options: allow same-origin iframes for internal PDF & document previewers
+X_FRAME_OPTIONS = 'SAMEORIGIN'
+
 # Security Settings
 if not DEBUG:
     # HTTPS Settings
@@ -211,7 +218,7 @@ if not DEBUG:
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True
     SECURE_SSL_REDIRECT = True
-    X_FRAME_OPTIONS = 'DENY'
+    X_FRAME_OPTIONS = 'SAMEORIGIN'
     SECURE_CONTENT_TYPE_NOSNIFF = True
 
     # HSTS - starts at 1 hour rather than the usual 1-year recommendation,
