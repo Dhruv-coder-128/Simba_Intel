@@ -3780,6 +3780,72 @@ class AgentSystemTests(TestCase):
         self.assertEqual(chosen, OX_ALPHA_MODEL)
 
 
+class RegenerationAndAttachmentFixTests(TestCase):
+    """Verifies the bug fixes for regenerate_message, attachment encoding, and image kwargs."""
+
+    def setUp(self):
+        from django.contrib.auth import get_user_model
+        from chat.models import ChatSession, Message, UserProfile
+        User = get_user_model()
+        self.user = User.objects.create_user(username="test_regen_fix_user", password="TestPassword123!")
+        UserProfile.get_or_create_for(self.user)
+        self.session = ChatSession.objects.create(user=self.user, title="Test Regen Session")
+        self.user_msg = Message.objects.create(
+            session=self.session,
+            role="user",
+            content="Hello test prompt",
+        )
+        self.asst_msg = Message.objects.create(
+            session=self.session,
+            parent=self.user_msg,
+            role="assistant",
+            content="Old assistant reply",
+        )
+
+    def test_regenerate_message_session_header(self):
+        from chat.views import regenerate_message
+        from django.test import RequestFactory
+        from unittest.mock import patch
+
+        rf = RequestFactory()
+        req = rf.post(f"/chat/message/{self.asst_msg.id}/regenerate/", {"model_id": "cyber-max"})
+        req.user = self.user
+        req.session = {}
+
+        with patch("chat.views._stream_with_failover") as mock_stream:
+            def fake_gen():
+                yield ("New reply text", False)
+            mock_stream.return_value = (fake_gen(), {"model_id": "cyber-max"}, "cyber-max")
+
+            response = regenerate_message(req, self.asst_msg.id)
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual(response.get("X-Session-ID"), str(self.session.id))
+            # Consume stream
+            chunks = list(response.streaming_content)
+            self.assertTrue(len(chunks) > 0)
+
+    def test_image_attachment_to_base64_url(self):
+        from chat.views import _image_attachment_to_base64_url
+        from unittest.mock import MagicMock
+
+        mock_file = MagicMock()
+        mock_file.read.return_value = b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR"
+        mock_rec = MagicMock()
+        mock_rec.mime_type = "image/png"
+        mock_rec.original_name = "test.png"
+        mock_rec.file = mock_file
+
+        url = _image_attachment_to_base64_url(mock_rec)
+        self.assertTrue(url.startswith("data:image/png;base64,"))
+
+    def test_pollinations_image_kwarg_compatibility(self):
+        from chat.services.image_router import generate_image
+        res = generate_image("futuristic city", width=1024, height=1024, aspect_ratio="1:1", enhance=True)
+        self.assertTrue(res.get("success"))
+        self.assertIn("url", res)
+        self.assertIn("image_url", res)
+
+
 
 
 

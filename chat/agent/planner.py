@@ -46,8 +46,8 @@ def is_coding_or_question_prompt(query: str) -> bool:
     if re.match(r"^(?:please\s+)?(?:open|launch|start)\s+(?:the\s+)?(?:notepad|vscode|vs\s+code|code|text\s+editor)\s+(?:and|then)\s+", q):
         return False
 
-    # If it's a direct calculate command or system telemetry/active window/clipboard, it is an action
-    if re.search(r"\b(?:cpu|ram|memory|system\s+info|telemetry|clipboard|active\s+window)\b", q):
+    # If it's a direct calculate command or system telemetry/active window/clipboard/screen, it is an action
+    if re.search(r"\b(?:cpu|ram|memory|system\s+info|telemetry|clipboard|active\s+window|screen)\b", q):
         return False
     if re.match(r"^(?:calculate|compute|solve|eval)\s+", q) or re.match(r"^what\s+is\s+[0-9\.\+\-\*\/]", q):
         return False

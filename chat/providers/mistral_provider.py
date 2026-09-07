@@ -11,10 +11,10 @@ class MistralProvider(BaseProvider):
     provider_name = "mistral"
 
     supported_models = [
-        "mistral-medium-latest",
-        "mistral-large-latest",
+        "pixtral-12b-latest",
         "ministral-8b-latest",
-        "pixtral-large-latest",
+        "open-mistral-7b",
+        "mistral-small-latest",
     ]
 
     # See GroqProvider.REQUEST_TIMEOUT_SECONDS for why this exists: an
@@ -29,6 +29,7 @@ class MistralProvider(BaseProvider):
             api_key=os.getenv("MISTRAL_API_KEY"),
             base_url="https://api.mistral.ai/v1",
             timeout=self.REQUEST_TIMEOUT_SECONDS,
+            max_retries=0,
         )
 
     def chat(
@@ -85,7 +86,7 @@ class MistralProvider(BaseProvider):
     def vision(
         self,
         messages,
-        model="pixtral-large-latest",
+        model="pixtral-12b-latest",
         on_usage: Optional[Callable[[dict], None]] = None,
         on_model_resolved: Optional[Callable[[dict], None]] = None,
         **kwargs,

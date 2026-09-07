@@ -36,6 +36,8 @@ class ExecutionResult:
     requires_confirmation: bool = False
     confirmation_prompt: Optional[str] = None
     sensitive_action_data: Optional[Dict[str, Any]] = None
+    duration_ms: Optional[float] = None
+    command_id: Optional[str] = None
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -52,6 +54,8 @@ class ExecutionResult:
             "requires_confirmation": self.requires_confirmation,
             "confirmation_prompt": self.confirmation_prompt,
             "sensitive_action_data": self.sensitive_action_data,
+            "duration_ms": self.duration_ms,
+            "command_id": self.command_id,
         }
 
 

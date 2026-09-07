@@ -98,32 +98,37 @@
             .catch(() => { /* transient network hiccup - next poll will recover */ });
     }
 
-    fetchSystemStats();
+    let statsInFlight = false;
+    let liveInFlight = false;
+    let logInFlight = false;
+
     function fetchSystemStats() {
+        if (statsInFlight) return;
+        statsInFlight = true;
         fetch('{% url "system_stats" %}', { signal: AbortSignal.timeout(8000) })
             .then(res => res.json())
             .then(data => {
+                statsInFlight = false;
                 document.getElementById('statCpu').textContent = `${data.cpu.toFixed(1)}%`;
                 document.getElementById('statRam').textContent = `${data.ram.toFixed(1)}%`;
                 document.getElementById('statDisk').textContent = `${data.disk.toFixed(1)}%`;
             })
-            .catch(() => {});
+            .catch(() => { statsInFlight = false; });
     }
-
-    refreshLiveData();
-    setInterval(refreshLiveData, 5000);
-    setInterval(fetchSystemStats, 5000);
 
     let logStreamSince = null;
     const LOG_STREAM_MAX_LINES = 300;
     let logLines = [];
 
     function refreshLogStream() {
+        if (logInFlight) return;
+        logInFlight = true;
         const url = new URL('{% url "admin_live_log_stream" %}', window.location.origin);
         if (logStreamSince !== null) url.searchParams.set('since', logStreamSince);
         fetch(url, { signal: AbortSignal.timeout(8000) })
             .then(res => res.json())
             .then(data => {
+                logInFlight = false;
                 if (!data.logs.length) return;
                 // Server returns newest-first; append oldest-first so the
                 // stream reads top-to-bottom like a real terminal tail.
@@ -140,10 +145,39 @@
                 pre.textContent = logLines.map(l => `[${l.level}] ${l.message}`).join('\n');
                 pre.scrollTop = pre.scrollHeight;
             })
-            .catch(() => {});
+            .catch(() => { logInFlight = false; });
     }
+
     document.getElementById('liveLogStreamEmpty').style.display = '';
-    refreshLogStream();
-    setInterval(refreshLogStream, 5000);
+
+    let liveInterval = null;
+    let statsInterval = null;
+    let logInterval = null;
+
+    function startLivePolling() {
+        if (liveInterval) return;
+        refreshLiveData();
+        fetchSystemStats();
+        refreshLogStream();
+        liveInterval = setInterval(refreshLiveData, 8000);
+        statsInterval = setInterval(fetchSystemStats, 8000);
+        logInterval = setInterval(refreshLogStream, 8000);
+    }
+
+    function stopLivePolling() {
+        clearInterval(liveInterval);
+        clearInterval(statsInterval);
+        clearInterval(logInterval);
+        liveInterval = null;
+        statsInterval = null;
+        logInterval = null;
+    }
+
+    document.addEventListener("visibilitychange", () => {
+        if (document.hidden) stopLivePolling();
+        else startLivePolling();
+    });
+
+    if (!document.hidden) startLivePolling();
 </script>
 {% endblock %}

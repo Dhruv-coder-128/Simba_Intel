@@ -23,6 +23,7 @@ class OpenRouterProvider(BaseProvider):
             api_key=api_key,
             base_url=base_url,
             timeout=self.REQUEST_TIMEOUT_SECONDS,
+            max_retries=0,
         )
 
     def chat(
@@ -37,6 +38,10 @@ class OpenRouterProvider(BaseProvider):
             stream=False,
             **kwargs,
         )
+        err = getattr(response, "error", None)
+        if err:
+            msg = err.get("message") if isinstance(err, dict) else str(err)
+            raise RuntimeError(f"OpenRouter upstream error: {msg}")
         if response.choices and response.choices[0].message:
             return response.choices[0].message.content or ""
         return ""
@@ -58,6 +63,11 @@ class OpenRouterProvider(BaseProvider):
         )
 
         for chunk in stream:
+            chunk_err = getattr(chunk, "error", None)
+            if chunk_err:
+                msg = chunk_err.get("message") if isinstance(chunk_err, dict) else str(chunk_err)
+                raise RuntimeError(f"OpenRouter upstream error: {msg}")
+
             usage = getattr(chunk, "usage", None)
             if usage is not None and on_usage:
                 p_tokens = getattr(usage, "prompt_tokens", None)

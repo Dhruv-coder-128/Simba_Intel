@@ -32,7 +32,7 @@ def _count_tokens(text: str) -> int:
 def build_stats(
     *,
     model_id: str,
-    serving_model_id: str,
+    serving_model_id: Optional[str] = None,
     resolved: Optional[dict] = None,
     captured_usage: Optional[dict] = None,
     prompt_text: str = "",
@@ -61,6 +61,7 @@ def build_stats(
     populated for virtual/nvidia pooled providers, which don't expose their
     real underlying model any other way.
     """
+    serving_model_id = serving_model_id or model_id
     resolved = resolved or {}
     captured_usage = captured_usage or {}
     end_time = end_time if end_time is not None else time.time()
@@ -75,7 +76,12 @@ def build_stats(
         completion_tokens = _count_tokens(completion_text)
     total_tokens = prompt_tokens + completion_tokens
 
-    actual_model = resolved.get("model") or serving_config.actual_model
+    if isinstance(resolved, dict):
+        actual_model = resolved.get("model") or serving_config.actual_model
+    elif isinstance(resolved, str) and resolved:
+        actual_model = resolved
+    else:
+        actual_model = serving_config.actual_model
 
     # Non-streaming calls (vision, image gen) never set first_token_time -
     # their entire reply arrives as one unit, so time-to-first-token really

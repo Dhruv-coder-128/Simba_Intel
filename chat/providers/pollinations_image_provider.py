@@ -37,13 +37,33 @@ class PollinationsImageProvider:
         "low resolution",
     ]
 
-    def generate(self, prompt: str, seed=None, aspect_ratio="1:1"):
+    def generate(
+        self,
+        prompt: str,
+        seed=None,
+        aspect_ratio="1:1",
+        width=None,
+        height=None,
+        **kwargs
+    ):
         start_time = time.time()
 
         try:
-            if aspect_ratio not in self.ASPECT_RATIO_SIZES:
-                aspect_ratio = "1:1"
-            width, height = self.ASPECT_RATIO_SIZES[aspect_ratio]
+            prompt = (prompt or "").strip()
+            if not prompt:
+                return {
+                    "success": False,
+                    "error": "Prompt cannot be empty."
+                }
+
+            # Map aspect ratio to supported dimensions unless explicit valid dimensions are given
+            if width and height and isinstance(width, (int, float)) and isinstance(height, (int, float)) and width > 0 and height > 0:
+                width = int(max(256, min(2048, width)))
+                height = int(max(256, min(2048, height)))
+            else:
+                if aspect_ratio not in self.ASPECT_RATIO_SIZES:
+                    aspect_ratio = "1:1"
+                width, height = self.ASPECT_RATIO_SIZES[aspect_ratio]
 
             if not seed:
                 seed = random.randint(0, 999999)
@@ -67,9 +87,11 @@ class PollinationsImageProvider:
             result = {
                 "success": True,
                 "image_url": image_url,
+                "url": image_url,
                 "model_used": "Pollinations AI",
                 "prompt": prompt,
                 "enhanced_prompt": enhanced_prompt,
+                "aspect_ratio": aspect_ratio,
                 "width": width,
                 "height": height
             }
@@ -85,7 +107,7 @@ class PollinationsImageProvider:
             logger.log_request(
                 provider="pollinations",
                 latency=round(time.time() - start_time, 2),
-                prompt_length=len(prompt),
+                prompt_length=len(prompt) if prompt else 0,
                 response_length=0,
                 error=str(e)
             )
@@ -93,3 +115,4 @@ class PollinationsImageProvider:
                 "success": False,
                 "error": "Unable to generate image."
             }
+

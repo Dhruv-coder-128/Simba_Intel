@@ -71,6 +71,7 @@ class NvidiaTextProvider(BaseProvider):
             api_key=self.api_key,
             base_url=NVIDIA_API_BASE_URL,
             timeout=REQUEST_TIMEOUT_SECONDS,
+            max_retries=0,
         )
 
     def chat(self, messages: list[Dict[str, Any]], model: str, **kwargs) -> str:

@@ -81,9 +81,29 @@
                     </tr>
                 `).join('');
             })
-            .catch(() => {});
+            .catch(() => {})
+            .finally(() => { healthInFlight = false; });
     }
-    refreshHealth();
-    setInterval(refreshHealth, 8000);
+
+    let healthInFlight = false;
+    let healthInterval = null;
+
+    function startHealthPolling() {
+        if (healthInterval) return;
+        refreshHealth();
+        healthInterval = setInterval(refreshHealth, 10000);
+    }
+
+    function stopHealthPolling() {
+        clearInterval(healthInterval);
+        healthInterval = null;
+    }
+
+    document.addEventListener("visibilitychange", () => {
+        if (document.hidden) stopHealthPolling();
+        else startHealthPolling();
+    });
+
+    if (!document.hidden) startHealthPolling();
 </script>
 {% endblock %}

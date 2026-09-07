@@ -10,80 +10,57 @@ class ModelConfig:
     actual_model: str
     supports_vision: bool = False
     supports_image_gen: bool = False
-    # Role-gated model access (AI Control Center) - "user" (chat/models.py's
-    # Role.USER) means open to everyone, which is every model's default
-    # today, so this changes nothing unless a future model is registered
-    # with a higher minimum. MODEL_REGISTRY is a static, code-defined dict,
-    # not a database table - so this is a real, enforced mechanism (see
-    # chat/views.py's ask_ai, where it's checked), but not yet something an
-    # admin can change without a deploy. Moving MODEL_REGISTRY into the
-    # database is the natural next step if per-model role requirements need
-    # to become runtime-editable.
+    context_window: int = 128000
     min_role: str = "user"
 
 
 MODEL_REGISTRY: Dict[str, ModelConfig] = {
     "cyber-max": ModelConfig(
         display_name="Cyber Max",
-        # "virtual" = routed through chat/providers/virtual_provider.py's
-        # VirtualRouterProvider rather than calling a single real model
-        # directly - actual_model below isn't a real Groq model id, it's the
-        # pool key VirtualRouterProvider looks up in MODEL_POOLS. Cyber Max
-        # itself still appears as exactly one model everywhere else in the
-        # app (chat list, analytics, etc.) - only this ModelConfig and
-        # MODEL_POOLS know it's backed by more than one real model.
         provider="virtual",
-        actual_model="cyber-max-pool"
+        actual_model="cyber-max-pool",
+        context_window=128000,
     ),
     "nova-mind": ModelConfig(
         display_name="Nova Mind",
         provider="groq",
-        actual_model="groq/compound-mini"
+        actual_model="groq/compound-mini",
+        context_window=128000,
     ),
     "sky-net": ModelConfig(
         display_name="SkyNet(vision)",
         provider="mistral",
-        actual_model="mistral-large-latest",
-        supports_vision=True
+        actual_model="pixtral-12b-latest",
+        supports_vision=True,
+        context_window=128000,
     ),
     "sky-net-mini": ModelConfig(
         display_name="SkyNet Mini",
         provider="mistral",
-        actual_model="mistral-medium-3-5",
-        supports_vision=True
+        actual_model="ministral-8b-latest",
+        supports_vision=True,
+        context_window=32000,
     ),
     "quantum-core": ModelConfig(
         display_name="⚛ Quantum Core",
-        # "nvidia" = routed through chat/providers/nvidia_text_provider.py's
-        # NvidiaTextProvider rather than calling a single real model
-        # directly - actual_model below isn't a real NVIDIA model id, it's
-        # a nominal pool tag (NvidiaTextProvider ignores it and always
-        # routes over its own fixed TEXT_MODELS priority list - see that
-        # file's own docstring). Quantum Core itself still appears as
-        # exactly one model everywhere else in the app (chat list,
-        # analytics, etc.) - only this ModelConfig and chat/providers/
-        # nvidia_*_provider.py know it's backed by a fixed, explicit NVIDIA
-        # model chain with immediate, no-retry failover.
-        # supports_vision=True: an attached image routes through
-        # NvidiaTextProvider.vision(), which delegates to chat/providers/
-        # nvidia_vision_provider.py's own fixed vision-model chain - the
-        # same generic provider-dispatch path every other vision-capable
-        # model already uses, no ask_ai changes needed for this to work.
         provider="nvidia",
         actual_model="quantum-core-pool",
         supports_vision=True,
+        context_window=64000,
     ),
     "image-studio": ModelConfig(
         display_name="Image Studio (Image)",
         provider="pollinations",
-        actual_model="flux",
-        supports_image_gen=True
+        actual_model="sana",
+        supports_image_gen=True,
+        context_window=8000,
     ),
     "ox-alpha": ModelConfig(
         display_name="Ox Alpha",
         provider="openrouter",
         actual_model="nvidia/nemotron-3-super-120b-a12b:free",
         supports_vision=False,
+        context_window=128000,
     ),
 }
 

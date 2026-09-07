@@ -39,20 +39,26 @@ class SimbaLogger:
         token_usage: dict = None,
         error: str = None,
         category: str = "chat_provider",
+        model: str = "",
+        routing_mode: str = "",
+        status_code: int = 200,
+        retry_count: int = 0,
     ):
+        # Sanitize error message to ensure no API keys / auth tokens are logged
+        safe_error = None
+        if error:
+            safe_error = str(error)
+            # Mask potential bearer tokens or 32+ character hex/alphanumeric keys
+            import re
+            safe_error = re.sub(r'(?:bearer\s+|key[=:\s]+|gsk_|nvapi-|sk-)[a-zA-Z0-9_\-]{16,}', '[REDACTED_SECRET]', safe_error, flags=re.IGNORECASE)
+
         self.logger.info(
-            f"Request: provider=%s, latency=%.2fs, prompt_len=%d, resp_len=%d, token_usage=%s, error=%s",
-            provider, latency, prompt_length, response_length, token_usage, error
+            f"[AI_GENERATION] provider=%s model=%s mode=%s latency=%.2fs status=%d retries=%d prompt_len=%d resp_len=%d token_usage=%s error=%s",
+            provider, model or "unknown", routing_mode or "default", latency, status_code, retry_count, prompt_length, response_length, token_usage, safe_error
         )
         if error:
-            # Every AI provider call already funnels here on failure - this
-            # is the single choke point chat/models.py's ErrorLog (Error
-            # Center) is fed from, rather than adding a try/except at every
-            # call site individually.
             from chat.models import ErrorLog
             try:
-                ErrorLog.record(category=category, message=error, detail=f"provider={provider}")
+                ErrorLog.record(category=category, message=safe_error or "Provider error", detail=f"provider={provider} model={model} mode={routing_mode} status={status_code}")
             except Exception:
-                # Recording the error must never itself become a new,
-                # unhandled error inside the AI request path.
                 self.logger.exception("Failed to record ErrorLog entry")

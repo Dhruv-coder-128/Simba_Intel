@@ -1,17 +1,16 @@
 {% load l10n %}
 <div class="chat-item-container {% if s.id|stringformat:'s' == current_session.id|stringformat:'s' %}active-chat{% endif %}"
-     data-session-id="{{ s.id }}"
-     data-created-at="{{ s.created_at|date:'c' }}"
-     data-pinned="{{ s.is_pinned|yesno:'1,0' }}"
-     data-favorite="{{ s.is_favorite|yesno:'1,0' }}"
-     data-archived="{{ s.is_archived|yesno:'1,0' }}"
-     data-folder="{{ s.folder }}"
-     data-color="{{ s.color_label }}"
-     data-title="{{ s.title }}">
+    data-session-id="{{ s.id }}" data-created-at="{{ s.last_active|default:s.created_at|date:'c' }}"
+    data-date-group="{{ s.date_group|default:'today' }}"
+    data-pinned="{{ s.is_pinned|yesno:'1,0' }}" data-favorite="{{ s.is_favorite|yesno:'1,0' }}"
+    data-archived="{{ s.is_archived|yesno:'1,0' }}" data-folder="{{ s.folder }}" data-color="{{ s.color_label }}"
+    data-title="{{ s.title }}">
 
-    <input type="checkbox" class="chat-bulk-checkbox" data-session-id="{{ s.id }}" onclick="event.stopPropagation(); onBulkCheckboxChange();" aria-label="Select conversation">
+    <input type="checkbox" class="chat-bulk-checkbox" data-session-id="{{ s.id }}"
+        onclick="event.stopPropagation(); onBulkCheckboxChange();" aria-label="Select conversation">
 
-    <a href="/?session={{ s.id }}{% if s.is_archived %}&view=archived{% endif %}" class="chat-link">
+    <a href="/?session={{ s.id }}{% if s.is_archived %}&view=archived{% endif %}{% if session_type and session_type != 'assistant' %}&type={{ session_type|urlencode }}{% endif %}{% if folder_filter %}&folder={{ folder_filter|urlencode }}{% endif %}"
+       class="chat-link" title="{{ s.title|escape }}">
         <span class="chat-row-icons">
             {% if s.color_label %}<span class="chat-color-dot chat-color-{{ s.color_label }}"></span>{% endif %}
             {% if s.is_pinned %}<i class="fa-solid fa-thumbtack chat-pin-icon" title="Pinned"></i>{% endif %}
@@ -19,28 +18,33 @@
             {% if s.folder %}<i class="fa-solid fa-folder chat-folder-icon" title="{{ s.folder }}"></i>{% endif %}
         </span>
         <span class="chat-link-marker">&gt;</span>
-        <span class="chat-link-title">{{ s.title }}</span>
+        <span class="chat-link-title" title="{{ s.title|escape }}">{{ s.title }}</span>
     </a>
 
     <div class="side-menu">
-        <button class="side-menu-btn" onclick="toggleMenu(event, 'drop-{{ s.id }}')" aria-haspopup="true" aria-expanded="false" aria-label="Conversation options">
+        <button class="side-menu-btn" onclick="toggleMenu(event, 'drop-{{ s.id }}')" aria-haspopup="true"
+            aria-expanded="false" aria-label="Conversation options">
             <i class="fa-solid fa-ellipsis-vertical"></i>
         </button>
         <div id="drop-{{ s.id }}" class="side-dropdown" role="menu">
             <div class="side-dropdown-group">
-                <a href="javascript:void(0)" role="menuitem" tabindex="-1" class="js-pin-item" onclick="togglePin('{{ s.id }}')">
+                <a href="javascript:void(0)" role="menuitem" tabindex="-1" class="js-pin-item"
+                    onclick="togglePin('{{ s.id }}')">
                     <i class="fa-solid fa-thumbtack"></i> <span class="js-pin-label">{% if s.is_pinned %}Unpin{% else %}Pin{% endif %}</span>
                 </a>
-                <a href="javascript:void(0)" role="menuitem" tabindex="-1" class="js-favorite-item" onclick="toggleFavoriteSession('{{ s.id }}')">
+                <a href="javascript:void(0)" role="menuitem" tabindex="-1" class="js-favorite-item"
+                    onclick="toggleFavoriteSession('{{ s.id }}')">
                     <i class="fa-solid fa-star"></i> <span class="js-favorite-label">{% if s.is_favorite %}Unfavorite{% else %}Favorite{% endif %}</span>
                 </a>
-                <a href="javascript:void(0)" role="menuitem" tabindex="-1" onclick="renameChat('{{ s.id }}', '{{ s.title|escapejs }}')">
+                <a href="javascript:void(0)" role="menuitem" tabindex="-1"
+                    onclick="renameChat('{{ s.id }}', '{{ s.title|escapejs }}')">
                     <i class="fa-solid fa-pen"></i> Rename
                 </a>
                 <a href="javascript:void(0)" role="menuitem" tabindex="-1" onclick="duplicateChat('{{ s.id }}')">
                     <i class="fa-solid fa-copy"></i> Duplicate
                 </a>
-                <a href="javascript:void(0)" role="menuitem" tabindex="-1" onclick="promptSetFolder('{{ s.id }}', '{{ s.folder|escapejs }}')">
+                <a href="javascript:void(0)" role="menuitem" tabindex="-1"
+                    onclick="promptSetFolder('{{ s.id }}', '{{ s.folder|escapejs }}')">
                     <i class="fa-solid fa-folder"></i> Set Folder
                 </a>
             </div>
@@ -49,19 +53,23 @@
                 <div class="side-dropdown-label">Color</div>
                 <div class="side-dropdown-colors">
                     {% for value, label in s.COLOR_CHOICES %}
-                    <button type="button" role="menuitem" tabindex="-1" class="color-swatch {% if value %}color-swatch-{{ value }}{% else %}color-swatch-none{% endif %}" title="{{ label }}" onclick="setSessionColor('{{ s.id }}', '{{ value }}')"></button>
+                    <button type="button" role="menuitem" tabindex="-1"
+                        class="color-swatch {% if value %}color-swatch-{{ value }}{% else %}color-swatch-none{% endif %}"
+                        title="{{ label }}" onclick="setSessionColor('{{ s.id }}', '{{ value }}')"></button>
                     {% endfor %}
                 </div>
             </div>
             <div class="side-dropdown-divider"></div>
             <div class="side-dropdown-group">
-                <a href="javascript:void(0)" role="menuitem" tabindex="-1" class="js-archive-item" onclick="toggleArchiveSession('{{ s.id }}')">
+                <a href="javascript:void(0)" role="menuitem" tabindex="-1" class="js-archive-item"
+                    onclick="toggleArchiveSession('{{ s.id }}')">
                     <i class="fa-solid fa-box-archive"></i> <span class="js-archive-label">{% if s.is_archived %}Unarchive{% else %}Archive{% endif %}</span>
                 </a>
             </div>
             <div class="side-dropdown-divider"></div>
             <div class="side-dropdown-group">
-                <a href="javascript:void(0)" role="menuitem" tabindex="-1" onclick="deleteChat('{{ s.id }}')" class="side-dropdown-danger">
+                <a href="javascript:void(0)" role="menuitem" tabindex="-1" onclick="deleteChat('{{ s.id }}')"
+                    class="side-dropdown-danger">
                     <i class="fa-solid fa-trash"></i> Delete
                 </a>
             </div>

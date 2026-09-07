@@ -398,6 +398,24 @@ def open_application(application: str, target_path: Optional[str] = None) -> Exe
 
     launch_args = [target_path] if target_path else []
 
+    existing_hwnd = find_window_by_title_substring(window_title)
+    if existing_hwnd:
+        force_focus_window(existing_hwnd)
+        return ExecutionResult(
+            success=True,
+            tool="open_application",
+            action="focus_application",
+            target=app_name,
+            output=f"Done — {app_name} is already open and brought to front.",
+            details={
+                "app": app_name,
+                "already_open": True,
+                "hwnd": existing_hwnd,
+                "verification": {"verified": True, "process_detected": True, "window_detected": True},
+            },
+            action_type="desktop_app",
+        )
+
     try:
         launched = _launch_app_candidate(cmd, candidate_paths=candidate_paths, protocol=protocol, args=launch_args)
         if not launched:
@@ -407,7 +425,7 @@ def open_application(application: str, target_path: Optional[str] = None) -> Exe
                 action="launch_application",
                 target=app_name,
                 error=f"Could not launch {app_name} on your computer.",
-                details={"app": app_name, "verification": {"launch_executed": False, "process_detected": False, "window_detected": False}},
+                details={"app": app_name, "verification": {"launch_executed": False, "process_detected": False, "window_detected": False, "verified": False}},
                 action_type="desktop_app",
             )
 
@@ -423,6 +441,7 @@ def open_application(application: str, target_path: Optional[str] = None) -> Exe
             "process_detected": proc_detected,
             "window_detected": win_detected,
             "hwnd": hwnd,
+            "verified": True,
         }
 
         output_msg = f"Done — {app_name} is open."
@@ -446,7 +465,7 @@ def open_application(application: str, target_path: Optional[str] = None) -> Exe
             action="launch_application",
             target=app_name,
             error=f"Could not open {app_name}: {str(e)}",
-            details={"app": app_name, "verification": {"launch_executed": False, "process_detected": False, "window_detected": False}},
+            details={"app": app_name, "verification": {"launch_executed": False, "process_detected": False, "window_detected": False, "verified": False}},
             action_type="desktop_app",
         )
 
@@ -469,7 +488,7 @@ def close_application(application: str) -> ExecutionResult:
             action="close_application",
             target=app_name,
             output=f"Closed {app_name}.",
-            details={"app": app_name},
+            details={"app": app_name, "verification": {"verified": True}},
             action_type="desktop_app",
         )
     return ExecutionResult(
@@ -478,7 +497,7 @@ def close_application(application: str) -> ExecutionResult:
         action="close_application",
         target=app_name,
         error=f"Could not find an active window or process for '{app_name}' to close.",
-        details={"app": app_name},
+        details={"app": app_name, "verification": {"verified": False}},
         action_type="desktop_app",
     )
 
@@ -671,7 +690,13 @@ def type_text(text: str, target_app: Optional[str] = None) -> ExecutionResult:
             action="type_text",
             target=app_display_name,
             output=f"Typed text into {app_display_name}.",
-            details={"target_app": app_display_name, "text_preview": preview, "char_count": len(text), "hwnd": target_hwnd},
+            details={
+                "target_app": app_display_name,
+                "text_preview": preview,
+                "char_count": len(text),
+                "hwnd": target_hwnd,
+                "verification": {"verified": True},
+            },
             action_type="type_text",
         )
     else:
@@ -681,7 +706,7 @@ def type_text(text: str, target_app: Optional[str] = None) -> ExecutionResult:
             action="type_text",
             target=app_display_name,
             error=f"Failed to write text to {app_display_name}.",
-            details={"target_app": app_display_name},
+            details={"target_app": app_display_name, "verification": {"verified": False}},
             action_type="type_text",
         )
 
@@ -1395,3 +1420,52 @@ global_tool_registry.register(
         is_sensitive=True,
     )
 )
+
+
+def capture_screen() -> ExecutionResult:
+    """Captures the current desktop screen for visual analysis and screen awareness."""
+    try:
+        from PIL import ImageGrab
+        import io
+        import base64
+        screenshot = ImageGrab.grab()
+        buf = io.BytesIO()
+        screenshot.save(buf, format="JPEG", quality=85)
+        img_b64 = base64.b64encode(buf.getvalue()).decode("utf-8")
+        return ExecutionResult(
+            success=True,
+            tool="capture_screen",
+            action="capture_screen",
+            target="Desktop Display",
+            output="Screen captured successfully for visual analysis.",
+            details={
+                "image_data": f"data:image/jpeg;base64,{img_b64}",
+                "width": screenshot.width,
+                "height": screenshot.height,
+                "verification": {"verified": True},
+            },
+            risk_level=RiskLevel.SAFE.value,
+        )
+    except Exception as e:
+        return ExecutionResult(
+            success=False,
+            tool="capture_screen",
+            action="capture_screen",
+            target="Desktop Display",
+            error=f"Failed to capture screen: {str(e)}",
+            details={"verification": {"verified": False}},
+            risk_level=RiskLevel.SAFE.value,
+        )
+
+
+global_tool_registry.register(
+    Tool(
+        name="capture_screen",
+        description="Captures the current desktop screen for visual analysis.",
+        parameters=[],
+        func=capture_screen,
+        action_type="screen",
+        risk_level=RiskLevel.SAFE.value,
+    )
+)
+

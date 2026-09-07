@@ -5,7 +5,7 @@ and frontend connection status indicators.
 import json
 import logging
 import time
-from typing import Optional, Tuple
+from typing import Optional, Tuple, Any
 
 from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import login_required
@@ -97,7 +97,22 @@ def agent_poll_view(request: HttpRequest) -> JsonResponse:
     agent_id = data.get("agent_id", "")
     timeout = min(float(data.get("timeout", 25.0)), 30.0)
 
-    commands = default_agent_hub.poll_commands(user_id=user.id, agent_id=agent_id, timeout=timeout)
+    # Release PostgreSQL connection back to the pool BEFORE the 25-30s in-memory wait.
+    # Holding a database connection while waiting in Python memory exhausts pool limits.
+    from django.db import connection
+    try:
+        connection.close()
+    except Exception:
+        pass
+
+    try:
+        commands = default_agent_hub.poll_commands(user_id=user.id, agent_id=agent_id, timeout=timeout)
+    finally:
+        try:
+            connection.close()
+        except Exception:
+            pass
+
     return JsonResponse({
         "status": "ok",
         "commands": commands,
@@ -169,9 +184,10 @@ def agent_disconnect_view(request: HttpRequest) -> JsonResponse:
 @login_required
 @require_GET
 def agent_status_view(request: HttpRequest) -> JsonResponse:
-    """Frontend web endpoint: Returns connection status and agent token for current user."""
+    """Frontend web endpoint: Returns connection status, agent token, and screen awareness status."""
     profile = getattr(request.user, "profile", None)
     agent_token = profile.get_or_create_agent_token() if profile else ""
+    screen_awareness_enabled = profile.screen_awareness_enabled if profile else True
     info = default_agent_hub.get_user_agent_info(request.user.id)
 
     return JsonResponse({
@@ -184,6 +200,7 @@ def agent_status_view(request: HttpRequest) -> JsonResponse:
             "connected_at": info.get("connected_at"),
         },
         "agent_token": agent_token,
+        "screen_awareness_enabled": screen_awareness_enabled,
     })
 
 
@@ -202,3 +219,23 @@ def agent_regenerate_token_view(request: HttpRequest) -> JsonResponse:
         "agent_token": new_token,
         "message": "New Desktop Agent token generated. Previous sessions invalidated.",
     })
+
+
+@login_required
+@require_POST
+def agent_screen_awareness_toggle_view(request: HttpRequest) -> JsonResponse:
+    """Frontend web endpoint: Toggles user's screen awareness permission."""
+    profile = getattr(request.user, "profile", None)
+    if not profile:
+        return JsonResponse({"error": "Profile not found."}, status=400)
+
+    profile.screen_awareness_enabled = not profile.screen_awareness_enabled
+    profile.save(update_fields=["screen_awareness_enabled"])
+
+    status_str = "ENABLED" if profile.screen_awareness_enabled else "DISABLED"
+    return JsonResponse({
+        "status": "ok",
+        "screen_awareness_enabled": profile.screen_awareness_enabled,
+        "message": f"Screen access {status_str}.",
+    })
+

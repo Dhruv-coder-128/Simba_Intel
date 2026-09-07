@@ -195,16 +195,27 @@ def open_url(url: str) -> ExecutionResult:
 
         return ExecutionResult(
             success=True,
+            tool="open_url",
+            action="open_url",
+            target=display_name,
             output=f"Done — {display_name} is open.",
-            details={"url": clean_url, "domain": parsed.netloc, "site_name": display_name},
+            details={
+                "url": clean_url,
+                "domain": parsed.netloc,
+                "site_name": display_name,
+                "verification": {"verified": True},
+            },
             action_type="browser",
         )
     except Exception as e:
         logger.exception("Failed to open browser for %s: %s", clean_url, e)
         return ExecutionResult(
             success=False,
+            tool="open_url",
+            action="open_url",
+            target=display_name if 'display_name' in locals() else url,
             error=f"Failed to open browser: {str(e)}",
-            details={"url": clean_url},
+            details={"url": clean_url, "verification": {"verified": False}},
             action_type="browser",
         )
 
@@ -227,23 +238,37 @@ def browser_search(query: str, engine: str = "google") -> ExecutionResult:
         if not opened:
             return ExecutionResult(
                 success=False,
+                tool="browser_search",
+                action="browser_search",
+                target=engine_name,
                 error="SIMBA can't execute this action because the local executor is unavailable.",
-                details={"query": clean_query, "engine": engine_key},
+                details={"query": clean_query, "engine": engine_key, "verification": {"verified": False}},
                 action_type="browser_search",
             )
 
         return ExecutionResult(
             success=True,
+            tool="browser_search",
+            action="browser_search",
+            target=engine_name,
             output=f"Searched '{clean_query}' on {engine_name}.",
-            details={"query": clean_query, "engine": engine_key, "url": target_url},
+            details={
+                "query": clean_query,
+                "engine": engine_key,
+                "url": target_url,
+                "verification": {"verified": True},
+            },
             action_type="browser_search",
         )
     except Exception as e:
         logger.exception("Failed to search '%s' on %s: %s", clean_query, engine, e)
         return ExecutionResult(
             success=False,
+            tool="browser_search",
+            action="browser_search",
+            target=engine_name,
             error=f"Failed to execute search: {str(e)}",
-            details={"query": clean_query, "engine": engine_key},
+            details={"query": clean_query, "engine": engine_key, "verification": {"verified": False}},
             action_type="browser_search",
         )
 

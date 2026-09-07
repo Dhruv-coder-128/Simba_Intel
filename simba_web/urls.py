@@ -8,15 +8,22 @@ from chat import views, admin_views
 
 def health_check(request):
     """Unauthenticated, dependency-light endpoint for Render's health check
-    and any external uptime monitor - confirms the app process AND the
-    database connection are both actually up, not just that Gunicorn is
-    listening."""
+    and uptime monitors. Probes PostgreSQL with guaranteed connection cleanup
+    to prevent connection pool leakage."""
     try:
         with connection.cursor() as cursor:
             cursor.execute("SELECT 1")
-        return JsonResponse({"status": "ok"})
+        return JsonResponse({"status": "ok", "db": "connected"})
     except Exception as e:
-        return JsonResponse({"status": "error", "detail": str(e)}, status=503)
+        return JsonResponse({
+            "status": "degraded",
+            "error": "Database service temporarily unreachable or pool busy."
+        }, status=503)
+    finally:
+        try:
+            connection.close()
+        except Exception:
+            pass
 
 
 urlpatterns = [
@@ -85,14 +92,29 @@ urlpatterns = [
     path('attachments/<uuid:attachment_id>/', views.serve_attachment, name='serve_attachment'),
     path('attachments/<uuid:attachment_id>/content/', views.attachment_content, name='attachment_content'),
     path('settings/', views.profile_settings, name='profile_settings'),
+    path('settings/export/', views.settings_export, name='settings_export'),
+    path('settings/import/', views.settings_import, name='settings_import'),
+    path('settings/reset/', views.settings_reset, name='settings_reset'),
     path('settings/timezone/', views.set_timezone, name='set_timezone'),
     path('account/sessions/<int:session_id>/logout/', views.logout_session, name='logout_session'),
     path('account/sessions/logout-all/', views.logout_all_sessions, name='logout_all_sessions'),
+    path('account/memory/', views.user_memory_list, name='user_memory_list'),
+    path('account/memory/create/', views.create_user_memory, name='create_user_memory'),
+    path('account/memory/<int:memory_id>/update/', views.update_user_memory, name='update_user_memory'),
+    path('account/memory/<int:memory_id>/delete/', views.delete_user_memory, name='delete_user_memory'),
     path('account/memory/clear/', views.clear_memory, name='clear_memory'),
+    path('account/memory/toggle/', views.toggle_memory, name='toggle_memory'),
     path('analytics/', views.analytics_dashboard, name='analytics_dashboard'),
+    path('analytics/data/', views.analytics_data_api, name='analytics_data_api'),
+    path('analytics/export/', views.analytics_export, name='analytics_export'),
     path('session/<int:session_id>/active-leaf/', views.session_active_leaf, name='session_active_leaf'),
+    path('session/<int:session_id>/export/', views.export_session, name='export_session'),
     path('session/<int:session_id>/suggest-followups/', views.session_suggest_followups, name='session_suggest_followups'),
     path('session/<int:session_id>/related/', views.session_related_conversations, name='session_related_conversations'),
+    path('highlights/', views.highlights_list, name='highlights_list'),
+    path('highlights/create/', views.create_highlight, name='create_highlight'),
+    path('highlights/<int:highlight_id>/delete/', views.delete_highlight, name='delete_highlight'),
+    path('search/global/', views.global_search, name='global_search'),
     path('messages/<int:message_id>/siblings/', views.message_siblings, name='message_siblings'),
     path('messages/<int:message_id>/regenerate/', views.regenerate_message, name='regenerate_message'),
     path('messages/<int:message_id>/edit/', views.edit_message, name='edit_message'),
@@ -105,6 +127,7 @@ urlpatterns = [
     path('prompts/', views.saved_prompts_list, name='saved_prompts_list'),
     path('prompts/create/', views.create_saved_prompt, name='create_saved_prompt'),
     path('prompts/<int:prompt_id>/update/', views.update_saved_prompt, name='update_saved_prompt'),
+    path('prompts/<int:prompt_id>/duplicate/', views.duplicate_saved_prompt, name='duplicate_saved_prompt'),
     path('prompts/<int:prompt_id>/delete/', views.delete_saved_prompt, name='delete_saved_prompt'),
     path('prompts/<int:prompt_id>/use/', views.use_saved_prompt, name='use_saved_prompt'),
     path('prompts/recent/', views.recent_prompts, name='recent_prompts'),
@@ -114,7 +137,7 @@ urlpatterns = [
     path('system_stats/', views.system_stats, name='system_stats'),
     path('update_reaction/', views.update_reaction, name='update_reaction'),
 
-    # Desktop Agent API Endpoints (Phase 1: Cloud ↔ Local Desktop Agent Connection)
+    # Desktop Agent API Endpoints (Phase 1 & 2.5: Cloud ↔ Local Desktop Agent Connection & Awareness)
     path('api/agent/connect/', views.agent_connect_view, name='agent_connect'),
     path('api/agent/poll/', views.agent_poll_view, name='agent_poll'),
     path('api/agent/result/', views.agent_result_view, name='agent_result'),
@@ -122,4 +145,9 @@ urlpatterns = [
     path('api/agent/disconnect/', views.agent_disconnect_view, name='agent_disconnect'),
     path('api/agent/status/', views.agent_status_view, name='agent_status'),
     path('api/agent/token/regenerate/', views.agent_regenerate_token_view, name='agent_regenerate_token'),
+    path('api/agent/screen-awareness/toggle/', views.agent_screen_awareness_toggle_view, name='agent_screen_awareness_toggle'),
+
+    # Phase 3: Voice & Studio APIs
+    path('api/voice/settings/', views.voice_settings_view, name='voice_settings'),
+    path('api/voice-studio/history/', views.voice_studio_history_api, name='voice_studio_history'),
 ]

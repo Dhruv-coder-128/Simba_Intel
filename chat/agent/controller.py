@@ -65,9 +65,11 @@ class AgentController:
             verification = res.details.get("verification") if isinstance(res.details, dict) else None
             substep_items = []
             if verification and isinstance(verification, dict):
+                if verification.get("verified"):
+                    substep_items.append('<div class="action-substep"><i class="fa-solid fa-check" style="color:var(--accent,#0edb2a);"></i> <span class="val-verified">Verified action execution</span></div>')
                 if verification.get("launch_executed"):
                     substep_items.append('<div class="action-substep"><i class="fa-solid fa-check" style="color:var(--accent,#0edb2a);"></i> Launch command executed</div>')
-                elif not res.success:
+                elif not res.success and not verification.get("launch_executed"):
                     substep_items.append('<div class="action-substep"><i class="fa-solid fa-xmark text-danger" style="color:#ff4b4b;"></i> Launch command failed</div>')
 
                 if verification.get("process_detected"):
@@ -78,7 +80,7 @@ class AgentController:
                 if verification.get("window_detected"):
                     substep_items.append('<div class="action-substep"><i class="fa-solid fa-check" style="color:var(--accent,#0edb2a);"></i> Application window verified</div>')
 
-            elif res.requires_confirmation:
+            if res.requires_confirmation:
                 prompt_text = res.confirmation_prompt or f"Confirm execution of {action_name}?"
                 substep_items.append(f'<div class="action-substep text-warning"><i class="fa-solid fa-triangle-exclamation" style="color:#ffbb00;"></i> {prompt_text}</div>')
                 # Render interactive confirm/cancel buttons
@@ -96,10 +98,23 @@ class AgentController:
                 """)
 
             elif res.success:
-                substep_items.append(f'<div class="action-substep"><i class="fa-solid fa-check" style="color:var(--accent,#0edb2a);"></i> {res.output}</div>')
+                substep_items.append(f'<div class="action-substep"><i class="fa-solid fa-check" style="color:var(--accent,#0edb2a);"></i> <span class="val-verified">{res.output}</span></div>')
             else:
                 err_text = res.error or "Execution failed"
                 substep_items.append(f'<div class="action-substep"><i class="fa-solid fa-xmark text-danger" style="color:#ff4b4b;"></i> {err_text}</div>')
+                substep_items.append('<div class="action-retry-wrap" style="margin-top:6px;"><button type="button" class="btn-retry-action" onclick="retryFailedAction(this)" style="background:rgba(255,75,75,0.15); border:1px solid #ff4b4b; color:#ff4b4b; border-radius:4px; padding:2px 8px; font-size:11px; cursor:pointer;"><i class="fa-solid fa-rotate-right"></i> Retry</button></div>')
+
+            # Add View details disclosure
+            details_json = json.dumps(res.details, default=str)
+            substep_items.append(f"""
+                <details class="action-details-toggle" style="margin-top:4px; font-size:11px; color:rgba(255,255,255,0.5);">
+                    <summary style="cursor:pointer;">View details</summary>
+                    <div class="action-details-content" style="padding:4px; background:rgba(0,0,0,0.3); border-radius:4px; margin-top:2px;">
+                        <span>Command ID: {res.command_id or 'local'}</span>
+                        <pre style="margin:0; font-size:10px;">{details_json}</pre>
+                    </div>
+                </details>
+            """)
 
             substeps_html = "".join(substep_items)
 
@@ -116,7 +131,7 @@ class AgentController:
         steps_joined = "".join(step_html_list)
 
         return f"""
-<div class="simba-action-card">
+<div class="simba-action-card simba-action-card-v2 {overall_status_class}">
     <div class="action-card-header">
         <div class="action-header-left">
             <span class="action-badge"><i class="fa-solid fa-bolt"></i> SIMBA AGENT</span>

@@ -64,15 +64,11 @@ class PoolMember:
 # integrated - see the module docstring.
 MODEL_POOLS: Dict[str, List[PoolMember]] = {
     "cyber-max-pool": [
-        # Priority 1: the model Cyber Max has always pointed to - keeping it
-        # first means the common (all-healthy) case behaves identically to
-        # before this router existed.
         PoolMember(provider="groq", model="openai/gpt-oss-120b", priority=1),
-        PoolMember(provider="groq", model="qwen/qwen3-32b", priority=2),
-        PoolMember(provider="groq", model="openai/gpt-oss-20b", priority=3),
-        PoolMember(provider="groq", model="llama-3.3-70b-versatile", priority=4),
-        PoolMember(provider="groq", model="llama-3.1-8b-instant", priority=5),
-        PoolMember(provider="groq", model="allam-2-7b", priority=6),
+        PoolMember(provider="groq", model="openai/gpt-oss-20b", priority=2),
+        PoolMember(provider="groq", model="qwen/qwen3.6-27b", priority=3),
+        PoolMember(provider="groq", model="groq/compound-mini", priority=4),
+        PoolMember(provider="groq", model="allam-2-7b", priority=5),
     ],
 }
 

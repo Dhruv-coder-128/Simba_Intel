@@ -38,14 +38,16 @@ class FastCommandRouter:
         if is_coding_or_question_prompt(q):
             return None
 
-        # Normalize clean query for regex checking (strips common conversational prefixes)
-        clean_q = re.sub(
-            r"^(?:please\s+|can\s+you\s+|could\s+you\s+|will\s+you\s+|hey\s+simba\s*,?\s*|simba\s*,?\s*|simba\s+can\s+you\s+|i\s+want\s+you\s+to\s+)",
-            "",
-            q,
-            flags=re.IGNORECASE,
-        ).strip()
+        # Normalize clean query for regex checking (strips common conversational prefixes iteratively)
+        prefix_pattern = r"^(?:please\s+|can\s+you\s+(?:please\s+)?|could\s+you\s+(?:please\s+)?|would\s+you\s+(?:please\s+)?|will\s+you\s+(?:please\s+)?|hey\s+simba\s*,?\s*|simba\s*,?\s*|simba\s+can\s+you\s+|i\s+want\s+you\s+to\s+)"
+        clean_q = q.strip()
+        while True:
+            new_q = re.sub(prefix_pattern, "", clean_q, flags=re.IGNORECASE).strip()
+            if new_q == clean_q:
+                break
+            clean_q = new_q
         clean_q = clean_q.rstrip("?.!")
+        clean_q = re.sub(r"\s+(?:for\s+me|please)$", "", clean_q, flags=re.IGNORECASE).strip()
 
         # -------------------------------------------------------------------------
         # 1. Stop / Cancel Task Command
@@ -135,6 +137,20 @@ class FastCommandRouter:
                         tool="read_active_window",
                         args={},
                         description="Identify currently active window",
+                    )
+                ],
+            )
+
+        if re.search(r"\b(?:what(?:'s|\s+is)\s+on\s+(?:my\s+)?screen|inspect\s+(?:the\s+)?screen|look\s+at\s+(?:my\s+)?screen|capture\s+(?:the\s+)?screen|screen\s+capture|take\s+a\s+screenshot)\b", clean_q, re.IGNORECASE):
+            return AgentPlan(
+                is_agent_action=True,
+                summary="Inspect Screen & Visual Analysis",
+                raw_query=q,
+                steps=[
+                    PlannedStep(
+                        tool="capture_screen",
+                        args={},
+                        description="Capture screen for visual inspection",
                     )
                 ],
             )
@@ -690,7 +706,7 @@ class FastCommandRouter:
             )
 
         match_direct_search = re.match(
-            r"^(?:search|look\s+up|google)\s+(.+?)(?:\s+(?:on|in)\s+([a-zA-Z0-9_\.\s]+))?$",
+            r"^(?:search|search\s+for|look\s+up|look\s+for|find|google)\s+(.+?)(?:\s+(?:on|in)\s+([a-zA-Z0-9_\.\s]+))?$",
             clean_q,
             re.IGNORECASE,
         )

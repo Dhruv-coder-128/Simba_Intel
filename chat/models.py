@@ -44,6 +44,25 @@ class ChatSession(models.Model):
     # removed; only delete_session actually destroys data.
     is_archived = models.BooleanField(default=False)
     is_favorite = models.BooleanField(default=False)
+    # Session type for multi-mode architecture (assistant, agent, voice, studio)
+    SESSION_TYPE_ASSISTANT = "assistant"
+    SESSION_TYPE_AGENT = "agent"
+    SESSION_TYPE_VOICE = "voice"
+    SESSION_TYPE_STUDIO = "studio"
+    SESSION_TYPE_CHOICES = [
+        (SESSION_TYPE_ASSISTANT, "Assistant"),
+        (SESSION_TYPE_AGENT, "Agent Task"),
+        (SESSION_TYPE_VOICE, "Voice Session"),
+        (SESSION_TYPE_STUDIO, "Studio Script"),
+    ]
+    session_type = models.CharField(
+        max_length=30,
+        choices=SESSION_TYPE_CHOICES,
+        default=SESSION_TYPE_ASSISTANT,
+        blank=True,
+        db_index=True,
+    )
+
     # Flat, not nested - there's no existing folder hierarchy anywhere in
     # this app to build on, and a full nested-tree UI (create/rename/move/
     # reorder folders, drag-and-drop between them) is a much larger feature
@@ -259,6 +278,7 @@ class UserProfile(models.Model):
     agent_device_name = models.CharField(max_length=100, blank=True, default='')
     agent_platform = models.CharField(max_length=100, blank=True, default='')
     agent_last_seen = models.DateTimeField(null=True, blank=True)
+    screen_awareness_enabled = models.BooleanField(default=True)
 
     def get_or_create_agent_token(self) -> str:
         """Returns the user's existing desktop agent token or generates a secure new one."""
@@ -384,55 +404,122 @@ class UserProfile(models.Model):
 
 
 class UserFact(models.Model):
-    """Cross-chat memory (Part 2) - a durable fact extracted from one
-    conversation and reused as light context in future, unrelated
-    conversations. Only ever written to when UserProfile.memory_enabled is
-    True (see conversation_memory.extract_and_store_facts) and only ever
-    read from under the same condition (get_user_memory_context) - flipping
-    the toggle off stops both new writes and any use of what's already
-    stored, and the Settings > Privacy "Clear memory" action gives the user
-    a way to delete everything here outright."""
+    """Cross-chat memory (Part 2 & Phase 4) - durable facts, preferences,
+    coding styles, and instructions extracted or manually saved across
+    conversations. Only active when UserProfile.memory_enabled is True."""
+
+    CATEGORY_CHOICES = [
+        ('general', 'General Fact'),
+        ('preference', 'Personal Preference'),
+        ('coding_style', 'Coding & Architecture Style'),
+        ('instruction', 'Custom AI Instruction'),
+        ('project', 'Project Context'),
+    ]
 
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='facts')
     fact = models.TextField()
+    category = models.CharField(max_length=30, choices=CATEGORY_CHOICES, default='general')
     source_session = models.ForeignKey(ChatSession, on_delete=models.SET_NULL, null=True, blank=True, related_name='+')
     created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        indexes = [models.Index(fields=['user', '-created_at'])]
+        indexes = [
+            models.Index(fields=['user', '-created_at']),
+            models.Index(fields=['user', 'category']),
+        ]
         ordering = ['-created_at']
 
     def __str__(self):
-        return f"Fact({self.user}): {self.fact[:60]}"
+        return f"Fact({self.user}, {self.category}): {self.fact[:60]}"
 
 
 class SavedPrompt(models.Model):
-    """Prompt Library (Part 5) - Saved/Favorite/Templates/Categories all
-    live on this one model rather than as separate tables: a "template" is
-    just a saved prompt filed under a category, a "favorite" is a flag, and
-    "recent"/"history" don't need storage at all - those read directly from
-    the user's own past Message(role='user') rows (see recent_prompts view),
-    since that history already exists and duplicating it here would just be
-    two copies of the same text drifting apart."""
+    """Prompt Library 2.0 (Phase 4) - Reusable prompts, categories, tags,
+    and template variables (e.g. {{language}}, {{task}})."""
 
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='saved_prompts')
     title = models.CharField(max_length=100)
     content = models.TextField()
-    # Free text, not a fixed choice list - mirrors ChatSession.folder's own
-    # reasoning (a blank category means "uncategorized"), so a user's own
-    # label always works instead of forcing a fit into a fixed set.
     category = models.CharField(max_length=50, blank=True, default='')
+    tags = models.CharField(max_length=255, blank=True, default='')
+    variables = models.JSONField(default=list, blank=True)
     is_favorite = models.BooleanField(default=False)
     use_count = models.PositiveIntegerField(default=0)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        indexes = [models.Index(fields=['user', '-created_at'])]
+        indexes = [
+            models.Index(fields=['user', '-created_at']),
+            models.Index(fields=['user', 'category']),
+        ]
         ordering = ['-is_favorite', '-updated_at']
 
     def __str__(self):
         return f"{self.title} ({self.user})"
+
+
+class ConversationHighlight(models.Model):
+    """Conversation Highlights (Phase 4) - saves important snippets, decisions,
+    code blocks, action items, or answers directly linked to a conversation turn."""
+    HIGHLIGHT_TYPE_CHOICES = [
+        ('answer', 'Answer'),
+        ('code', 'Code Snippet'),
+        ('decision', 'Decision / Key Takeaway'),
+        ('task', 'Action Item / Task'),
+        ('idea', 'Idea / Concept'),
+        ('note', 'Note'),
+    ]
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='highlights')
+    session = models.ForeignKey(ChatSession, on_delete=models.CASCADE, related_name='highlights')
+    message = models.ForeignKey(Message, on_delete=models.SET_NULL, null=True, blank=True, related_name='highlights')
+    highlight_type = models.CharField(max_length=20, choices=HIGHLIGHT_TYPE_CHOICES, default='answer')
+    title = models.CharField(max_length=200, blank=True, default='')
+    content = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=['user', '-created_at']),
+            models.Index(fields=['session', '-created_at']),
+        ]
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"Highlight({self.user}, {self.highlight_type}): {self.title or self.content[:40]}"
+
+
+class ActivityEvent(models.Model):
+    """Workspace Activity Tracking (Phase 4) - captures key user events
+    (session creation, prompt usage, bookmarking, model switching, exports)
+    for workspace intelligence and analytics."""
+    EVENT_TYPE_CHOICES = [
+        ('session_created', 'Created Conversation'),
+        ('message_sent', 'Sent Message'),
+        ('prompt_used', 'Used Prompt Template'),
+        ('bookmark_added', 'Added Bookmark'),
+        ('highlight_saved', 'Saved Highlight'),
+        ('model_switched', 'Switched Model / Mode'),
+        ('export_performed', 'Exported Conversation'),
+    ]
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='activity_events')
+    event_type = models.CharField(max_length=30, choices=EVENT_TYPE_CHOICES)
+    session = models.ForeignKey(ChatSession, on_delete=models.SET_NULL, null=True, blank=True, related_name='activity_events')
+    detail = models.TextField(blank=True, default='')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=['user', '-created_at']),
+            models.Index(fields=['event_type', '-created_at']),
+        ]
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"Activity({self.user}, {self.event_type})"
 
 
 class Folder(models.Model):
@@ -900,3 +987,24 @@ class ErrorLog(models.Model):
                 obj.detail = detail
             obj.save(update_fields=['count', 'detail', 'last_seen'])
         return obj
+
+
+class VoiceStudioGeneration(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="voice_studio_generations")
+    script_text = models.TextField()
+    voice_name = models.CharField(max_length=100, default="default")
+    pitch = models.FloatField(default=1.0)
+    rate = models.FloatField(default=1.0)
+    volume = models.FloatField(default=1.0)
+    preset_name = models.CharField(max_length=50, blank=True, default="")
+    audio_data = models.TextField(blank=True, default="")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["user", "-created_at"]),
+        ]
+
+    def __str__(self):
+        return f"VoiceStudioGeneration({self.user_id}, {self.preset_name or self.voice_name})"

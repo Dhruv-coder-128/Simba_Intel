@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SIMBA_INTEL - Database Service Busy</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500&family=Outfit:wght@300;400;600&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html, body {
+            width: 100%; height: 100%;
+            background: radial-gradient(circle at 50% 30%, rgba(0,229,255,0.08), transparent 50%), #0b0c10;
+            color: #fff; font-family: 'Outfit', sans-serif;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .card {
+            text-align: center;
+            max-width: 460px;
+            padding: 40px 28px;
+            background: rgba(16, 20, 28, 0.85);
+            border: 1px solid rgba(0, 229, 255, 0.25);
+            border-radius: 12px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.8), 0 0 30px rgba(0, 229, 255, 0.08);
+            backdrop-filter: blur(12px);
+        }
+        .card i.main-icon {
+            font-size: 44px;
+            color: #00e5ff;
+            margin-bottom: 20px;
+            filter: drop-shadow(0 0 20px rgba(0,229,255,0.4));
+            animation: pulse 2s ease-in-out infinite;
+        }
+        @keyframes pulse { 0%,100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.6; transform: scale(0.96); } }
+        h1 {
+            font-family: 'JetBrains Mono', monospace;
+            letter-spacing: 2px;
+            font-size: 20px;
+            margin-bottom: 12px;
+            color: #00e5ff;
+        }
+        p {
+            color: rgba(255,255,255,0.7);
+            font-size: 14px;
+            line-height: 1.6;
+            margin-bottom: 24px;
+        }
+        .retry-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: #00e5ff;
+            color: #0b0c10;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 13px;
+            font-weight: 700;
+            letter-spacing: 1px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .retry-btn:hover {
+            box-shadow: 0 0 20px rgba(0, 229, 255, 0.5);
+            transform: translateY(-1px);
+        }
+        .auto-retry-label {
+            margin-top: 16px;
+            font-size: 12px;
+            color: rgba(255, 255, 255, 0.4);
+            font-family: 'JetBrains Mono', monospace;
+        }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <i class="fa-solid fa-database main-icon"></i>
+        <h1>DATABASE POOL BUSY</h1>
+        <p>The database connection pool is currently at maximum capacity. The system is releasing idle connections &mdash; standing by to reconnect.</p>
+        <button type="button" class="retry-btn" onclick="location.reload()">
+            <i class="fa-solid fa-rotate"></i> RETRY NOW
+        </button>
+        <div class="auto-retry-label">Auto-reconnecting in <span id="countdown">6</span>s...</div>
+    </div>
+    <script>
+        let count = 6;
+        const countdownEl = document.getElementById('countdown');
+        const timer = setInterval(() => {
+            count--;
+            if (countdownEl) countdownEl.textContent = count;
+            if (count <= 0) {
+                clearInterval(timer);
+                location.reload();
+            }
+        }, 1000);
+    </script>
+</body>
+</html>

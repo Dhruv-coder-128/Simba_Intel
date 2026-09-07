@@ -103,19 +103,17 @@ def check_rate_limit(user) -> bool:
 
 
 def check_daily_limit(user, event_type: str, profile=None) -> Tuple[bool, Optional[str]]:
-    """(allowed, reason). A separate, complementary check from
-    check_rate_limit: that one guards against short bursts (30/minute)
-    regardless of daily totals; this one enforces the per-user daily quota
-    (chat/image/vision counts and a combined token cap) admins configure on
-    UserProfile, reset at local midnight. Returns (True, None) immediately
-    for unlimited_usage accounts without running any of the count queries.
-
-    Pass `profile` when the caller already fetched it (e.g. ask_ai, which
-    needs it anyway for default_model/memory_enabled) to skip a second,
-    redundant UserProfile lookup for the exact same row."""
+    """(allowed, reason). Enforces the per-user daily quota on UserProfile.
+    Returns (True, None) immediately for unlimited_usage, staff, and admin accounts.
+    """
     if profile is None:
         profile = UserProfile.get_or_create_for(user)
-    if profile.unlimited_usage:
+    if (
+        profile.unlimited_usage
+        or getattr(user, 'is_staff', False)
+        or getattr(user, 'is_superuser', False)
+        or getattr(profile, 'role', '') in ('admin', 'super_admin')
+    ):
         return True, None
 
     today = timezone.localdate()
@@ -126,12 +124,12 @@ def check_daily_limit(user, event_type: str, profile=None) -> Tuple[bool, Option
         limit = getattr(profile, limit_field)
         used = todays_events.filter(event_type=event_type).count()
         if used >= limit:
-            return False, f"Daily limit reached ({limit} {label}/day). Try again tomorrow."
+            return False, f"Account daily limit reached ({limit} {label}/day). Quota resets at midnight."
 
     tokens_used = todays_events.aggregate(
         total=Sum(F('prompt_tokens') + F('completion_tokens'))
     )['total'] or 0
     if tokens_used >= profile.daily_token_limit:
-        return False, f"Daily token limit reached ({profile.daily_token_limit:,}/day). Try again tomorrow."
+        return False, f"Account daily token limit reached ({profile.daily_token_limit:,} tokens/day). Quota resets at midnight."
 
     return True, None

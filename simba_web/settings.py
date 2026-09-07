@@ -68,6 +68,9 @@ SITE_ID = int(os.getenv('SITE_ID', '1'))
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',
+    # Resilient database connection error handler - catches connection limits / pool exhaustion
+    # and returns clean 503 JSON / branded retry view without throwing yellow 500 error pages.
+    'chat.middleware.DatabaseResilienceMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -102,50 +105,29 @@ TEMPLATES = [
 WSGI_APPLICATION = 'simba_web.wsgi.application'
 
 
-# Database - PostgreSQL only. SQLite was the original default (still
-# reachable in git history) but is dropped entirely here: it doesn't support
-# concurrent writers across processes, which the admin console's audit log +
-# usage tracking + regular chat traffic all hit simultaneously under any
-# real multi-worker deployment, and Render's filesystem is ephemeral anyway
-# (SQLite's on-disk file would just vanish on every redeploy).
-#
-# DATABASE_URL is the primary path - this is what Render's managed Postgres
-# (and every other hosted Postgres: Supabase, Neon, Heroku, ElephantSQL)
-# hands you directly, one env var, no assembly required. conn_max_age=600
-# and conn_health_checks=True are Django's own connection-reuse mechanism
-# (a real, if modest, form of "pooling" - a WSGI worker keeps its connection
-# open across requests for up to 10 minutes instead of reconnecting every
-# time, with a health check before reuse so a dropped connection doesn't
-# surface as a request-time error). For a heavier pooling need under real
-# concurrent load, put PgBouncer in front (Render's Postgres add-on offers
-# managed connection pooling - enabling it just changes the connection
-# string DATABASE_URL points at, no code change needed here).
-#
-# ssl_require=True whenever DATABASE_URL is used: nobody sets this env var
-# to point at a plaintext local socket - it's always a remote managed
-# instance, which is exactly the case that needs SSL enforced.
-#
-# https://docs.djangoproject.com/en/6.0/ref/settings/#databases
+# Database - PostgreSQL.
+# DATABASE_URL is parsed via dj_database_url.
+# CONN_MAX_AGE defaults to 0 (close connection at end of each request).
+# This is crucial for Supabase session mode / PgBouncer pooler environments
+# where max client slots are strictly limited (e.g. pool_size: 15). Keeping
+# connections open across idle multi-threaded workers causes EMAXCONNSESSIONS.
+# Setting CONN_MAX_AGE=0 ensures connections are returned to the pool immediately.
 import dj_database_url
 
 DATABASE_URL = os.getenv('DATABASE_URL')
+CONN_MAX_AGE = int(os.getenv('CONN_MAX_AGE', '0'))
 
 if DATABASE_URL:
     DATABASES = {
         'default': dj_database_url.parse(
             DATABASE_URL,
-            conn_max_age=600,
+            conn_max_age=CONN_MAX_AGE,
             conn_health_checks=True,
             ssl_require=True,
         )
     }
 else:
-    # No DATABASE_URL: local development. Still genuinely PostgreSQL, never
-    # SQLite - point these at a local `createdb simba_intel` (see README /
-    # .env.example). Defaults match Postgres's own out-of-the-box local
-    # conventions (superuser "postgres", localhost:5432) purely for
-    # first-run convenience; they are not production credentials and are
-    # never used once DATABASE_URL is set.
+    # No DATABASE_URL: local development. Point at local PostgreSQL.
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.postgresql',
@@ -154,7 +136,7 @@ else:
             'PASSWORD': os.getenv('POSTGRES_PASSWORD', 'postgres'),
             'HOST': os.getenv('POSTGRES_HOST', 'localhost'),
             'PORT': os.getenv('POSTGRES_PORT', '5432'),
-            'CONN_MAX_AGE': 600,
+            'CONN_MAX_AGE': CONN_MAX_AGE,
             'CONN_HEALTH_CHECKS': True,
         }
     }
