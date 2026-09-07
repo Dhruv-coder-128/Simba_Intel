@@ -1,0 +1,104 @@
+10835:                 <div class="voice-workspace-wrapper" id="voiceWorkspace">
+10836:                     <!-- Voice Header Card -->
+10837:                     <div class="voice-header-card">
+10838:                         <div class="voice-header-left">
+10839:                             <div class="agent-title-tag">
+10840:                                 <span class="voice-pulse-dot"></span>
+10841:                                 <span class="agent-mode-badge" style="background:rgba(6,182,212,0.12); border-color:rgba(6,182,212,0.35); color:#06b6d4;">
+10842:                                     <i class="fa-solid fa-microphone"></i> VOICE AGENT
+10843:                                 </span>
+10844:                                 <h2 class="voice-header-title">VOICE WORKSPACE</h2>
+10845:                             </div>
+10846:                             <p class="voice-header-subtitle">Voice-first interaction: Listen → Transcribe → Understand → Answer or Execute → Speak</p>
+10847:                         </div>
+10848:                         <div class="voice-header-right">
+10849:                             <span class="voice-lifecycle-badge status-ready" id="voiceLifecycleBadge">
+10850:                                 <i class="fa-solid fa-microphone"></i>
+10851:                                 <span id="voiceLifecycleText">READY</span>
+10852:                             </span>
+10853:                         </div>
+10854:                     </div>
+10855: 
+10856:                     <!-- Voice Hero Microphone Stage -->
+10857:                     <div class="voice-hero-stage" id="voiceHeroStage">
+10858:                         <div class="voice-visualizer-container" id="voiceVisualizerContainer">
+10859:                             <div class="voice-wave-ring ring-3" id="voiceRing3"></div>
+10860:                             <div class="voice-wave-ring ring-2" id="voiceRing2"></div>
+10861:                             <div class="voice-wave-ring ring-1" id="voiceRing1"></div>
+10862:                             <button type="button" class="voice-main-mic-btn" id="voiceMainMicBtn" onclick="toggleVoiceAgentListening()" aria-label="Toggle Voice Listening">
+10863:                                 <i class="fa-solid fa-microphone" id="voiceMicIcon"></i>
+10864:                                 <div class="voice-speaking-bars" id="voiceSpeakingBars" style="display:none;">
+10865:                                     <span></span><span></span><span></span><span></span><span></span>
+10866:                                 </div>
+10867:                             </button>
+10868:                         </div>
+10869:                         <div class="voice-hero-status" id="voiceHeroStatus">READY TO LISTEN</div>
+10870:                         <p class="voice-hero-subtext" id="voiceHeroSubtext">Tap the microphone to speak, or ask SIMBA to control your computer or answer questions.</p>
+10871:                     </div>
+10872: 
+10873:                     <!-- Voice Stage Controls -->
+10874:                     <div class="voice-stage-controls">
+10875:                         <button type="button" class="btn-voice-action" id="btnVoiceListen" onclick="toggleVoiceAgentListening()">
+10876:                             <i class="fa-solid fa-microphone"></i> <span>Microphone</span>
+10877:                         </button>
+10878:                         <button type="button" class="btn-voice-action danger" id="btnStopListening" onclick="stopVoiceListening()" style="display:none;">
+10879:                             <i class="fa-solid fa-microphone-slash"></i> <span>Stop Listening</span>
+10880:                         </button>
+10881:                         <button type="button" id="btnStopSpeaking" class="btn-voice-action danger" onclick="simbaStopSpeaking()" style="display:none;" title="Stop SIMBA from speaking">
+10882:                             <i class="fa-solid fa-volume-xmark"></i> <span>Stop Audio</span>
+10883:                         </button>
+10884:                         <button type="button" class="btn-voice-action" onclick="clearVoiceWorkspace()" title="Clear transcription and response">
+10885:                             <i class="fa-solid fa-arrows-rotate"></i> <span>Clear</span>
+10886:                         </button>
+10887:                         <label class="voice-handsfree-pill" title="Automatically listen after SIMBA speaks">
+10888:                             <input type="checkbox" id="voiceAutoListenToggle" onchange="toggleHandsFreeVoice(this.checked)">
+10889:                             <span class="hf-slider"></span>
+10890:                             <span>Hands-Free</span>
+10891:                         </label>
+10892:                     </div>
+10893: 
+10894:                     <!-- Voice Quick Suggestions / Examples -->
+10895:                     <div class="voice-quick-prompts">
+10896:                         <span class="voice-quick-label">Try speaking:</span>
+10897:                         <button type="button" class="voice-quick-chip" onclick="handleVoiceCommand('What is Python?')">
+10898:                             <i class="fa-solid fa-comment-dots"></i> What is Python?
+10899:                         </button>
+10900:                         <button type="button" class="voice-quick-chip" onclick="handleVoiceCommand('Open YouTube and search Roblox')">
+10901:                             <i class="fa-brands fa-youtube"></i> Open YouTube
+10902:                         </button>
+10903:                         <button type="button" class="voice-quick-chip" onclick="handleVoiceCommand('Open Notepad and write meeting notes')">
+10904:                             <i class="fa-solid fa-desktop"></i> Control my PC
+10905:                         </button>
+10906:                         <button type="button" class="voice-quick-chip" onclick="handleVoiceCommand('Search web for latest AI news')">
+10907:                             <i class="fa-solid fa-magnifying-glass"></i> Search the web
+10908:                         </button>
+10909:                         <button type="button" class="voice-quick-chip" onclick="handleVoiceCommand('Calculate 15% tip on 84.50')">
+10910:                             <i class="fa-solid fa-calculator"></i> Calculate tip
+10911:                         </button>
+10912:                     </div>
+10913: 
+10914:                     <!-- Voice Dual Cards (Live Transcript + Simba Spoken Response) -->
+10915:                     <div class="voice-cards-grid">
+10916:                         <div class="voice-transcript-card" id="voiceTranscriptCard">
+10917:                             <div class="voice-card-header">
+10918:                                 <span><i class="fa-solid fa-ear-listen"></i> LIVE TRANSCRIPT</span>
+10919:                                 <span class="voice-transcript-mode" id="voiceTranscriptMode">STANDBY</span>
+10920:                             </div>
+10921:                             <div class="voice-transcript-text" id="voiceTranscriptText">
+10922:                                 "Your voice request will appear here."
+10923:                             </div>
+10924:                         </div>
+10925: 
+10926:                         <div class="voice-response-card" id="voiceResponseCard" style="display:none;">
+10927:                             <div class="voice-card-header">
+10928:                                 <span><i class="fa-solid fa-robot"></i> SIMBA RESPONSE</span>
+10929:                                 <button type="button" class="btn-sm-stop-speak" onclick="simbaStopSpeaking()"><i class="fa-solid fa-stop"></i> Stop Audio</button>
+10930:                             </div>
+10931:                             <div class="voice-response-text" id="voiceResponseText"></div>
+10932:                             <div class="voice-task-progress" id="voiceTaskProgress" style="display:none;"></div>
+10933:                         </div>
+10934:                     </div>
+10935:                 </div>
+10936: 
+10937:                 {% else %}
+10938:                 <div class="welcome-container" id="qcHome">

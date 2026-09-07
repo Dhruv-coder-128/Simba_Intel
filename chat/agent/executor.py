@@ -64,37 +64,9 @@ class LocalExecutor:
     def execute_tool(self, tool_name: str, args: Dict[str, Any], user_id: Optional[int] = None) -> ExecutionResult:
         """Executes a single tool by name with arguments.
         
-        If user_id is provided, priority is given to dispatching to the user's connected Desktop Agent.
+        Separates CLOUD tools (executed in-process on server/Render) from
+        DESKTOP tools (dispatched to the user's connected Windows Desktop Agent).
         """
-        # 1. Dispatch to connected Desktop Agent if user_id is provided
-        if user_id is not None:
-            if default_agent_hub.is_user_agent_online(user_id):
-                logger.info("Dispatching tool '%s' to Desktop Agent for user_id=%s", tool_name, user_id)
-                return default_agent_hub.dispatch_command_and_wait(
-                    user_id=user_id,
-                    tool=tool_name,
-                    arguments=args,
-                    timeout=30.0,
-                )
-            else:
-                logger.warning("Desktop Agent offline for user_id=%s", user_id)
-                target = args.get("application") or args.get("path") or args.get("url") or args.get("target_app") or ""
-                return ExecutionResult(
-                    success=False,
-                    tool=tool_name,
-                    action=tool_name,
-                    target=target,
-                    output="",
-                    error="Your SIMBA Desktop Agent is offline. Please launch the Desktop Agent on your Windows PC to execute local actions.",
-                    details={"agent_offline": True},
-                )
-
-        # 2. Try legacy standalone daemon if configured
-        daemon_res = self._execute_via_daemon(tool_name, args)
-        if daemon_res is not None:
-            return daemon_res
-
-        # 3. In-process local execution via Safe Tool Registry
         tool = self.registry.get(tool_name)
         if not tool:
             return ExecutionResult(
@@ -104,12 +76,91 @@ class LocalExecutor:
                 error=f"Tool '{tool_name}' is not recognized or allowed.",
             )
 
+        execution_target = getattr(tool, "execution_target", "desktop")
+
+        # 1. CLOUD TOOLS: Execute in-process on server (Render/Linux compatible)
+        if execution_target == "cloud":
+            start_time = time.time()
+            try:
+                logger.info("Executing cloud tool '%s' with args: %s", tool_name, args)
+                result = tool.execute(**args)
+                result.details["latency"] = round(time.time() - start_time, 3)
+                result.details["tool_name"] = tool_name
+                result.execution_target = "cloud"
+                return result
+            except ValueError as ve:
+                return ExecutionResult(
+                    success=False,
+                    tool=tool_name,
+                    action=tool.action_type,
+                    error=f"Invalid arguments for '{tool_name}': {str(ve)}",
+                    details={"tool_name": tool_name, "args": args},
+                    execution_target="cloud",
+                )
+            except Exception as e:
+                logger.exception("Error executing cloud tool '%s': %s", tool_name, e)
+                return ExecutionResult(
+                    success=False,
+                    tool=tool_name,
+                    action=tool.action_type,
+                    error=f"Cloud execution error in '{tool_name}': {str(e)}",
+                    details={"tool_name": tool_name},
+                    execution_target="cloud",
+                )
+
+        # 2. DESKTOP TOOLS: Dispatch to connected Desktop Agent if user_id is provided
+        if user_id is not None:
+            if default_agent_hub.is_user_agent_online(user_id):
+                logger.info("Dispatching tool '%s' to Desktop Agent for user_id=%s", tool_name, user_id)
+                res = default_agent_hub.dispatch_command_and_wait(
+                    user_id=user_id,
+                    tool=tool_name,
+                    arguments=args,
+                    timeout=30.0,
+                )
+                res.execution_target = "desktop"
+                return res
+            else:
+                logger.warning("Desktop Agent offline for user_id=%s on desktop tool '%s'", user_id, tool_name)
+                target = args.get("application") or args.get("path") or args.get("url") or args.get("target_app") or ""
+                return ExecutionResult(
+                    success=False,
+                    tool=tool_name,
+                    action=tool_name,
+                    target=target,
+                    output="",
+                    error="🔴 **Your SIMBA Desktop Agent is offline.**\n\nTo execute local actions on your Windows PC, please launch the Desktop Agent:\n\n```bash\npython simba_agent.py\n```",
+                    details={"agent_offline": True, "tool": tool_name},
+                    execution_target="desktop",
+                )
+
+        # 3. Try legacy standalone daemon if configured
+        daemon_res = self._execute_via_daemon(tool_name, args)
+        if daemon_res is not None:
+            daemon_res.execution_target = "desktop"
+            return daemon_res
+
+        # 4. Local execution fallback (when running directly on Windows PC in development)
+        if os.name != "nt":
+            target = args.get("application") or args.get("path") or args.get("url") or args.get("target_app") or ""
+            return ExecutionResult(
+                success=False,
+                tool=tool_name,
+                action=tool_name,
+                target=target,
+                output="",
+                error="🔴 **Desktop Agent is offline.**\n\nThis server is running on a cloud/Linux host without direct PC desktop access. Start your Desktop Agent to control your Windows machine.",
+                details={"agent_offline": True, "tool": tool_name},
+                execution_target="desktop",
+            )
+
         start_time = time.time()
         try:
-            logger.info("Executing local tool '%s' with args: %s", tool_name, args)
+            logger.info("Executing local Windows tool '%s' with args: %s", tool_name, args)
             result = tool.execute(**args)
             result.details["latency"] = round(time.time() - start_time, 3)
             result.details["tool_name"] = tool_name
+            result.execution_target = "desktop"
             return result
         except ValueError as ve:
             return ExecutionResult(
@@ -118,6 +169,7 @@ class LocalExecutor:
                 action=tool.action_type,
                 error=f"Invalid arguments for '{tool_name}': {str(ve)}",
                 details={"tool_name": tool_name, "args": args},
+                execution_target="desktop",
             )
         except PermissionError as pe:
             return ExecutionResult(
@@ -126,17 +178,20 @@ class LocalExecutor:
                 action=tool.action_type,
                 error=f"Permission denied: {str(pe)}",
                 details={"tool_name": tool_name},
+                execution_target="desktop",
             )
         except Exception as e:
-            logger.exception("Error executing tool '%s': %s", tool_name, e)
+            logger.exception("Error executing local tool '%s': %s", tool_name, e)
             return ExecutionResult(
                 success=False,
                 tool=tool_name,
                 action=tool.action_type,
                 error=f"Execution error in '{tool_name}': {str(e)}",
                 details={"tool_name": tool_name},
+                execution_target="desktop",
             )
 
 
 # Default local executor
 default_executor = LocalExecutor()
+

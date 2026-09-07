@@ -1089,6 +1089,10 @@ def system_power_action(action: str = "lock", confirmed: bool = False) -> Execut
 global_tool_registry.register(
     Tool(
         name="open_application",
+        display_name="Open Application",
+        icon="fa-rocket",
+        category="computer",
+        example_prompt="Open Notepad",
         description="Opens a safe, allowlisted Windows application (e.g. Notepad, Calculator, VS Code, Paint, File Explorer, Task Manager, Chrome, Edge, Spotify).",
         parameters=[
             ToolParameter(name="application", type="string", description="The name of the application to open.", required=True),
@@ -1104,6 +1108,10 @@ global_tool_registry.register(
 global_tool_registry.register(
     Tool(
         name="launch_application",
+        display_name="Launch Application",
+        icon="fa-rocket",
+        category="computer",
+        example_prompt="Launch VS Code",
         description="Alias for open_application. Launches a Windows desktop application.",
         parameters=[
             ToolParameter(name="application", type="string", description="The name of the application to open.", required=True),
@@ -1119,6 +1127,10 @@ global_tool_registry.register(
 global_tool_registry.register(
     Tool(
         name="close_application",
+        display_name="Close Application",
+        icon="fa-circle-xmark",
+        category="computer",
+        example_prompt="Close Notepad",
         description="Closes an active Windows application window or process.",
         parameters=[
             ToolParameter(name="application", type="string", description="Name of the application or window title to close.", required=True),
@@ -1132,6 +1144,10 @@ global_tool_registry.register(
 global_tool_registry.register(
     Tool(
         name="focus_application",
+        display_name="Focus Window",
+        icon="fa-window-restore",
+        category="computer",
+        example_prompt="Focus VS Code window",
         description="Brings an application window to the active foreground.",
         parameters=[
             ToolParameter(name="title", type="string", description="Application name or window title to focus.", required=True),
@@ -1145,6 +1161,10 @@ global_tool_registry.register(
 global_tool_registry.register(
     Tool(
         name="switch_to_application",
+        display_name="Switch Window",
+        icon="fa-window-restore",
+        category="computer",
+        example_prompt="Switch to Chrome",
         description="Switches to and focuses a specific running application window.",
         parameters=[
             ToolParameter(name="application", type="string", description="Name of the application to switch to.", required=True),
@@ -1158,6 +1178,10 @@ global_tool_registry.register(
 global_tool_registry.register(
     Tool(
         name="minimize_application",
+        display_name="Minimize Window",
+        icon="fa-window-minimize",
+        category="computer",
+        example_prompt="Minimize active window",
         description="Minimizes an application window to the taskbar.",
         parameters=[
             ToolParameter(name="application", type="string", description="Name of the application or window to minimize.", required=True),
@@ -1171,6 +1195,10 @@ global_tool_registry.register(
 global_tool_registry.register(
     Tool(
         name="maximize_application",
+        display_name="Maximize Window",
+        icon="fa-window-maximize",
+        category="computer",
+        example_prompt="Maximize current window",
         description="Maximizes an application window to fill the screen.",
         parameters=[
             ToolParameter(name="application", type="string", description="Name of the application or window to maximize.", required=True),
@@ -1184,6 +1212,10 @@ global_tool_registry.register(
 global_tool_registry.register(
     Tool(
         name="restore_application",
+        display_name="Restore Window",
+        icon="fa-window-restore",
+        category="computer",
+        example_prompt="Restore minimized window",
         description="Restores an application window from minimized or maximized state.",
         parameters=[
             ToolParameter(name="application", type="string", description="Name of the application or window to restore.", required=True),
@@ -1197,6 +1229,10 @@ global_tool_registry.register(
 global_tool_registry.register(
     Tool(
         name="type_text",
+        display_name="Type Text",
+        icon="fa-keyboard",
+        category="computer",
+        example_prompt="Type 'print(\"Hello world\")' in VS Code",
         description="Types text or code into the active or specified application window using native Windows SendInput with verified focus.",
         parameters=[
             ToolParameter(name="text", type="string", description="The text or code to write.", required=True),
@@ -1212,6 +1248,10 @@ global_tool_registry.register(
 global_tool_registry.register(
     Tool(
         name="press_key",
+        display_name="Press Key",
+        icon="fa-arrow-turn-down",
+        category="computer",
+        example_prompt="Press Enter key",
         description="Simulates pressing a single key (e.g. 'enter', 'tab', 'escape', 'space', 'backspace').",
         parameters=[
             ToolParameter(name="key", type="string", description="Key name to press.", required=True),
@@ -1225,6 +1265,10 @@ global_tool_registry.register(
 global_tool_registry.register(
     Tool(
         name="press_keys",
+        display_name="Press Key Sequence",
+        icon="fa-arrows-left-right",
+        category="computer",
+        example_prompt="Press down arrow 3 times",
         description="Simulates pressing multiple keys sequentially in order.",
         parameters=[
             ToolParameter(name="keys", type="array", description="List of key names.", required=True),
@@ -1238,6 +1282,10 @@ global_tool_registry.register(
 global_tool_registry.register(
     Tool(
         name="hotkey",
+        display_name="Hotkey Shortcut",
+        icon="fa-keyboard",
+        category="computer",
+        example_prompt="Press Ctrl+S to save",
         description="Simulates pressing a hotkey combination (e.g. 'ctrl+s', 'ctrl+c', 'ctrl+v', ['alt', 'tab']).",
         parameters=[
             ToolParameter(name="keys", type="string", description="Hotkey combination string or list (e.g. 'ctrl+s').", required=True),
@@ -1251,6 +1299,10 @@ global_tool_registry.register(
 global_tool_registry.register(
     Tool(
         name="click",
+        display_name="Mouse Click",
+        icon="fa-arrow-pointer",
+        category="computer",
+        example_prompt="Click the left mouse button",
         description="Simulates a mouse click (left, right, or middle) at current position or optional (x, y) coordinates.",
         parameters=[
             ToolParameter(name="button", type="string", description="Mouse button ('left', 'right', 'middle').", required=False, default="left"),
@@ -1266,6 +1318,10 @@ global_tool_registry.register(
 global_tool_registry.register(
     Tool(
         name="double_click",
+        display_name="Double Click",
+        icon="fa-arrow-pointer",
+        category="computer",
+        example_prompt="Double click at current position",
         description="Simulates mouse double-click at current position or optional (x, y) coordinates.",
         parameters=[
             ToolParameter(name="button", type="string", description="Mouse button.", required=False, default="left"),
@@ -1281,6 +1337,10 @@ global_tool_registry.register(
 global_tool_registry.register(
     Tool(
         name="right_click",
+        display_name="Right Click",
+        icon="fa-arrow-pointer",
+        category="computer",
+        example_prompt="Right click to open context menu",
         description="Simulates mouse right-click at current position or optional (x, y) coordinates.",
         parameters=[
             ToolParameter(name="x", type="integer", description="Optional X coordinate.", required=False, default=None),
@@ -1295,6 +1355,10 @@ global_tool_registry.register(
 global_tool_registry.register(
     Tool(
         name="move_mouse",
+        display_name="Move Mouse",
+        icon="fa-arrow-pointer",
+        category="computer",
+        example_prompt="Move mouse to center",
         description="Moves mouse cursor to pixel coordinates (x, y).",
         parameters=[
             ToolParameter(name="x", type="integer", description="X screen coordinate.", required=True),
@@ -1309,6 +1373,10 @@ global_tool_registry.register(
 global_tool_registry.register(
     Tool(
         name="scroll",
+        display_name="Scroll Page",
+        icon="fa-arrows-up-down",
+        category="computer",
+        example_prompt="Scroll down 5 steps",
         description="Scrolls mouse wheel up or down by a given amount of clicks.",
         parameters=[
             ToolParameter(name="clicks", type="integer", description="Number of scroll steps.", required=False, default=3),
@@ -1323,6 +1391,10 @@ global_tool_registry.register(
 global_tool_registry.register(
     Tool(
         name="open_folder",
+        display_name="Open Folder",
+        icon="fa-folder-open",
+        category="files",
+        example_prompt="Open Downloads in File Explorer",
         description="Opens a user directory in Windows File Explorer.",
         parameters=[
             ToolParameter(name="folder_name_or_path", type="string", description="Name of the folder.", required=False, default="downloads"),
@@ -1336,6 +1408,10 @@ global_tool_registry.register(
 global_tool_registry.register(
     Tool(
         name="open_file",
+        display_name="Open File",
+        icon="fa-file",
+        category="files",
+        example_prompt="Open report.docx in default app",
         description="Opens a local file in its default Windows associated program.",
         parameters=[
             ToolParameter(name="path", type="string", description="Path or filename to open.", required=True),
@@ -1349,6 +1425,10 @@ global_tool_registry.register(
 global_tool_registry.register(
     Tool(
         name="clipboard_read",
+        display_name="Read Clipboard",
+        icon="fa-clipboard",
+        category="system",
+        example_prompt="Read current text from clipboard",
         description="Reads the current text on the Windows clipboard.",
         parameters=[],
         func=clipboard_read,
@@ -1360,6 +1440,10 @@ global_tool_registry.register(
 global_tool_registry.register(
     Tool(
         name="clipboard_write",
+        display_name="Copy to Clipboard",
+        icon="fa-copy",
+        category="system",
+        example_prompt="Copy text to clipboard",
         description="Writes text to the Windows clipboard.",
         parameters=[
             ToolParameter(name="text", type="string", description="Text to copy.", required=True),
@@ -1373,6 +1457,10 @@ global_tool_registry.register(
 global_tool_registry.register(
     Tool(
         name="read_active_window",
+        display_name="Active Window",
+        icon="fa-desktop",
+        category="computer",
+        example_prompt="What window is currently open?",
         description="Returns the active foreground window title, process name, and HWND.",
         parameters=[],
         func=get_active_window,
@@ -1384,6 +1472,10 @@ global_tool_registry.register(
 global_tool_registry.register(
     Tool(
         name="get_system_information",
+        display_name="System Status",
+        icon="fa-microchip",
+        category="system",
+        example_prompt="Check CPU and memory telemetry",
         description="Returns safe system performance and telemetry information (CPU, RAM, OS, disk).",
         parameters=[],
         func=get_system_information,
@@ -1395,6 +1487,10 @@ global_tool_registry.register(
 global_tool_registry.register(
     Tool(
         name="empty_recycle_bin",
+        display_name="Empty Recycle Bin",
+        icon="fa-trash-arrow-up",
+        category="system",
+        example_prompt="Empty the Recycle Bin",
         description="Empties the Windows Recycle Bin. Requires explicit confirmation.",
         parameters=[
             ToolParameter(name="confirmed", type="boolean", description="Whether user explicitly confirmed.", required=False, default=False),
@@ -1402,6 +1498,7 @@ global_tool_registry.register(
         func=empty_recycle_bin,
         action_type="system_power",
         risk_level=RiskLevel.DANGEROUS.value,
+        requires_confirmation=True,
         is_sensitive=True,
     )
 )
@@ -1409,6 +1506,10 @@ global_tool_registry.register(
 global_tool_registry.register(
     Tool(
         name="system_power_action",
+        display_name="System Power",
+        icon="fa-power-off",
+        category="system",
+        example_prompt="Lock the computer",
         description="Controls Windows system power (lock, sleep, restart, shutdown). Shutdown/restart require explicit confirmation.",
         parameters=[
             ToolParameter(name="action", type="string", description="Power action ('lock', 'sleep', 'restart', 'shutdown').", required=False, default="lock"),
@@ -1417,6 +1518,7 @@ global_tool_registry.register(
         func=system_power_action,
         action_type="system_power",
         risk_level=RiskLevel.DANGEROUS.value,
+        requires_confirmation=True,
         is_sensitive=True,
     )
 )
@@ -1461,6 +1563,10 @@ def capture_screen() -> ExecutionResult:
 global_tool_registry.register(
     Tool(
         name="capture_screen",
+        display_name="Inspect Screen",
+        icon="fa-eye",
+        category="computer",
+        example_prompt="Inspect screen and tell me what is open",
         description="Captures the current desktop screen for visual analysis.",
         parameters=[],
         func=capture_screen,
@@ -1468,4 +1574,5 @@ global_tool_registry.register(
         risk_level=RiskLevel.SAFE.value,
     )
 )
+
 

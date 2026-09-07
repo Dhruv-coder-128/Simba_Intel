@@ -42,7 +42,7 @@ MODEL_REGISTRY: Dict[str, ModelConfig] = {
         context_window=32000,
     ),
     "quantum-core": ModelConfig(
-        display_name="⚛ Quantum Core",
+        display_name="Quantum Core",
         provider="nvidia",
         actual_model="quantum-core-pool",
         supports_vision=True,

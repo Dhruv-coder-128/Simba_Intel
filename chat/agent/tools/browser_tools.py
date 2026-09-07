@@ -273,23 +273,83 @@ def browser_search(query: str, engine: str = "google") -> ExecutionResult:
         )
 
 
+def search_web_cloud(query: str, engine: str = "google") -> ExecutionResult:
+    """Performs a web search in the cloud and returns structured results."""
+    clean_query = query.strip()
+    if not clean_query:
+        return ExecutionResult(success=False, error="Search query cannot be empty", action_type="search", execution_target="cloud")
+    try:
+        from chat.views import _get_web_search_results
+        results = _get_web_search_results(clean_query)
+        if results:
+            summary_lines = []
+            for i, r in enumerate(results[:5], 1):
+                title = r.get("title", "No title")
+                url = r.get("url", "")
+                snippet = r.get("content", "")
+                summary_lines.append(f"{i}. [{title}]({url})\n   {snippet}")
+            output = f"Web search results for '{clean_query}':\n\n" + "\n\n".join(summary_lines)
+            return ExecutionResult(
+                success=True,
+                tool="search_web",
+                action="search_web",
+                target="Web",
+                output=output,
+                details={"query": clean_query, "results": results[:5], "verification": {"verified": True}},
+                action_type="search",
+                execution_target="cloud",
+            )
+        else:
+            return ExecutionResult(
+                success=True,
+                tool="search_web",
+                action="search_web",
+                target="Web",
+                output=f"Searched for '{clean_query}', but no relevant live results were returned.",
+                details={"query": clean_query, "results": [], "verification": {"verified": True}},
+                action_type="search",
+                execution_target="cloud",
+            )
+    except Exception as e:
+        logger.warning("search_web_cloud failed: %s", e)
+        return ExecutionResult(
+            success=False,
+            tool="search_web",
+            action="search_web",
+            target="Web",
+            error=f"Cloud web search encountered an error: {str(e)}",
+            details={"query": clean_query, "verification": {"verified": False}},
+            action_type="search",
+            execution_target="cloud",
+        )
+
+
 # Register tools
 global_tool_registry.register(
     Tool(
         name="open_url",
-        description="Opens a website URL in the user's default browser.",
+        display_name="Open Website",
+        icon="fa-globe",
+        category="web",
+        example_prompt="Open https://github.com in browser",
+        description="Opens a website URL in the user's default browser on their local PC.",
         parameters=[
             ToolParameter(name="url", type="string", description="The full URL, website name, or domain to open (e.g. 'facebook', 'https://github.com').", required=True),
         ],
         func=open_url,
         action_type="browser",
+        execution_target="desktop",
     )
 )
 
 global_tool_registry.register(
     Tool(
         name="browser_search",
-        description="Searches for a topic on a platform/engine (YouTube, Facebook, Google, GitHub, Reddit, Instagram, Wikipedia, Bing, DuckDuckGo) in the browser.",
+        display_name="Search on Site",
+        icon="fa-compass",
+        category="web",
+        example_prompt="Search YouTube for Python tutorials",
+        description="Searches for a topic on a platform/engine (YouTube, Facebook, Google, GitHub, Reddit, Instagram, Wikipedia, Bing, DuckDuckGo) in the local browser.",
         parameters=[
             ToolParameter(name="query", type="string", description="The search query text (e.g. 'Roblox', 'dhruv', 'Python tutorials').", required=True),
             ToolParameter(
@@ -303,18 +363,25 @@ global_tool_registry.register(
         ],
         func=browser_search,
         action_type="browser_search",
+        execution_target="desktop",
     )
 )
 
 global_tool_registry.register(
     Tool(
         name="search_web",
-        description="Alias for browser_search. Searches the web or specified platform in the browser.",
+        display_name="Web Search",
+        icon="fa-search",
+        category="web",
+        example_prompt="Search the web for latest AI news",
+        description="Searches the web for information in the cloud and retrieves synthesized results.",
         parameters=[
             ToolParameter(name="query", type="string", description="The search query text.", required=True),
             ToolParameter(name="engine", type="string", description="Target engine or website.", required=False, default="google"),
         ],
-        func=lambda query, engine="google": browser_search(query=query, engine=engine),
-        action_type="browser_search",
+        func=search_web_cloud,
+        action_type="search",
+        execution_target="cloud",
     )
 )
+

@@ -654,6 +654,10 @@ def find_files(query: str, folder: Optional[str] = None, extension: Optional[str
 global_tool_registry.register(
     Tool(
         name="create_file",
+        display_name="Create File",
+        icon="fa-file-plus",
+        category="files",
+        example_prompt="Create calculator.py on Desktop",
         description="Creates a new text or code file in user documents, desktop, or workspace.",
         parameters=[
             ToolParameter(name="path", type="string", description="Filename or path to create.", required=True),
@@ -668,6 +672,10 @@ global_tool_registry.register(
 global_tool_registry.register(
     Tool(
         name="write_file",
+        display_name="Write File",
+        icon="fa-file-code",
+        category="files",
+        example_prompt="Write Python script to test.py",
         description="Writes or overwrites text/code in a file.",
         parameters=[
             ToolParameter(name="path", type="string", description="File path to write.", required=True),
@@ -683,6 +691,10 @@ global_tool_registry.register(
 global_tool_registry.register(
     Tool(
         name="append_file",
+        display_name="Append to File",
+        icon="fa-file-signature",
+        category="files",
+        example_prompt="Append log entry to notes.txt",
         description="Appends text or code to the end of an existing file.",
         parameters=[
             ToolParameter(name="path", type="string", description="File path to append.", required=True),
@@ -697,6 +709,10 @@ global_tool_registry.register(
 global_tool_registry.register(
     Tool(
         name="edit_file",
+        display_name="Edit File",
+        icon="fa-file-pen",
+        category="files",
+        example_prompt="Edit server.py to change port",
         description="Edits a local file safely with backup preservation.",
         parameters=[
             ToolParameter(name="path", type="string", description="File path to edit.", required=True),
@@ -712,6 +728,10 @@ global_tool_registry.register(
 global_tool_registry.register(
     Tool(
         name="read_file",
+        display_name="Read File",
+        icon="fa-file-lines",
+        category="files",
+        example_prompt="Read contents of summary.txt",
         description="Reads the text content of a local file (text, code, PDF).",
         parameters=[
             ToolParameter(name="path", type="string", description="File path to read.", required=True),
@@ -726,6 +746,10 @@ global_tool_registry.register(
 global_tool_registry.register(
     Tool(
         name="delete_file",
+        display_name="Delete File",
+        icon="fa-trash-can",
+        category="files",
+        example_prompt="Delete temp.log",
         description="Deletes a file permanently. DANGEROUS action: requires explicit user confirmation.",
         parameters=[
             ToolParameter(name="path", type="string", description="File path to delete.", required=True),
@@ -735,12 +759,17 @@ global_tool_registry.register(
         is_sensitive=True,
         action_type="file_delete",
         risk_level=RiskLevel.DANGEROUS.value,
+        requires_confirmation=True,
     )
 )
 
 global_tool_registry.register(
     Tool(
         name="move_file",
+        display_name="Move File",
+        icon="fa-arrows-split-up-and-left",
+        category="files",
+        example_prompt="Move report.pdf to Documents",
         description="Moves a file to a new folder or filename.",
         parameters=[
             ToolParameter(name="source", type="string", description="Source file path.", required=True),
@@ -756,6 +785,10 @@ global_tool_registry.register(
 global_tool_registry.register(
     Tool(
         name="copy_file",
+        display_name="Copy File",
+        icon="fa-copy",
+        category="files",
+        example_prompt="Copy backup.db to Desktop",
         description="Copies a file to a new folder or filename.",
         parameters=[
             ToolParameter(name="source", type="string", description="Source file path.", required=True),
@@ -771,6 +804,10 @@ global_tool_registry.register(
 global_tool_registry.register(
     Tool(
         name="rename_file",
+        display_name="Rename File",
+        icon="fa-i-cursor",
+        category="files",
+        example_prompt="Rename draft.txt to final.txt",
         description="Renames a file.",
         parameters=[
             ToolParameter(name="source", type="string", description="Current file path or name.", required=True),
@@ -785,6 +822,10 @@ global_tool_registry.register(
 global_tool_registry.register(
     Tool(
         name="create_folder",
+        display_name="Create Folder",
+        icon="fa-folder-plus",
+        category="files",
+        example_prompt="Create folder named Projects",
         description="Creates a new directory in user documents, desktop, or workspace.",
         parameters=[
             ToolParameter(name="folder_path", type="string", description="Folder name or path to create.", required=True),
@@ -798,6 +839,10 @@ global_tool_registry.register(
 global_tool_registry.register(
     Tool(
         name="delete_folder",
+        display_name="Delete Folder",
+        icon="fa-folder-minus",
+        category="files",
+        example_prompt="Delete temp_folder",
         description="Deletes a directory permanently. DANGEROUS action: requires explicit user confirmation.",
         parameters=[
             ToolParameter(name="folder_path", type="string", description="Folder name or path to delete.", required=True),
@@ -807,12 +852,17 @@ global_tool_registry.register(
         is_sensitive=True,
         action_type="folder_delete",
         risk_level=RiskLevel.DANGEROUS.value,
+        requires_confirmation=True,
     )
 )
 
 global_tool_registry.register(
     Tool(
         name="list_directory",
+        display_name="List Directory",
+        icon="fa-list",
+        category="files",
+        example_prompt="List files in Documents folder",
         description="Lists files and subdirectories inside a directory.",
         parameters=[
             ToolParameter(name="path", type="string", description="Folder path to inspect.", required=False, default="."),
@@ -826,6 +876,10 @@ global_tool_registry.register(
 global_tool_registry.register(
     Tool(
         name="find_files",
+        display_name="Find Files",
+        icon="fa-magnifying-glass-location",
+        category="files",
+        example_prompt="Find all .pdf files modified this week",
         description="Searches user directories for files by filename pattern, extension, or modification date.",
         parameters=[
             ToolParameter(name="query", type="string", description="Search query or pattern.", required=False, default=""),
@@ -842,6 +896,10 @@ global_tool_registry.register(
 global_tool_registry.register(
     Tool(
         name="save_file",
+        display_name="Save File",
+        icon="fa-floppy-disk",
+        category="files",
+        example_prompt="Save script to workspace",
         description="Alias for write_file / create_file. Saves content to a file on disk.",
         parameters=[
             ToolParameter(name="path", type="string", description="File path to save.", required=True),
@@ -852,3 +910,4 @@ global_tool_registry.register(
         action_type="file_write",
     )
 )
+

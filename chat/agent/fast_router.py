@@ -13,6 +13,7 @@ from .planner import AgentPlan, PlannedStep, is_coding_or_question_prompt
 from .tools.browser_tools import ENGINE_DISPLAY_NAMES, POPULAR_SITES, SEARCH_ENGINES, resolve_site_url
 from .tools.desktop_tools import ALLOWED_APPLICATIONS
 from .tools.registry import ExecutionResult, RiskLevel
+from .task_manager import TaskStatus, default_task_manager
 
 logger = logging.getLogger("simba_intel.agent.fast_router")
 
@@ -1123,8 +1124,27 @@ class FastCommandRouter:
             }
 
         step_results: List[Tuple[PlannedStep, ExecutionResult]] = []
+        task_record = default_task_manager.create_task(
+            title=plan.summary or "Fast Action",
+            user_id=user_id,
+            steps=[{"tool": s.tool, "description": s.description, "args": s.args} for s in plan.steps],
+        )
 
         for i, step in enumerate(plan.steps):
+            if default_task_manager.is_task_cancelled(task_record.task_id, user_id):
+                yield "SIMBA_STATUS: CANCELLED\n\n"
+                default_task_manager.update_task_status(task_record.task_id, TaskStatus.CANCELLED, "Task cancelled by user.")
+                yield "\n\n⚠️ **Task Cancelled**: Execution was safely stopped."
+                return {
+                    "plan": plan,
+                    "results": step_results,
+                    "card_html": "",
+                    "natural_reply": "Task cancelled by user.",
+                    "full_response": "Task cancelled by user.",
+                    "latency": round(time.time() - start_time, 3),
+                }
+
+            default_task_manager.update_task_status(task_record.task_id, TaskStatus.EXECUTING)
             yield f"SIMBA_STATUS: EXECUTING {step.tool.upper()}...\n\n"
             logger.info("FAST_EXECUTE → action executed: %s args=%s user_id=%s", step.tool, step.args, user_id)
 
@@ -1143,6 +1163,21 @@ class FastCommandRouter:
 
             res = self.executor.execute_tool(step.tool, step.args, user_id=user_id)
             step_results.append((step, res))
+
+            step_status = "verified" if res.success else ("pending" if res.requires_confirmation else "failed")
+            is_verified = False
+            if isinstance(res.details, dict):
+                is_verified = res.details.get("verification", {}).get("verified", False) if isinstance(res.details.get("verification"), dict) else False
+
+            default_task_manager.update_step_status(
+                task_record.task_id,
+                i,
+                status=step_status,
+                output=res.output,
+                error=res.error,
+                verified=is_verified,
+                details=res.details if isinstance(res.details, dict) else {},
+            )
 
             if not res.success or res.requires_confirmation:
                 if not res.success:
@@ -1171,12 +1206,16 @@ class FastCommandRouter:
 
         if has_offline:
             final_status = "AGENT_OFFLINE"
+            default_task_manager.update_task_status(task_record.task_id, TaskStatus.FAILED, "Desktop Agent is offline.")
         elif has_pending:
             final_status = "PENDING_CONFIRMATION"
+            default_task_manager.update_task_status(task_record.task_id, TaskStatus.WAITING_FOR_APPROVAL)
         elif all_success:
             final_status = "SUCCESS"
+            default_task_manager.complete_task(task_record.task_id, success=True, final_result=natural_reply)
         else:
             final_status = "FAILED"
+            default_task_manager.complete_task(task_record.task_id, success=False, final_result=natural_reply, failure_reason="Action execution incomplete")
 
         yield f"SIMBA_STATUS: {final_status}\n\n"
 

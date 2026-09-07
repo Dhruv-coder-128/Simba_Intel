@@ -1,18 +1,18 @@
-{% load static %}
+
 <!DOCTYPE html>
-<html lang="en" data-theme="{{ profile.theme|default:'cyberpunk' }}"
-    data-notifications="{{ profile.notifications_enabled|yesno:'on,off' }}" data-accent="{{ profile.accent_override }}"
-    data-density="{{ profile.density|default:'comfortable' }}" data-radius="{{ profile.card_radius|default:'rounded' }}"
-    data-animation="{{ profile.animation_level|default:'full' }}"
-    data-glass="{{ profile.glass_intensity|default:'medium' }}">
+<html lang="en" data-theme="cyberpunk"
+    data-notifications="on" data-accent=""
+    data-density="comfortable" data-radius="rounded"
+    data-animation="full"
+    data-glass="medium">
 
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Simba Intel</title>
-    <link rel="icon" type="image/png" href="{% static 'favicon2.png' %}">
+    <link rel="icon" type="image/png" href="/static/favicon2.png">
 
-    {% load static %}
+    
 
     <style>
         :root {
@@ -9922,54 +9922,7 @@
     <div id="simbaToastContainer"></div>
     <div id="toast-container"></div>
 
-    {% if active_broadcast %}
-    {% if active_broadcast.is_popup %}
-    <div id="broadcastPopupOverlay" class="broadcast-popup-overlay" data-broadcast-id="{{ active_broadcast.id }}">
-        <div class="broadcast-popup broadcast-{{ active_broadcast.level }}">
-            <i class="fa-solid {% if active_broadcast.level == 'critical' %}fa-triangle-exclamation{% elif active_broadcast.level == 'warning' %}fa-circle-exclamation{% else %}fa-circle-info{% endif %}"
-                style="font-size:28px; margin-bottom:12px;"></i>
-            <p>{{ active_broadcast.message }}</p>
-            {% if active_broadcast.dismissible %}
-            <button type="button" class="btn-back" style="justify-content:center; margin-top:14px;"
-                onclick="dismissBroadcast({{ active_broadcast.id }}, true)">Got it</button>
-            {% endif %}
-        </div>
-    </div>
-    {% else %}
-    <div id="broadcastBanner" class="broadcast-banner broadcast-{{ active_broadcast.level }}"
-        data-broadcast-id="{{ active_broadcast.id }}">
-        <i
-            class="fa-solid {% if active_broadcast.level == 'critical' %}fa-triangle-exclamation{% elif active_broadcast.level == 'warning' %}fa-circle-exclamation{% else %}fa-circle-info{% endif %}"></i>
-        <span>{{ active_broadcast.message }}</span>
-        {% if active_broadcast.dismissible %}
-        <button type="button" onclick="dismissBroadcast({{ active_broadcast.id }}, false)" aria-label="Dismiss"><i
-                class="fa-solid fa-xmark"></i></button>
-        {% endif %}
-    </div>
-    {% endif %}
-    <script>
-        // Dismissal is tracked client-side only (localStorage), keyed by
-        // broadcast id - there's no per-user DB row for "has this user
-        // seen broadcast #N", so a dismissal is per-browser, not
-        // per-account. A non-dismissible ("pinned") broadcast has no
-        // dismiss button at all and is never hidden this way.
-        (function () {
-            const id = {{ active_broadcast.id }};
-            const key = 'simba_dismissed_broadcast_' + id;
-            if (localStorage.getItem(key)) {
-                const banner = document.getElementById('broadcastBanner');
-                const popup = document.getElementById('broadcastPopupOverlay');
-                if (banner) banner.remove();
-                if (popup) popup.remove();
-            }
-        })();
-        function dismissBroadcast(id, isPopup) {
-            localStorage.setItem('simba_dismissed_broadcast_' + id, '1');
-            const el = document.getElementById(isPopup ? 'broadcastPopupOverlay' : 'broadcastBanner');
-            if (el) el.remove();
-        }
-    </script>
-    {% endif %}
+    
 
     <div id="lockdown-screen">
         <div id="lock-container">
@@ -10166,7 +10119,7 @@
             </div>
             <p style="font-size:12px; color:var(--text-dim); margin-bottom:14px;">Fill in the parameters below to configure your prompt template:</p>
             <div id="promptVarFields" style="display:flex; flex-direction:column; gap:12px; margin-bottom:18px;">
-                <!-- Injected dynamically based on detected {{variables}} -->
+                <!-- Injected dynamically based on detected  -->
             </div>
             <div style="display:flex; justify-content:flex-end; gap:10px;">
                 <button type="button" class="btn-mini" onclick="closePromptVarModal()">Cancel</button>
@@ -10220,37 +10173,14 @@
         </div>
     </div>
 
-    {% if verification_required and not email_verified %}
-    <div id="verifyEmailModal" class="verify-email-overlay">
-        <div class="verify-email-card">
-            <div class="verify-email-icon"><i class="fa-solid fa-envelope-circle-check"></i></div>
-            <h2>Verify Your Email</h2>
-            <p>
-                Image generation, Vision, and Settings are locked until you confirm your email address.
-                Check <strong>{{ request.user.email }}</strong> for a confirmation link.
-            </p>
-            <div class="verify-email-actions">
-                <button type="button" class="verify-email-btn primary" id="resendVerifyBtn"
-                    onclick="resendVerificationEmail()">
-                    <i class="fa-solid fa-paper-plane"></i> Resend Email
-                </button>
-                <button type="button" class="verify-email-btn" onclick="refreshVerificationStatus()">
-                    <i class="fa-solid fa-rotate"></i> I've Verified - Refresh
-                </button>
-            </div>
-            <button type="button" class="verify-email-dismiss" onclick="dismissVerifyModal()">
-                Continue with limited access <i class="fa-solid fa-chevron-right"></i>
-            </button>
-        </div>
-    </div>
-    {% endif %}
+    
 
     <div id="boot-screen">
         <div id="terminal-output"></div>
         <div><span class="boot-cursor" id="boot-cursor" style="display: none;"></span></div>
     </div>
 
-    <input type="hidden" id="csrf-token" value="{{ csrf_token }}">
+    <input type="hidden" id="csrf-token" value="dummy_csrf">
     <!-- Mobile overlay -->
     <div id="mobile-overlay" class="mobile-overlay"></div>
 
@@ -10285,25 +10215,17 @@
                         class="fa-solid fa-bookmark"></i></button>
                 <button type="button" class="rail-icon-btn" title="Prompt Library" onclick="openPromptLibrary()"><i
                         class="fa-solid fa-book-bookmark"></i></button>
-                <a href="{% url 'analytics_dashboard' %}" class="rail-icon-btn" title="Analytics"
+                <a href="/analytics/" class="rail-icon-btn" title="Analytics"
                     onclick="saveChatStateBeforeLeaving()"><i class="fa-solid fa-chart-line"></i></a>
-                <a href="{% url 'profile_settings' %}" class="rail-icon-btn" title="Settings"
+                <a href="/settings/" class="rail-icon-btn" title="Settings"
                     onclick="saveChatStateBeforeLeaving()"><i class="fa-solid fa-gear"></i></a>
-                {% if can_access_admin_console %}
-                <a href="{% url 'admin_dashboard' %}" class="rail-icon-btn" title="Admin Console"><i
-                        class="fa-solid fa-shield-halved"></i></a>
-                {% endif %}
+                
             </div>
 
             <button type="button" class="new-chat" id="sidebarNewChatBtn" onclick="startNewConversation(event)" title="New Session (Ctrl+N)">
                 <i class="fa-solid fa-plus"></i> /new_session
             </button>
-            {% if current_session %}
-            <button type="button" class="new-chat" data-chat-title="{{ current_session.title|escapejs }}"
-                onclick="exportChatAsPdf(this.dataset.chatTitle)">
-                <i class="fa-solid fa-file-pdf"></i> /export_pdf
-            </button>
-            {% endif %}
+            
 
             <div class="system-monitor">
                 <div class="mini-stats">
@@ -10329,10 +10251,10 @@
                 <div class="history-section-header">
                     <span class="label">ARCHIVE_LOG</span>
                     <div class="history-view-toggle">
-                        <a href="/?view=active{% if folder_filter %}&folder={{ folder_filter|urlencode }}{% endif %}"
-                            class="view-toggle-btn {% if view_mode != 'archived' %}active{% endif %}">Active</a>
-                        <a href="/?view=archived{% if folder_filter %}&folder={{ folder_filter|urlencode }}{% endif %}"
-                            class="view-toggle-btn {% if view_mode == 'archived' %}active{% endif %}">Archived</a>
+                        <a href="/?view=active"
+                            class="view-toggle-btn active">Active</a>
+                        <a href="/?view=archived"
+                            class="view-toggle-btn ">Archived</a>
                     </div>
                 </div>
 
@@ -10357,30 +10279,9 @@
                         <button type="button" class="folder-add-btn" onclick="createFolderPrompt()"
                             title="New folder"><i class="fa-solid fa-plus"></i></button>
                     </div>
-                    {% if folders %}
-                    <div class="folder-chips">
-                        <a href="/?view={{ view_mode }}"
-                            class="folder-chip {% if not folder_filter %}active{% endif %}"><i
-                                class="fa-solid fa-layer-group"></i> All</a>
-                        {% for f in folders %}
-                        <div class="folder-chip-wrap">
-                            <a href="/?view={{ view_mode }}&folder={{ f.name|urlencode }}"
-                                class="folder-chip {% if folder_filter == f.name %}active{% endif %}"
-                                oncontextmenu="return openFolderMenu(event, '{{ f.name|escapejs }}', '{{ f.color|escapejs }}')">
-                                <span
-                                    class="folder-chip-dot {% if f.color %}chat-color-{{ f.color }}{% else %}folder-chip-dot-none{% endif %}"></span>
-                                {{ f.name }}
-                                {% if f.count %}<span class="folder-chip-count">{{ f.count }}</span>{% endif %}
-                            </a>
-                            <button type="button" class="folder-chip-menu-btn"
-                                onclick="openFolderMenuFromBtn(event, this, '{{ f.name|escapejs }}', '{{ f.color|escapejs }}')"
-                                title="Folder options"><i class="fa-solid fa-ellipsis"></i></button>
-                        </div>
-                        {% endfor %}
-                    </div>
-                    {% else %}
+                    
                     <div class="folder-empty-hint">No folders yet. Use a chat's menu → Set Folder, or the + above.</div>
-                    {% endif %}
+                    
                 </div>
 
                 <div class="bulk-select-row">
@@ -10401,106 +10302,64 @@
                 </div>
 
                 <div id="pinned-chats">
-                    {% for s in pinned_sessions %}{% include "partials/_chat_row.html" %}{% endfor %}
+                    
                 </div>
 
-                {% if favorite_sessions %}
-                <div class="chat-section-label"><i class="fa-solid fa-star"></i> FAVORITES</div>
-                <div id="favorite-chats">
-                    {% for s in favorite_sessions %}{% include "partials/_chat_row.html" %}{% endfor %}
-                </div>
-                {% endif %}
+                
 
                 <div id="live-chat-list">
-                    {% if grouped_sessions.today %}
-                    <div class="chat-date-group" data-group="today">
-                        <div class="chat-date-header">Today</div>
-                        {% for s in grouped_sessions.today %}{% include "partials/_chat_row.html" %}{% endfor %}
-                    </div>
-                    {% endif %}
-                    {% if grouped_sessions.yesterday %}
-                    <div class="chat-date-group" data-group="yesterday">
-                        <div class="chat-date-header">Yesterday</div>
-                        {% for s in grouped_sessions.yesterday %}{% include "partials/_chat_row.html" %}{% endfor %}
-                    </div>
-                    {% endif %}
-                    {% if grouped_sessions.week %}
-                    <div class="chat-date-group" data-group="week">
-                        <div class="chat-date-header">Last 7 Days</div>
-                        {% for s in grouped_sessions.week %}{% include "partials/_chat_row.html" %}{% endfor %}
-                    </div>
-                    {% endif %}
-                    {% if grouped_sessions.month %}
-                    <div class="chat-date-group" data-group="month">
-                        <div class="chat-date-header">Last 30 Days</div>
-                        {% for s in grouped_sessions.month %}{% include "partials/_chat_row.html" %}{% endfor %}
-                    </div>
-                    {% endif %}
-                    {% if grouped_sessions.older %}
-                    <div class="chat-date-group" data-group="older">
-                        <div class="chat-date-header">Older</div>
-                        {% for s in grouped_sessions.older %}{% include "partials/_chat_row.html" %}{% endfor %}
-                    </div>
-                    {% endif %}
-                    {% if not grouped_sessions.today and not grouped_sessions.yesterday and not grouped_sessions.week and not grouped_sessions.month and not grouped_sessions.older and not pinned_sessions and not favorite_sessions %}
+                    
+                    
+                    
+                    
+                    
+                    
                     <div class="chat-list-empty">
-                        <i class="fa-solid {% if view_mode == 'archived' %}fa-box-open{% else %}fa-comments{% endif %}"></i>
-                        <span>{% if view_mode == 'archived' %}No archived conversations.{% else %}No conversations yet - start one below.{% endif %}</span>
+                        <i class="fa-solid fa-comments"></i>
+                        <span>No conversations yet - start one below.</span>
                     </div>
-                    {% endif %}
+                    
                 </div>
 
                 <div id="chatPagination" class="chat-pagination"></div>
             </div>
 
             <div class="auth-section">
-                {% if user.is_authenticated %}
+                
                 <div class="profile-trigger-row">
                     <button type="button" class="profile-trigger" id="profileTriggerBtn" aria-haspopup="true"
                         aria-expanded="false" title="Account menu">
-                        {% if user.socialaccount_set.all.0.get_avatar_url %}
-                        <img src="{{ user.socialaccount_set.all.0.get_avatar_url }}" alt="" class="profile-avatar-sm">
-                        {% else %}
-                        <img src="https://ui-avatars.com/api/?name={{ user.first_name|default:'User' }}+{{ user.last_name|default:'' }}&background=12161c&color=00e5ff&size=80"
+                        
+                        <img src="https://ui-avatars.com/api/?name=User+&background=12161c&color=00e5ff&size=80"
                             alt="" class="profile-avatar-sm">
-                        {% endif %}
-                        <span class="profile-trigger-name">{% if profile.display_name %}{{ profile.display_name }}{% else %}{{ user.get_full_name|default:user.username }}{% endif %}</span>
+                        
+                        <span class="profile-trigger-name">verify_history_user</span>
                         <i class="fa-solid fa-chevron-up profile-trigger-chevron"></i>
                     </button>
 
                     <div class="profile-popover" id="profilePopover" role="menu">
                         <div class="profile-card">
-                            {% if user.socialaccount_set.all.0.get_avatar_url %}
-                            <img src="{{ user.socialaccount_set.all.0.get_avatar_url }}" alt="Profile"
-                                class="profile-avatar">
-                            {% else %}
-                            <img src="https://ui-avatars.com/api/?name={{ user.first_name|default:'User' }}+{{ user.last_name|default:'' }}&background=12161c&color=00e5ff&size=80"
+                            
+                            <img src="https://ui-avatars.com/api/?name=User+&background=12161c&color=00e5ff&size=80"
                                 alt="Profile" class="profile-avatar">
-                            {% endif %}
+                            
                             <div class="profile-info">
-                                <p class="profile-name">{% if profile.display_name %}{{ profile.display_name }}{% else %}{{ user.get_full_name|default:user.username }}{% endif %}</p>
-                                <p class="profile-email">{{ user.email }}</p>
+                                <p class="profile-name">verify_history_user</p>
+                                <p class="profile-email"></p>
                             </div>
                         </div>
-                        <a href="{% url 'analytics_dashboard' %}" class="auth-btn"
+                        <a href="/analytics/" class="auth-btn"
                             onclick="saveChatStateBeforeLeaving()">
                             <i class="fa-solid fa-chart-line"></i>
                             ANALYTICS
                         </a>
-                        <a href="{% url 'profile_settings' %}" class="auth-btn" onclick="saveChatStateBeforeLeaving()">
+                        <a href="/settings/" class="auth-btn" onclick="saveChatStateBeforeLeaving()">
                             <i class="fa-solid fa-gear"></i>
                             SETTINGS
                         </a>
-                        {% if can_access_admin_console %}
-                        <div class="profile-menu-divider"></div>
-                        <a href="{% url 'admin_dashboard' %}" class="auth-btn">
-                            <i class="fa-solid fa-shield-halved"></i>
-                            ADMIN CONSOLE
-                        </a>
-                        <div class="profile-menu-divider"></div>
-                        {% endif %}
-                        <form method="post" action="{% url 'account_logout' %}" id="logout-form">
-                            {% csrf_token %}
+                        
+                        <form method="post" action="/accounts/logout/" id="logout-form">
+                            <input type="hidden" name="csrfmiddlewaretoken" value="dummy_csrf">
                             <button type="submit" class="auth-btn">
                                 <i class="fa-solid fa-sign-out-alt"></i>
                                 LOGOUT
@@ -10508,12 +10367,7 @@
                         </form>
                     </div>
                 </div>
-                {% else %}
-                <a href="{% url 'google_login' %}" class="auth-btn">
-                    <i class="fa-brands fa-google"></i>
-                    CONTINUE WITH GOOGLE
-                </a>
-                {% endif %}
+                
             </div>
 
         </div>
@@ -10525,18 +10379,13 @@
                         <i class="fa-solid fa-bars"></i>
                     </button>
                     <nav class="workspace-mode-nav" aria-label="Workspace Modes">
-                        <a href="/?type=assistant" class="mode-tab {% if session_type == 'assistant' or not session_type %}active{% endif %}" title="Conversational AI & Vision"><i class="fa-solid fa-message"></i> <span>Assistant</span></a>
-                        <a href="/?type=agent" class="mode-tab {% if session_type == 'agent' %}active{% endif %}" title="Autonomous System & Desktop Agent"><i class="fa-solid fa-robot"></i> <span>Agent Mode</span></a>
-                        <a href="/?type=voice" class="mode-tab {% if session_type == 'voice' %}active{% endif %}" title="Voice Synthesis & Studio"><i class="fa-solid fa-microphone"></i> <span>Voice Agent</span></a>
-                        <a href="{% url 'analytics_dashboard' %}" class="mode-tab" title="Intelligence & Resource Analytics" onclick="saveChatStateBeforeLeaving()"><i class="fa-solid fa-chart-line"></i> <span>Analytics</span></a>
-                        <a href="{% url 'profile_settings' %}" class="mode-tab" title="System Settings" onclick="saveChatStateBeforeLeaving()"><i class="fa-solid fa-gear"></i> <span>Settings</span></a>
+                        <a href="/?type=assistant" class="mode-tab " title="Conversational AI & Vision"><i class="fa-solid fa-message"></i> <span>Assistant</span></a>
+                        <a href="/?type=agent" class="mode-tab " title="Autonomous System & Desktop Agent"><i class="fa-solid fa-robot"></i> <span>Agent Mode</span></a>
+                        <a href="/?type=voice" class="mode-tab active" title="Voice Synthesis & Studio"><i class="fa-solid fa-microphone"></i> <span>Voice Agent</span></a>
+                        <a href="/analytics/" class="mode-tab" title="Intelligence & Resource Analytics" onclick="saveChatStateBeforeLeaving()"><i class="fa-solid fa-chart-line"></i> <span>Analytics</span></a>
+                        <a href="/settings/" class="mode-tab" title="System Settings" onclick="saveChatStateBeforeLeaving()"><i class="fa-solid fa-gear"></i> <span>Settings</span></a>
                     </nav>
-                    {% if current_session %}
-                    <div class="topbar-session-badge" title="{{ current_session.title }}">
-                        <i class="fa-solid fa-terminal"></i>
-                        <span>{{ current_session.title|truncatechars:28 }}</span>
-                    </div>
-                    {% endif %}
+                    
                 </div>
                 <div class="topbar-right">
                     <div class="ai-status status-online" id="topbarAiStatus">
@@ -10550,348 +10399,11 @@
                     </button>
                 </div>
             </header>
-                    {% if session_type == 'agent' and messages %}
-                    <div class="agent-header-row" style="padding:12px 20px; border-bottom:1px solid rgba(255,255,255,0.08); background:rgba(12,16,26,0.6);">
-                        <div class="agent-header-left">
-                            <div class="agent-title-tag">
-                                <span class="agent-pulse-dot"></span>
-                                <span class="agent-mode-badge"><i class="fa-solid fa-robot"></i> AGENT MODE</span>
-                                <span class="agent-lifecycle-badge status-idle" id="agentLifecycleBadgeHeader">
-                                    <i class="fa-solid fa-circle-notch"></i>
-                                    <span id="agentLifecycleTextHeader">IDLE</span>
-                                </span>
-                            </div>
-                        </div>
-                        <div class="agent-header-right">
-                            <div class="agent-system-strip" role="status" aria-label="System status">
-                                <span class="system-chip" title="Agent core ready">
-                                    <span class="status-dot dot-online"></span>
-                                    <span>Agent: <strong>Online</strong></span>
-                                </span>
-                                <span class="system-chip desktop-chip" onclick="togglePcAgentModal()" title="Desktop Agent bridge status (click to configure)">
-                                    <span class="status-dot {% if is_pc_connected %}dot-online{% else %}dot-offline{% endif %}"></span>
-                                    <span>Desktop: <strong>{% if is_pc_connected %}Connected{% else %}Offline{% endif %}</strong></span>
-                                </span>
-                                <span class="system-chip screen-chip" onclick="toggleScreenAwareness()" title="Desktop visual inspection status">
-                                    <span class="status-dot {% if screen_awareness_enabled %}dot-online{% else %}dot-disabled{% endif %}"></span>
-                                    <span>Screen: <strong>{% if screen_awareness_enabled %}Available{% else %}Disabled{% endif %}</strong></span>
-                                </span>
-                            </div>
-                            <button type="button" class="btn-agent-header-action" onclick="openActionDiscoveryModal()" title="Browse all registered agent tools">
-                                <i class="fa-solid fa-toolbox"></i>
-                                <span>Tools</span>
-                            </button>
-                            <button type="button" class="btn-agent-header-action" onclick="toggleAgentTaskHistory()" title="View dedicated agent task execution history">
-                                <i class="fa-solid fa-clock-rotate-left"></i>
-                                <span>Task History</span>
-                            </button>
-                        </div>
-                    </div>
-                    {% endif %}
+                    
 
             <div id="chat-flow">
-                {% if not messages %}
-                {% if session_type == 'agent' %}
-                <div class="agent-workspace agent-workspace-wrapper" id="agentWorkspace">
-                    <!-- Agent Mode Header Row -->
-                    <div class="agent-header-row">
-                        <div class="agent-header-left">
-                            <div class="agent-title-tag">
-                                <span class="agent-pulse-dot"></span>
-                                <span class="agent-mode-badge"><i class="fa-solid fa-robot"></i> AGENT MODE</span>
-                                <h2 class="agent-header-title">AGENT MODE</h2>
-                            </div>
-                            <p class="agent-header-subtitle">Plan, execute, verify, and complete real tasks.</p>
-                        </div>
-                        <div class="agent-header-right">
-                            <div class="agent-system-strip" role="status" aria-label="System status">
-                                <span class="system-chip" title="Agent core online">
-                                    <span class="status-dot dot-online"></span>
-                                    <span>Agent: <strong>Online</strong></span>
-                                </span>
-                                <span class="system-chip desktop-chip" onclick="togglePcAgentModal()" title="Desktop Agent status (click to configure)">
-                                    <span class="status-dot {% if is_pc_connected %}dot-online{% else %}dot-offline{% endif %}"></span>
-                                    <span>Desktop: <strong>{% if is_pc_connected %}Connected{% else %}Offline{% endif %}</strong></span>
-                                </span>
-                                <span class="system-chip screen-chip" onclick="toggleScreenAwareness()" title="Screen visual analysis toggle">
-                                    <span class="status-dot {% if screen_awareness_enabled %}dot-online{% else %}dot-disabled{% endif %}"></span>
-                                    <span id="screenStatusHeaderLabel">Screen: <strong>{% if screen_awareness_enabled %}Available{% else %}Disabled{% endif %}</strong></span>
-                                </span>
-                            </div>
-                            <div class="agent-context-dropdown-wrap" title="Attach previous conversation context">
-                                <label for="agentContextSelect"><i class="fa-solid fa-paperclip"></i> Context:</label>
-                                <select id="agentContextSelect" class="simba-select" onchange="onAgentContextChange(this.value)" aria-label="Attach conversation context">
-                                    <option value="">None (Independent Task)</option>
-                                    {% for ctx_s in assistant_context_sessions %}
-                                    <option value="{{ ctx_s.id }}">{{ ctx_s.title|truncatechars:24 }}</option>
-                                    {% endfor %}
-                                </select>
-                            </div>
-                            <button type="button" class="btn-agent-header-action" onclick="openActionDiscoveryModal()" title="Discover and search all registered tools">
-                                <i class="fa-solid fa-toolbox"></i>
-                                <span>Tools</span>
-                            </button>
-                            <button type="button" class="btn-agent-header-action" onclick="toggleAgentTaskHistory()" title="View dedicated agent task execution history" aria-label="Open task history">
-                                <i class="fa-solid fa-clock-rotate-left"></i>
-                                <span>Task History</span>
-                            </button>
-                        </div>
-                    </div>
-
-                    <!-- Section 1: System Status Surface -->
-                    <div class="agent-section">
-                        <div class="agent-section-label">
-                            <i class="fa-solid fa-signal"></i> SYSTEM STATUS
-                        </div>
-                        <div class="agent-status-grid">
-                            <!-- Card 1: Agent Core -->
-                            <div class="agent-status-card">
-                                <div class="agent-card-top">
-                                    <span class="agent-card-meta">AGENT CORE</span>
-                                    <span class="agent-lifecycle-badge status-idle" id="agentLifecycleBadge">
-                                        <i class="fa-solid fa-circle-notch"></i>
-                                        <span id="agentLifecycleText">IDLE</span>
-                                    </span>
-                                </div>
-                                <div class="agent-card-desc" id="agentStatusDesc">
-                                    Autonomous planner &amp; multi-step verification engine standing by.
-                                </div>
-                            </div>
-
-                            <!-- Card 2: Desktop Agent -->
-                            <div class="agent-status-card">
-                                <div class="agent-card-top">
-                                    <span class="agent-card-meta">DESKTOP AGENT</span>
-                                    <span id="pcStatusChip" class="pc-status-chip {% if is_pc_connected %}connected{% else %}offline{% endif %}" onclick="togglePcAgentModal()" title="Desktop Agent bridge status">
-                                        <span class="pc-dot"></span>
-                                        <span id="pcStatusChipLabel">
-                                            {% if is_pc_connected %}
-                                            <i class="fa-brands fa-windows"></i> Connected
-                                            {% else %}
-                                            <i class="fa-solid fa-desktop"></i> Offline
-                                            {% endif %}
-                                        </span>
-                                    </span>
-                                </div>
-                                <div class="agent-card-desc" id="pcStatusCardDesc">
-                                    {% if is_pc_connected %}
-                                    Active on {{ pc_telemetry.hostname|default:"Windows PC" }} ({{ pc_telemetry.platform|default:"Windows" }}). Local automation active.
-                                    {% else %}
-                                    Local computer control requires the Desktop Agent to be connected. Cloud tasks remain active.
-                                    {% endif %}
-                                </div>
-                                <div style="margin-top:auto;">
-                                    <button type="button" class="agent-card-action-btn" onclick="togglePcAgentModal()">
-                                        <i class="fa-solid fa-circle-question"></i> Connection Bridge
-                                    </button>
-                                </div>
-                            </div>
-
-                            <!-- Card 3: Screen Access -->
-                            <div class="agent-status-card">
-                                <div class="agent-card-top">
-                                    <span class="agent-card-meta">SCREEN ACCESS</span>
-                                    <span id="screenStatusChip" class="screen-status-chip {% if screen_awareness_enabled %}enabled{% else %}disabled{% endif %}">
-                                        <span class="screen-dot"></span>
-                                        <span id="screenStatusLabel">{% if screen_awareness_enabled %}Available{% else %}Disabled{% endif %}</span>
-                                    </span>
-                                </div>
-                                <div class="agent-card-desc" id="screenStatusDesc">
-                                    {% if screen_awareness_enabled %}
-                                    Real-time desktop display capture &amp; UI element awareness active.
-                                    {% else %}
-                                    Screen awareness is disabled. Click toggle to allow screen inspection.
-                                    {% endif %}
-                                </div>
-                                <div style="margin-top:auto;">
-                                    <button type="button" class="agent-card-action-btn" onclick="toggleScreenAwareness()">
-                                        <i class="fa-solid fa-eye"></i> Toggle Awareness
-                                    </button>
-                                </div>
-                            </div>
-
-                            <!-- Card 4: Execution State -->
-                            <div class="agent-status-card">
-                                <div class="agent-card-top">
-                                    <span class="agent-card-meta">EXECUTION STATE</span>
-                                    <span class="agent-lifecycle-badge status-idle" id="agentExecutionBadge">
-                                        <i class="fa-solid fa-bolt"></i>
-                                        <span id="agentExecutionText">IDLE</span>
-                                    </span>
-                                </div>
-                                <div class="agent-card-desc" id="agentExecutionDesc">
-                                    Deterministic tool pipeline ready. No task currently running.
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Section 2: Current Task Center -->
-                    <div class="agent-section">
-                        <div class="agent-section-label">
-                            <i class="fa-solid fa-list-check"></i> CURRENT TASK
-                        </div>
-                        <div class="agent-current-task-box">
-                            <!-- Empty Task State -->
-                            <div class="agent-empty-task-card" id="agentEmptyTaskCard">
-                                <div class="agent-empty-icon">
-                                    <i class="fa-solid fa-terminal"></i>
-                                </div>
-                                <div class="agent-empty-title">READY FOR TASK</div>
-                                <div class="agent-empty-sub">
-                                    Describe what you want SIMBA to accomplish.
-                                </div>
-                                <button type="button" class="btn-start-task" onclick="focusAgentComposer()">
-                                    <i class="fa-solid fa-play"></i>
-                                    <span>Start a Task</span>
-                                </button>
-                            </div>
-
-                            <!-- Active / Plan / Result Task Card -->
-                            <div class="agent-active-task-card" id="agentActiveTaskCard" style="display:none;">
-                                <div class="agent-active-card-header">
-                                    <div class="agent-active-info">
-                                        <div style="display:flex; align-items:center; gap:8px;">
-                                            <span class="agent-active-task-label">CURRENT TASK</span>
-                                            <span class="agent-lifecycle-badge status-planning" id="agentTaskCardBadge">
-                                                <i class="fa-solid fa-circle-notch fa-spin"></i>
-                                                <span id="agentTaskCardBadgeText">PLANNING</span>
-                                            </span>
-                                        </div>
-                                        <h3 class="agent-active-task-title" id="agentTaskCardTitle">Processing Request...</h3>
-                                    </div>
-                                    <div class="agent-task-actions-wrap" id="agentTaskControls">
-                                        <button type="button" id="btnPauseAgentTask" class="btn-task-control pause" onclick="pauseCurrentAgentTask()" title="Pause current execution" style="display:none;">
-                                            <i class="fa-solid fa-pause"></i> <span>Pause</span>
-                                        </button>
-                                        <button type="button" id="btnStopAgentTask" class="btn-task-control stop" onclick="stopCurrentAgentTask()" title="Safely stop and cancel running task">
-                                            <i class="fa-solid fa-stop"></i> <span>Stop</span>
-                                        </button>
-                                        <button type="button" id="btnRunAgainAgentTask" class="btn-task-control rerun" onclick="reRunCompletedAgentTask()" title="Run this task again" style="display:none;">
-                                            <i class="fa-solid fa-rotate-right"></i> <span>Run Again</span>
-                                        </button>
-                                    </div>
-                                </div>
-
-                                <!-- Plan Preview (Multi-Step Plan) -->
-                                <div class="agent-plan-preview-box" id="agentPlanPreviewBox" style="display:none;">
-                                    <div class="agent-plan-preview-header">
-                                        <i class="fa-solid fa-clipboard-list"></i>
-                                        <span>EXECUTION PLAN</span>
-                                    </div>
-                                    <ol class="agent-plan-step-list" id="agentPlanStepList"></ol>
-                                    <div class="agent-plan-controls" id="agentPlanControls">
-                                        <button type="button" class="btn-execute-plan" onclick="executePlanApproved()">
-                                            <i class="fa-solid fa-play"></i> <span>Run Task</span>
-                                        </button>
-                                    </div>
-                                </div>
-
-                                <!-- Real Step Progress Checklist -->
-                                <div class="agent-step-checklist" id="agentStepList">
-                                    <div class="agent-checklist-item in-progress">
-                                        <span class="checklist-bullet"><i class="fa-solid fa-circle-notch fa-spin"></i></span>
-                                        <span class="checklist-text">Understand request</span>
-                                    </div>
-                                </div>
-
-                                <!-- Task Result Summary -->
-                                <div class="agent-task-result-box" id="agentTaskResultBox" style="display:none;">
-                                    <div class="agent-task-result-header" id="agentResultHeader">
-                                        <i class="fa-solid fa-circle-check"></i>
-                                        <span id="agentResultStatusTitle">TASK COMPLETED</span>
-                                    </div>
-                                    <div class="agent-task-result-summary" id="agentTaskResultSummary"></div>
-                                    <details class="agent-technical-details" id="agentTechnicalDetails">
-                                        <summary>Technical execution details</summary>
-                                        <div class="agent-technical-content" id="agentTechnicalContent"></div>
-                                    </details>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Section 3: Quick Tasks -->
-                    <div class="agent-section" id="agentQuickTasksSection">
-                        <div class="agent-section-label" style="display:flex; justify-content:space-between; align-items:center;">
-                            <span><i class="fa-solid fa-bolt"></i> QUICK TASKS</span>
-                            <button type="button" class="btn-more-tasks-link" onclick="openActionDiscoveryModal()" aria-label="Discover all tools">
-                                <i class="fa-solid fa-toolbox"></i> More Tasks
-                            </button>
-                        </div>
-                        <div class="agent-quick-grid">
-                            <!-- 1. Open Website -->
-                            <button type="button" class="agent-quick-card" onclick="executeQuickTask('Open YouTube and search Roblox gameplay')">
-                                <div class="agent-quick-top">
-                                    <span class="agent-quick-icon" style="color:#ff3344;"><i class="fa-brands fa-youtube"></i></span>
-                                    <span class="agent-quick-title">Open Website</span>
-                                    <span class="agent-target-badge desktop">LOCAL</span>
-                                </div>
-                                <div class="agent-quick-desc">Open YouTube and search Roblox in browser</div>
-                            </button>
-
-                            <!-- 2. Search Web -->
-                            <button type="button" class="agent-quick-card" onclick="executeQuickTask('Search web for latest AI news and summarize top results')">
-                                <div class="agent-quick-top">
-                                    <span class="agent-quick-icon" style="color:#8b5cf6;"><i class="fa-solid fa-magnifying-glass"></i></span>
-                                    <span class="agent-quick-title">Search Web</span>
-                                    <span class="agent-target-badge cloud">CLOUD</span>
-                                </div>
-                                <div class="agent-quick-desc">Search web for latest AI news &amp; summarize</div>
-                            </button>
-
-                            <!-- 3. Inspect Screen -->
-                            <button type="button" class="agent-quick-card" onclick="executeQuickTask('Inspect current screen and report active windows')">
-                                <div class="agent-quick-top">
-                                    <span class="agent-quick-icon" style="color:#06b6d4;"><i class="fa-solid fa-eye"></i></span>
-                                    <span class="agent-quick-title">Inspect Screen</span>
-                                    <span class="agent-target-badge desktop">LOCAL</span>
-                                </div>
-                                <div class="agent-quick-desc">Capture display &amp; analyze active window</div>
-                            </button>
-
-                            <!-- 4. Create File -->
-                            <button type="button" class="agent-quick-card" onclick="executeQuickTask('Open VS Code, create calculator.py, and save it')">
-                                <div class="agent-quick-top">
-                                    <span class="agent-quick-icon" style="color:#007acc;"><i class="fa-solid fa-file-code"></i></span>
-                                    <span class="agent-quick-title">Create File</span>
-                                    <span class="agent-target-badge desktop">LOCAL</span>
-                                </div>
-                                <div class="agent-quick-desc">Open VS Code, create calculator.py, and save</div>
-                            </button>
-
-                            <!-- 5. Open Application -->
-                            <button type="button" class="agent-quick-card" onclick="executeQuickTask('Open Notepad and write hello world')">
-                                <div class="agent-quick-top">
-                                    <span class="agent-quick-icon" style="color:#10b981;"><i class="fa-solid fa-window-restore"></i></span>
-                                    <span class="agent-quick-title">Open App</span>
-                                    <span class="agent-target-badge desktop">LOCAL</span>
-                                </div>
-                                <div class="agent-quick-desc">Launch Notepad and write text document</div>
-                            </button>
-
-                            <!-- 6. Calculator -->
-                            <button type="button" class="agent-quick-card" onclick="executeQuickTask('Calculate 125 * 8 / 2')">
-                                <div class="agent-quick-top">
-                                    <span class="agent-quick-icon" style="color:#f59e0b;"><i class="fa-solid fa-calculator"></i></span>
-                                    <span class="agent-quick-title">Calculator</span>
-                                    <span class="agent-target-badge cloud">CLOUD</span>
-                                </div>
-                                <div class="agent-quick-desc">Safe arithmetic &amp; mathematical calculation</div>
-                            </button>
-
-                            <!-- 7. More Tasks Discovery -->
-                            <button type="button" class="agent-quick-card discovery-trigger" onclick="openActionDiscoveryModal()">
-                                <div class="agent-quick-top">
-                                    <span class="agent-quick-icon" style="color:var(--accent);"><i class="fa-solid fa-grid-2-plus"></i></span>
-                                    <span class="agent-quick-title">More Tasks...</span>
-                                </div>
-                                <div class="agent-quick-desc">Browse full registered tools registry &amp; actions</div>
-                            </button>
-                        </div>
-                    </div>
-                </div>
-                {% elif session_type == 'voice' %}
+                
+                
                 <div class="voice-workspace voice-workspace-wrapper" id="voiceWorkspace">
                     <!-- Voice Header Card -->
                     <div class="voice-header-card">
@@ -11022,514 +10534,10 @@
                     </div>
                 </div>
 
-                {% else %}
-                <div class="welcome-container" id="qcHome">
-                    <div class="qc-field" aria-hidden="true">
-                        <div class="qc-radial qc-radial-1" id="qcRadial1"></div>
-                        <div class="qc-radial qc-radial-2"></div>
-                        <div class="qc-grid"></div>
-                        <div class="qc-particles" id="qcParticles">
-                            <span></span><span></span><span></span><span></span><span></span>
-                            <span></span><span></span><span></span><span></span><span></span>
-                        </div>
-                    </div>
+                
+                
 
-                    <div class="qc-topbar">
-                        <span class="qc-topbar-item" id="qcTime">--:--:--</span>
-                        <span class="qc-topbar-sep">&bull;</span>
-                        <span class="qc-topbar-item" id="qcDate">-- --- ----</span>
-                        <span class="qc-topbar-sep">&bull;</span>
-
-                    </div>
-
-                    <div class="qc-main">
-                        <div class="qc-core-wrap" id="qcCoreWrap">
-                            <div class="qc-core" id="qcCore" aria-hidden="true">
-                                <div class="qc-core-ring qc-ring-outer"></div>
-                                <div class="qc-core-ring qc-ring-mid"></div>
-                                <div class="qc-core-ring qc-ring-inner"></div>
-                                <div class="qc-core-orbit"><span class="qc-orbit-node"></span></div>
-                                <div class="qc-core-orbit qc-orbit-reverse"><span class="qc-orbit-node"></span></div>
-                                <div class="qc-core-center">
-                                    <div class="qc-core-logo" id="qcCoreIcon" aria-hidden="true">&gt;_&lt;</div>
-                                </div>
-                            </div>
-                        </div>
-                        <p class="qc-core-status" id="qcCoreStatus">IDLE</p>
-
-                        <h1 class="qc-title">SIMBA_INTEL</h1>
-                        <p class="qc-subtitle">Your Personal Artificial Intelligence Operating System. Standing by for commands, {{ profile.display_name|default:request.user.get_full_name|default:request.user.username|upper }}.</p>
-
-                        <div class="qc-category-bar" id="qcCategoryBar" role="tablist" aria-label="Quick Action Categories">
-                            <button type="button" class="qc-cat-btn active" data-category="all" onclick="filterQuickActions('all')" role="tab" aria-selected="true">All</button>
-                            <button type="button" class="qc-cat-btn" data-category="create" onclick="filterQuickActions('create')" role="tab" aria-selected="false">Create</button>
-                            <button type="button" class="qc-cat-btn" data-category="understand" onclick="filterQuickActions('understand')" role="tab" aria-selected="false">Understand</button>
-                            <button type="button" class="qc-cat-btn" data-category="develop" onclick="filterQuickActions('develop')" role="tab" aria-selected="false">Develop</button>
-                        </div>
-
-                        <div class="qc-commands" id="qcCommandsContainer" role="toolbar" aria-label="Contextual Quick Actions">
-                            <button type="button" class="qc-chip" data-action="explain-pdf" data-mode="document" onclick="activateQuickAction('explain-pdf')" title="Attach a PDF or ask questions about your document" aria-label="Explain PDF">
-                                <span class="qc-chip-icon"><i class="fa-solid fa-file-pdf"></i></span><span>Explain PDF</span>
-                            </button>
-                            <button type="button" class="qc-chip" data-action="analyze-image" data-mode="vision" onclick="activateQuickAction('analyze-image')" title="Attach an image for AI vision analysis" aria-label="Analyze Image">
-                                <span class="qc-chip-icon"><i class="fa-solid fa-image"></i></span><span>Analyze Image</span>
-                            </button>
-                            <button type="button" class="qc-chip" data-action="write-code" data-mode="coding" onclick="activateQuickAction('write-code')" title="Activate coding assistant mode" aria-label="Write Code">
-                                <span class="qc-chip-icon"><i class="fa-solid fa-code"></i></span><span>Write Code</span>
-                            </button>
-                            <button type="button" class="qc-chip" data-action="debug-code" data-mode="diagnostics" onclick="activateQuickAction('debug-code')" title="Activate code debugging & diagnostics" aria-label="Debug Code">
-                                <span class="qc-chip-icon"><i class="fa-solid fa-bug"></i></span><span>Debug Code</span>
-                            </button>
-                            <button type="button" class="qc-chip" data-action="generate-image" data-mode="image" onclick="activateQuickAction('generate-image')" title="Switch to Image Studio image generation" aria-label="Generate Image">
-                                <span class="qc-chip-icon"><i class="fa-solid fa-wand-magic-sparkles"></i></span><span>Generate Image</span>
-                            </button>
-                            <button type="button" class="qc-chip" data-action="build-react-app" data-mode="frontend" onclick="activateQuickAction('build-react-app')" title="Activate frontend application builder" aria-label="Build React App">
-                                <span class="qc-chip-icon"><i class="fa-brands fa-react"></i></span><span>Build React App</span>
-                            </button>
-                            <button type="button" class="qc-chip" data-action="sql-query" data-mode="database" onclick="activateQuickAction('sql-query')" title="Activate SQL & database query assistant" aria-label="SQL Query">
-                                <span class="qc-chip-icon"><i class="fa-solid fa-database"></i></span><span>SQL Query</span>
-                            </button>
-                            <button type="button" class="qc-chip" data-action="summarize-notes" data-mode="memory" onclick="activateQuickAction('summarize-notes')" title="Summarize notes or documents" aria-label="Summarize Notes">
-                                <span class="qc-chip-icon"><i class="fa-solid fa-file-invoice"></i></span><span>Summarize Notes</span>
-                            </button>
-                            <button type="button" class="qc-chip qc-chip-more" onclick="toggleMoreQuickActions()" title="View all available assistant actions" aria-label="View all actions">
-                                <span class="qc-chip-icon"><i class="fa-solid fa-ellipsis"></i></span><span>More</span>
-                            </button>
-                        </div>
-                    </div>
-                </div>
-                <script>
-                    (function () {
-                        var core = document.getElementById('qcCore');
-                        var coreWrap = document.getElementById('qcCoreWrap');
-                        var statusEl = document.getElementById('qcCoreStatus');
-                        var homeEl = document.getElementById('qcHome');
-                        if (!core || !coreWrap) return;
-
-                        var reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
-                            || document.documentElement.getAttribute('data-animation') === 'none'
-                            || document.documentElement.getAttribute('data-animation') === 'reduced';
-
-                        // Each command's own mode: color, orbit-speed multiplier
-                        // (relative to idle), and glow-pulse intensity multiplier.
-                        // The center glyph itself never changes (see .qc-core-logo -
-                        // it's the brand mark, not a per-mode icon) - only its glow
-                        // color follows the mode, same as everything else.
-                        var MODES = {
-                            document: { rgb: '110, 200, 255', label: 'DOCUMENT MODE', speed: 1.3, pulse: 1.0 },
-                            vision: { rgb: '255, 185, 80', label: 'VISION MODE', speed: 0.6, pulse: 1.15 },
-                            coding: { rgb: '110, 255, 160', label: 'CODING MODE', speed: 1.9, pulse: 1.0 },
-                            diagnostics: { rgb: '255, 95, 95', label: 'DIAGNOSTICS MODE', speed: 2.2, pulse: 1.25 },
-                            image: { rgb: '255, 105, 210', label: 'IMAGE STUDIO MODE', speed: 0.9, pulse: 1.3 },
-                            frontend: { rgb: '80, 230, 210', label: 'FRONTEND MODE', speed: 1.6, pulse: 1.05 },
-                            database: { rgb: '150, 140, 255', label: 'DATABASE MODE', speed: 1.0, pulse: 0.9 },
-                            memory: { rgb: '215, 170, 255', label: 'MEMORY MODE', speed: 0.7, pulse: 1.1 }
-                        };
-                        var IDLE_LABEL = 'IDLE';
-
-                        // ---- Staged, cinematic mode transition ----
-                        // Colors/glow are plain CSS transitions (see the .qc-* rules
-                        // in <style> - each layer has its own transition-delay so
-                        // glow -> rings -> particles -> pulse cascade in, matching
-                        // "glow gradually changes, then rings accelerate, then
-                        // particles shift color, then pulse grows"). Ring rotation
-                        // SPEED can't be smoothly interpolated by CSS at all
-                        // (animation-duration changes snap at the next cycle
-                        // instead of easing), so it's driven by the rAF loop below
-                        // instead, which eases toward a target speed every frame -
-                        // that's what actually satisfies "rings should never stop
-                        // instantly, smooth easing only." Status text can't be
-                        // transitioned either (text content isn't animatable), so
-                        // it gets a manual opacity crossfade timed to land last in
-                        // the sequence.
-                        var statusFadeTimer = null;
-
-                        function crossfadeStatus(label) {
-                            if (!statusEl) return;
-                            clearTimeout(statusFadeTimer);
-                            statusEl.style.opacity = '0';
-                            statusFadeTimer = setTimeout(function () {
-                                statusEl.textContent = label;
-                                requestAnimationFrame(function () {
-                                    statusEl.style.opacity = '1';
-                                });
-                            }, 200);
-                        }
-
-                        function applyMode(modeKey) {
-                            var m = modeKey && MODES[modeKey];
-                            if (m) {
-                                core.style.setProperty('--mode-rgb', m.rgb);
-                                core.style.setProperty('--pulse-scale', m.pulse);
-                                ringSpeed.target = m.speed;
-                                crossfadeStatus(m.label);
-                            } else {
-                                core.style.removeProperty('--mode-rgb');
-                                core.style.removeProperty('--pulse-scale');
-                                ringSpeed.target = 1;
-                                crossfadeStatus(IDLE_LABEL);
-                            }
-                        }
-
-                        window.applyQcMode = applyMode;
-
-                        document.querySelectorAll('#qcHome .qc-chip[data-mode]').forEach(function (chip) {
-                            chip.addEventListener('mouseenter', function () { applyMode(chip.dataset.mode); });
-                            chip.addEventListener('focus', function () { applyMode(chip.dataset.mode); });
-                            chip.addEventListener('mouseleave', function () { applyMode(null); });
-                            chip.addEventListener('blur', function () { applyMode(null); });
-                        });
-
-                        // ---- Ring/orbit rotation, driven by requestAnimationFrame ----
-                        // Idle speed -> acceleration -> target speed -> deceleration
-                        // -> idle, with pure easing (exponential smoothing toward a
-                        // target multiplier every frame) instead of CSS keyframes,
-                        // which is the only way to get a genuinely smooth speed
-                        // change rather than a snap at the next animation cycle.
-                        // Skipped entirely under reduced motion - rings stay static.
-                        var ringEls = {
-                            outer: core.querySelector('.qc-ring-outer'),
-                            mid: core.querySelector('.qc-ring-mid'),
-                            orbit: core.querySelector('.qc-core-orbit:not(.qc-orbit-reverse)'),
-                            orbitRev: core.querySelector('.qc-orbit-reverse')
-                        };
-                        var ringBaseDegPerSec = { outer: 14, mid: -46, orbit: 62, orbitRev: -42 };
-                        var ringAngle = { outer: 0, mid: 0, orbit: 0, orbitRev: 0 };
-                        var ringSpeed = { current: 1, target: 1 };
-                        var lastFrameTime = null;
-
-                        function tickRings(now) {
-                            // Same self-stopping idea as the clock below - once
-                            // the welcome screen is hidden (first message sent),
-                            // there's no point still computing rotation angles for
-                            // an invisible element every frame for the rest of the
-                            // page's life.
-                            if (!homeEl || !homeEl.isConnected || homeEl.style.display === 'none') return;
-
-                            if (lastFrameTime === null) lastFrameTime = now;
-                            var dt = Math.min((now - lastFrameTime) / 1000, 0.05);
-                            lastFrameTime = now;
-
-                            ringSpeed.current += (ringSpeed.target - ringSpeed.current) * Math.min(dt * 3.2, 1);
-
-                            for (var key in ringEls) {
-                                var el = ringEls[key];
-                                if (!el) continue;
-                                ringAngle[key] = (ringAngle[key] + ringBaseDegPerSec[key] * ringSpeed.current * dt) % 360;
-                                el.style.transform = 'rotate(' + ringAngle[key].toFixed(2) + 'deg)';
-                            }
-
-                            requestAnimationFrame(tickRings);
-                        }
-                        if (!reducedMotion) {
-                            requestAnimationFrame(tickRings);
-                        }
-
-                        // Subtle mouse-tracking tilt - pointer devices only, and
-                        // never fires at all under reduced-motion preferences.
-                        if (!reducedMotion && window.matchMedia('(pointer: fine)').matches) {
-                            coreWrap.addEventListener('mousemove', function (e) {
-                                var rect = coreWrap.getBoundingClientRect();
-                                var px = (e.clientX - rect.left) / rect.width - 0.5;
-                                var py = (e.clientY - rect.top) / rect.height - 0.5;
-                                core.style.transform = 'rotateX(' + (-py * 10).toFixed(2) + 'deg) rotateY(' + (px * 10).toFixed(2) + 'deg)';
-                            });
-                            coreWrap.addEventListener('mouseleave', function () {
-                                core.style.transform = '';
-                            });
-                        }
-
-                        // Live status bar clock - stops itself once the welcome
-                        // screen is hidden (sendQuery() hides it via display:none
-                        // rather than removing it, since a returning user might
-                        // come back to an empty session later) so this doesn't
-                        // keep ticking in the background for the rest of the
-                        // page's life after the first message is sent.
-                        var timeEl = document.getElementById('qcTime');
-                        var dateEl = document.getElementById('qcDate');
-                        var clockInterval = setInterval(function () {
-                            if (!homeEl || !homeEl.isConnected || homeEl.style.display === 'none') {
-                                clearInterval(clockInterval);
-                                return;
-                            }
-                            var now = new Date();
-                            if (timeEl) timeEl.textContent = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-                            if (dateEl) dateEl.textContent = now.toLocaleDateString([], { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' });
-                        }, 1000);
-                        if (timeEl) timeEl.textContent = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-                        if (dateEl) dateEl.textContent = new Date().toLocaleDateString([], { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' });
-                    })();
-                </script>
-                {% endif %}
-                {% endif %}
-
-                {% for m in messages %}
-                <div class="chat-block user-block" data-message-id="{{ m.user_message_id }}">
-                    <span class="msg-label"><div class="avatar user">{{ profile.display_name|default:request.user.first_name|default:request.user.username|slice:":1"|upper }}</div>{{ profile.display_name|default:request.user.get_full_name|default:request.user.username|upper }}_INPUT</span>
-                    <div class="content">{{ m.user_query }}{% if m.user_attachments %}<div class="message-attachments-container">{% for att in m.user_attachments %}{% if att.file_type == 'image' %}<div class="msg-attachment-card image-card" onclick="openAttachmentImageViewer('{{ att.url }}', '{{ att.name|escapejs }}', '{{ att.size }}')" title="{{ att.name }} (Click to view)"><div class="msg-attachment-thumb-wrapper"><img class="msg-attachment-thumb" src="{{ att.url }}" alt="{{ att.name }}" loading="lazy"></div><span class="msg-attachment-name">{{ att.name }}</span></div>{% else %}<div class="msg-attachment-card file-card" onclick="openAttachmentViewer('{{ att.id }}', '{{ att.name|escapejs }}', '{{ att.file_type }}', '{{ att.url }}')" title="{{ att.name }} (Click to read/view)"><div class="msg-attachment-icon">{% if att.file_type == 'pdf' %}<i class="fa-solid fa-file-pdf"></i>{% elif att.file_type == 'code' %}<i class="fa-solid fa-file-code"></i>{% else %}<i class="fa-solid fa-file-lines"></i>{% endif %}</div><div class="msg-attachment-info"><span class="msg-attachment-name">{{ att.name }}</span><span class="msg-attachment-size">{{ att.size|filesizeformat }}</span></div></div>{% endif %}{% endfor %}</div>{% elif m.user_extra_data and m.user_extra_data.attachments %}<div class="message-attachments-container">{% for att in m.user_extra_data.attachments %}{% if att.file_type == 'image' %}<div class="msg-attachment-card image-card" onclick="openAttachmentImageViewer('{{ att.url }}', '{{ att.name|escapejs }}', '{{ att.size }}')" title="{{ att.name }} (Click to view)"><div class="msg-attachment-thumb-wrapper"><img class="msg-attachment-thumb" src="{{ att.url }}" alt="{{ att.name }}" loading="lazy"></div><span class="msg-attachment-name">{{ att.name }}</span></div>{% else %}<div class="msg-attachment-card file-card" onclick="openAttachmentViewer('{{ att.id }}', '{{ att.name|escapejs }}', '{{ att.file_type }}', '{{ att.url }}')" title="{{ att.name }} (Click to read/view)"><div class="msg-attachment-icon">{% if att.file_type == 'pdf' %}<i class="fa-solid fa-file-pdf"></i>{% elif att.file_type == 'code' %}<i class="fa-solid fa-file-code"></i>{% else %}<i class="fa-solid fa-file-lines"></i>{% endif %}</div><div class="msg-attachment-info"><span class="msg-attachment-name">{{ att.name }}</span><span class="msg-attachment-size">{{ att.size|filesizeformat }}</span></div></div>{% endif %}{% endfor %}</div>{% endif %}</div>
-                    <textarea class="raw-query" style="display:none;">{{ m.user_query }}</textarea>
-                    {% if not m.extra_data %}
-                    <button class="edit-msg-btn" onclick="editUserMessage(this)" title="Edit and regenerate"
-                        aria-label="Edit message">
-                        <i class="fa-solid fa-pen"></i>
-                    </button>
-                    {% endif %}
-                    <button class="edit-msg-btn delete-msg-btn" onclick="deleteMessage(this)" title="Delete message"
-                        aria-label="Delete message" style="right: calc(100% + 42px);">
-                        <i class="fa-solid fa-trash"></i>
-                    </button>
-                    {% if m.user_sibling_count > 1 %}
-                    <div class="branch-switcher" data-sibling-ids="{{ m.user_sibling_ids|join:',' }}"
-                        data-current-id="{{ m.user_message_id }}">
-                        <button class="branch-nav-btn" onclick="switchBranch(this, -1)" aria-label="Previous version"><i
-                                class="fa-solid fa-chevron-left"></i></button>
-                        <span class="branch-counter">{{ m.user_sibling_index }}/{{ m.user_sibling_count }}</span>
-                        <button class="branch-nav-btn" onclick="switchBranch(this, 1)" aria-label="Next version"><i
-                                class="fa-solid fa-chevron-right"></i></button>
-                    </div>
-                    {% endif %}
-                    <div class="message-reactions" data-message-id="{{ m.user_message_id }}" data-message-role="user">
-                        {% if m.extra_data and m.extra_data.reactions %}
-                        {% for reaction, count in m.extra_data.reactions.items %}
-                        <button class="reaction-button" data-reaction="{{ reaction }}"
-                            onclick="toggleReaction(this, '{{ m.user_message_id }}', 'user', '{{ reaction }}')">
-                            {{ reaction|title }}
-                        </button>
-                        <span class="reaction-count">{{ count }}</span>
-                        {% endfor %}
-                        {% endif %}
-                    </div>
-                </div>
-                {% if m.extra_data and m.extra_data.type == "image" %}
-                <div class="chat-block simba-block" data-message-id="{{ m.id }}">
-                    <span class="msg-label">
-                        SIMBA_IMAGE
-                    </span>
-                    <div class="content">
-                        <div class="image-card"
-                            style="display:flex;flex-direction:column;gap:15px;align-items:center;padding:20px;background:rgba(15,21,28,0.5);border:1px solid rgba(var(--accent-rgb),0.2);border-radius:12px;">
-                            <img class="generated-image" crossorigin="anonymous" src="{{ m.extra_data.image_url }}"
-                                style="max-width:100%;border-radius:8px;box-shadow:0 0 30px rgba(var(--accent-rgb),0.1);"
-                                alt="Generated image">
-                            <div style="display:flex;flex-direction:column;gap:8px;width:100%;max-width:600px;">
-                                <div style="display:flex;justify-content:space-between;color:#a0aabf;font-size:14px;">
-                                    <span>Resolution: {{ m.extra_data.width }}x{{ m.extra_data.height }}</span>
-                                    <span>Model: {{ m.extra_data.model_used }}</span>
-                                </div>
-                                <div style="text-align:center;color:#0edb2a;font-size:14px;">
-                                    Image generated
-                                </div>
-                            </div>
-                            <div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center;">
-                                <button class="copy-btn favorite-btn" data-message-id="{{ m.id }}"
-                                    onclick="toggleFavoriteImage(this)">
-                                    <i
-                                        class="fa-{% if m.extra_data.favorited %}solid{% else %}regular{% endif %} fa-star"></i>
-                                    Favorite
-                                </button>
-                                <button class="copy-btn"
-                                    onclick="downloadImage('{{ m.extra_data.image_url }}', 'simba-intel-image.jpg')">
-                                    <i class="fa-solid fa-download"></i> Download
-                                </button>
-                                <button class="copy-btn"
-                                    onclick="copyToClipboard('{{ m.extra_data.prompt|escapejs }}', this)">
-                                    <i class="fa-solid fa-copy"></i> Copy Prompt
-                                </button>
-                                <button class="copy-btn"
-                                    onclick="regenerateImage('{{ m.extra_data.prompt|escapejs }}', '{{ m.extra_data.prompt|escapejs }}')">
-                                    <i class="fa-solid fa-rotate"></i> Regenerate
-                                </button>
-                                <button class="copy-btn" onclick="shareChat('{{ m.extra_data.prompt|escapejs }}')">
-                                    <i class="fa-solid fa-share-nodes"></i> Share
-                                </button>
-                                <button class="copy-btn bookmark-btn {% if m.extra_data.bookmarked %}active{% endif %}"
-                                    onclick="bookmarkMessage(this)" title="Bookmark this image">
-                                    <i
-                                        class="fa-{% if m.extra_data.bookmarked %}solid{% else %}regular{% endif %} fa-bookmark"></i>
-                                </button>
-                                <button class="copy-btn info-btn" onclick="openMessageInfo(this)" title="Message info">
-                                    <i class="fa-solid fa-circle-info"></i>
-                                </button>
-                                <button class="copy-btn danger" onclick="deleteMessage(this)" title="Delete this image">
-                                    <i class="fa-solid fa-trash"></i>
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="reply-mini-actions">
-                        <button class="reply-mini-btn" onclick="editPromptFromReply(this)"
-                            title="Edit the prompt that produced this image">
-                            <i class="fa-solid fa-pen"></i>
-                        </button>
-                    </div>
-                    <div class="message-reactions" data-message-id="{{ m.id }}" data-message-role="assistant">
-                        {% if m.extra_data and m.extra_data.reactions %}
-                        {% for reaction, count in m.extra_data.reactions.items %}
-                        <button class="reaction-button" data-reaction="{{ reaction }}"
-                            onclick="toggleReaction(this, '{{ m.id }}', 'assistant', '{{ reaction }}')">
-                            {{ reaction|title }}
-                        </button>
-                        <span class="reaction-count">{{ count }}</span>
-                        {% endfor %}
-                        {% endif %}
-                    </div>
-                </div>
-                {% elif m.extra_data and m.extra_data.type == "vision" %}
-                <div class="chat-block simba-block" data-message-id="{{ m.id }}">
-                    <span class="msg-label">
-                        SIMBA_VISION{% if m.latency %} • {{ m.latency }}s{% endif %}
-                    </span>
-                    {% if m.extra_data.image_previews %}
-                    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
-                        {% for preview in m.extra_data.image_previews %}
-                        <img src="{{ preview }}"
-                            onclick="openAttachmentImageViewer('{{ preview|escapejs }}', 'Vision Attached Image')"
-                            style="max-width:160px;max-height:160px;border-radius:8px;object-fit:cover;cursor:pointer;transition:transform 0.2s;"
-                            onmouseover="this.style.transform='scale(1.03)'" onmouseout="this.style.transform='none'"
-                            alt="Attached image">
-                        {% endfor %}
-                    </div>
-                    {% elif m.extra_data.image_preview %}
-                    <img src="{{ m.extra_data.image_preview }}"
-                        onclick="openAttachmentImageViewer('{{ m.extra_data.image_preview|escapejs }}', 'Vision Attached Image')"
-                        style="max-width:200px;border-radius:8px;margin-bottom:10px;display:block;cursor:pointer;transition:transform 0.2s;"
-                        onmouseover="this.style.transform='scale(1.03)'" onmouseout="this.style.transform='none'"
-                        alt="Attached image">
-                    {% endif %}
-                    <textarea style="display:none;" class="raw-data">{{ m.ai_response }}</textarea>
-                    <div class="content markdown-content">{{ m.ai_response }}</div>
-                    <div class="reply-actions" style="display: flex; gap: 10px; margin-top: 5px; align-items: center; flex-wrap: wrap;">
-                        <button class="copy-btn"
-                            onclick="copyToClipboard(this.closest('.simba-block').querySelector('.raw-data').value, this)">
-                            <i class="fa-regular fa-copy"></i> COPY_INTEL
-                        </button>
-                        <button class="copy-btn"
-                            onclick="shareChat(this.closest('.simba-block').querySelector('.raw-data').value)">
-                            <i class="fa-solid fa-share-nodes"></i> SHARE
-                        </button>
-                        <button class="copy-btn" onclick="regenerateText(this)">
-                            <i class="fa-solid fa-rotate"></i> Regenerate
-                        </button>
-                        <button class="copy-btn" onclick="continueMessage(this)"
-                            title="Extend this reply if it got cut short">
-                            <i class="fa-solid fa-forward"></i> Continue
-                        </button>
-                        <button class="copy-btn bookmark-btn {% if m.extra_data.bookmarked %}active{% endif %}"
-                            onclick="bookmarkMessage(this)" title="Bookmark this reply">
-                            <i
-                                class="fa-{% if m.extra_data.bookmarked %}solid{% else %}regular{% endif %} fa-bookmark"></i>
-                        </button>
-                        <button class="copy-btn info-btn" onclick="openMessageInfo(this)" title="Message info">
-                            <i class="fa-solid fa-circle-info"></i>
-                        </button>
-                        <button class="copy-btn" onclick="openHighlightModal('{{ m.id }}', this.closest('.simba-block').querySelector('.raw-data')?.value, 'answer')" title="Save Key Highlight / Note">
-                            <i class="fa-solid fa-highlighter"></i> Highlight
-                        </button>
-                        <button class="copy-btn danger" onclick="deleteMessage(this)" title="Delete this reply">
-                            <i class="fa-solid fa-trash"></i>
-                        </button>
-                    </div>
-                    <div class="reply-mini-actions">
-                        <button class="reply-mini-btn" onclick="editPromptFromReply(this)"
-                            title="Edit the prompt that produced this reply">
-                            <i class="fa-solid fa-pen"></i> Edit Prompt
-                        </button>
-                        <button class="reply-mini-btn" onclick="copyPromptFromReply(this)"
-                            title="Copy the prompt that produced this reply">
-                            <i class="fa-solid fa-copy"></i> Copy Prompt
-                        </button>
-                    </div>
-                    <div class="followup-suggestions"></div>
-                    <div class="message-reactions" data-message-id="{{ m.id }}" data-message-role="assistant">
-                        {% if m.extra_data and m.extra_data.reactions %}
-                        {% for reaction, count in m.extra_data.reactions.items %}
-                        <button class="reaction-button" data-reaction="{{ reaction }}"
-                            onclick="toggleReaction(this, '{{ m.id }}', 'assistant', '{{ reaction }}')">
-                            {{ reaction|title }}
-                        </button>
-                        <span class="reaction-count">{{ count }}</span>
-                        {% endfor %}
-                        {% endif %}
-                    </div>
-                </div>
-                {% else %}
-                <div class="chat-block simba-block" data-message-id="{{ m.id }}">
-                    <span class="msg-label">
-                        SIMBA_RESPONSE{% if m.latency %} • {{ m.latency }}s{% endif %}
-                    </span>
-                    <textarea style="display:none;" class="raw-data">{{ m.ai_response }}</textarea>
-                    <div class="content markdown-content">{{ m.ai_response }}</div>
-
-                    <div class="reply-actions" style="display: flex; gap: 10px; margin-top: 5px; align-items: center; flex-wrap: wrap;">
-                        <button class="copy-btn"
-                            onclick="copyToClipboard(this.closest('.simba-block').querySelector('.raw-data').value, this)">
-                            <i class="fa-regular fa-copy"></i> COPY_INTEL
-                        </button>
-                        <button class="copy-btn"
-                            onclick="shareChat(this.closest('.simba-block').querySelector('.raw-data').value)">
-                            <i class="fa-solid fa-share-nodes"></i> SHARE
-                        </button>
-                        <button class="copy-btn" onclick="regenerateText(this)">
-                            <i class="fa-solid fa-rotate"></i> Regenerate
-                        </button>
-                        <button class="copy-btn" onclick="continueMessage(this)"
-                            title="Extend this reply if it got cut short">
-                            <i class="fa-solid fa-forward"></i> Continue
-                        </button>
-                        <button class="copy-btn bookmark-btn {% if m.extra_data.bookmarked %}active{% endif %}"
-                            onclick="bookmarkMessage(this)" title="Bookmark this reply">
-                            <i
-                                class="fa-{% if m.extra_data.bookmarked %}solid{% else %}regular{% endif %} fa-bookmark"></i>
-                        </button>
-                        <button class="copy-btn" onclick="openHighlightModal('{{ m.id }}', this.closest('.simba-block').querySelector('.raw-data')?.value, 'answer')" title="Save Key Highlight / Note">
-                            <i class="fa-solid fa-highlighter"></i> Highlight
-                        </button>
-                        <button class="copy-btn info-btn" onclick="openMessageInfo(this)" title="Message info">
-                            <i class="fa-solid fa-circle-info"></i>
-                        </button>
-                        <button class="copy-btn danger" onclick="deleteMessage(this)" title="Delete this reply">
-                            <i class="fa-solid fa-trash"></i>
-                        </button>
-                        {% if m.assistant_sibling_count > 1 %}
-                        <div class="branch-switcher" data-sibling-ids="{{ m.assistant_sibling_ids|join:',' }}"
-                            data-current-id="{{ m.id }}">
-                            <button class="branch-nav-btn" onclick="switchBranch(this, -1)"
-                                aria-label="Previous version"><i class="fa-solid fa-chevron-left"></i></button>
-                            <span class="branch-counter">{{ m.assistant_sibling_index }}/{{ m.assistant_sibling_count }}</span>
-                            <button class="branch-nav-btn" onclick="switchBranch(this, 1)" aria-label="Next version"><i
-                                    class="fa-solid fa-chevron-right"></i></button>
-                        </div>
-                        {% endif %}
-                    </div>
-                    <div class="reply-mini-actions">
-                        <button class="reply-mini-btn" onclick="editPromptFromReply(this)"
-                            title="Edit the prompt that produced this reply">
-                            <i class="fa-solid fa-pen"></i> Edit Prompt
-                        </button>
-                        <button class="reply-mini-btn" onclick="copyPromptFromReply(this)"
-                            title="Copy the prompt that produced this reply">
-                            <i class="fa-solid fa-copy"></i> Copy Prompt
-                        </button>
-                        <button class="reply-mini-btn" onclick="suggestFollowups(this)"
-                            title="Suggest what to ask next">
-                            <i class="fa-solid fa-wand-magic-sparkles"></i> Suggest Follow-ups
-                        </button>
-                    </div>
-                    <div class="message-reactions" data-message-id="{{ m.id }}" data-message-role="assistant">
-                        {% if m.extra_data and m.extra_data.reactions %}
-                        {% for reaction, count in m.extra_data.reactions.items %}
-                        <button class="reaction-button" data-reaction="{{ reaction }}"
-                            onclick="toggleReaction(this, '{{ m.id }}', 'assistant', '{{ reaction }}')">
-                            {{ reaction|title }}
-                        </button>
-                        <span class="reaction-count">{{ count }}</span>
-                        {% endfor %}
-                        {% endif %}
-                    </div>
-                    <div class="followup-suggestions"></div>
-                </div>
-                {% endif %}
-                {% endfor %}
+                
             </div>
 
             <div id="input-wrapper">
@@ -11572,26 +10580,15 @@
                             <button type="button" class="cyber-select" id="cyberSelect" onclick="toggleModelDropdown(event)" aria-haspopup="listbox" aria-expanded="false" title="Select AI Model or Smart Routing Mode">
                                 <span class="model-trigger-content">
                                     <span id="selectedIcon" class="model-trigger-icon">
-                                        {% if selected_model == 'fast' or selected_model == 'nova-mind' %}
-                                        {% elif selected_model == 'balanced' %}⚖
-                                        {% elif selected_model == 'powerful' or selected_model == 'ox-alpha' %}
-                                        {% elif selected_model == 'economical' %}
-                                        {% elif selected_model == 'quantum-core' %}
-                                        {% elif selected_model == 'sky-net' or selected_model == 'sky-net-mini' %}
-                                        {% elif selected_model == 'image-studio' %}
-                                        {% else %}{% endif %}
+                                        
+                                        
                                     </span>
                                     <span id="selectedText" class="model-trigger-name">
-                                        {% if selected_model == 'auto' or not selected_model %}Auto
-                                        {% elif selected_model == 'fast' %}Fast Mode
-                                        {% elif selected_model == 'balanced' %}Balanced Mode
-                                        {% elif selected_model == 'powerful' %}Powerful (Deep)
-                                        {% elif selected_model == 'economical' %}Economical
-                                        {% else %}
-                                            {% for model in models %}
-                                                {% if model.id == selected_model %}{{ model.display_name }}{% endif %}
-                                            {% endfor %}
-                                        {% endif %}
+                                        
+                                            
+                                                
+                                            
+                                        
                                     </span>
                                 </span>
                                 <span class="arrow"><i class="fa-solid fa-chevron-up"></i></span>
@@ -11610,7 +10607,7 @@
                                     <!-- Group 1: Smart Routing Modes -->
                                     <div class="cyber-option-group" data-group="routing">
                                         <div class="cyber-option-group-label"><i class="fa-solid fa-route"></i> SMART ROUTING MODES</div>
-                                        <div class="cyber-option {% if selected_model == 'auto' or not selected_model %}active{% endif %}"
+                                        <div class="cyber-option "
                                             data-value="auto"
                                             data-name="Auto (Smart Task Routing)"
                                             data-desc="Intelligently classifies query & code to pick ideal model">
@@ -11622,10 +10619,10 @@
                                                 </div>
                                                 <div class="model-option-desc">Intelligent auto-routing based on query depth</div>
                                             </div>
-                                            {% if selected_model == 'auto' or not selected_model %}<i class="fa-solid fa-check model-active-check"></i>{% endif %}
+                                            
                                         </div>
 
-                                        <div class="cyber-option {% if selected_model == 'fast' %}active{% endif %}"
+                                        <div class="cyber-option "
                                             data-value="fast"
                                             data-name="Fast Mode"
                                             data-desc="Optimized for rapid responses & speed">
@@ -11637,10 +10634,10 @@
                                                 </div>
                                                 <div class="model-option-desc">Low-latency instant generation via Nova Mind</div>
                                             </div>
-                                            {% if selected_model == 'fast' %}<i class="fa-solid fa-check model-active-check"></i>{% endif %}
+                                            
                                         </div>
 
-                                        <div class="cyber-option {% if selected_model == 'balanced' %}active{% endif %}"
+                                        <div class="cyber-option "
                                             data-value="balanced"
                                             data-name="Balanced Mode"
                                             data-desc="Balanced quality, reasoning & responsiveness">
@@ -11652,10 +10649,10 @@
                                                 </div>
                                                 <div class="model-option-desc">Great balance of quality and execution speed</div>
                                             </div>
-                                            {% if selected_model == 'balanced' %}<i class="fa-solid fa-check model-active-check"></i>{% endif %}
+                                            
                                         </div>
 
-                                        <div class="cyber-option {% if selected_model == 'powerful' %}active{% endif %}"
+                                        <div class="cyber-option "
                                             data-value="powerful"
                                             data-name="Powerful (Deep Reasoning)"
                                             data-desc="Deep reasoning, complex logic & full code architecture">
@@ -11667,10 +10664,10 @@
                                                 </div>
                                                 <div class="model-option-desc">High-capacity reasoning for complex tasks</div>
                                             </div>
-                                            {% if selected_model == 'powerful' %}<i class="fa-solid fa-check model-active-check"></i>{% endif %}
+                                            
                                         </div>
 
-                                        <div class="cyber-option {% if selected_model == 'economical' %}active{% endif %}"
+                                        <div class="cyber-option "
                                             data-value="economical"
                                             data-name="Economical Mode"
                                             data-desc="Lightweight compute and maximum efficiency">
@@ -11682,39 +10679,34 @@
                                                 </div>
                                                 <div class="model-option-desc">Lightweight compute & resource efficiency</div>
                                             </div>
-                                            {% if selected_model == 'economical' %}<i class="fa-solid fa-check model-active-check"></i>{% endif %}
+                                            
                                         </div>
                                     </div>
 
                                     <!-- Group 2: Core / Direct AI Models -->
                                     <div class="cyber-option-group" data-group="direct">
                                         <div class="cyber-option-group-label"><i class="fa-solid fa-microchip"></i> DIRECT MODEL OVERRIDES</div>
-                                        {% for model in models %}
-                                        <div class="cyber-option {% if selected_model == model.id %}active{% endif %}"
-                                            data-value="{{ model.id }}"
-                                            data-name="{{ model.display_name }}"
-                                            data-icon="{% if 'Image' in model.display_name %}{% elif 'vision' in model.display_name or 'Mini' in model.display_name %}{% elif 'Quantum' in model.display_name %}{% else %}{% endif %}"
-                                            data-desc="{% if model.supports_image_gen %}Image generation mode{% elif model.supports_vision %}Vision & multimodal analysis{% else %}Direct model execution{% endif %}">
+                                        
+                                        <div class="cyber-option active"
+                                            data-value="ox-alpha"
+                                            data-name=""
+                                            data-icon=""
+                                            data-desc="Direct model execution">
                                             <div class="model-option-main">
                                                 <div class="model-option-title">
-                                                    <span>{% if 'Image' in model.display_name %}{% elif 'vision' in model.display_name or 'Mini' in model.display_name %}{% elif 'Quantum' in model.display_name %}{% else %}{% endif %}</span>
-                                                    <strong>{{ model.display_name }}</strong>
-                                                    {% if model.supports_vision %}<span class="model-option-badge" style="background:rgba(0,240,255,0.15); color:var(--accent);">Vision</span>{% endif %}
-                                                    {% if model.supports_image_gen %}<span class="model-option-badge" style="background:rgba(255,166,77,0.15); color:#ffa64d;">Image</span>{% endif %}
+                                                    <span></span>
+                                                    <strong></strong>
+                                                    
+                                                    
                                                 </div>
                                                 <div class="model-option-desc">
-                                                    {% if model.id == 'cyber-max' %}Flagship balanced model
-                                                    {% elif model.id == 'ox-alpha' %}High-parameter deep reasoning
-                                                    {% elif model.id == 'nova-mind' %}Low-latency fast execution
-                                                    {% elif model.id == 'quantum-core' %}NVIDIA accelerated inference
-                                                    {% elif model.id == 'sky-net-mini' %}Fast multimodal vision engine
-                                                    {% elif model.id == 'image-studio' %}High quality image generation
-                                                    {% else %}{{ model.provider|title }} model backend{% endif %}
+                                                    High-parameter deep reasoning
+                                                    
                                                 </div>
                                             </div>
-                                            {% if selected_model == model.id %}<i class="fa-solid fa-check model-active-check"></i>{% endif %}
+                                            <i class="fa-solid fa-check model-active-check"></i>
                                         </div>
-                                        {% endfor %}
+                                        
                                     </div>
                                     
                                     <div id="modelSearchEmpty" class="model-search-empty" style="display:none;">
@@ -11723,7 +10715,7 @@
                                 </div>
                             </div>
 
-                            <input type="hidden" name="model_choice" id="model-selector" value="{{ selected_model|default:'auto' }}">
+                            <input type="hidden" name="model_choice" id="model-selector" value="ox-alpha">
 
                         </div>
 
@@ -11750,7 +10742,7 @@
                         </div>
 
                         <!-- MULTI LINE INPUT -->
-                        <textarea id="user-input" placeholder="{% if selected_model == 'image-studio' %}Describe the image you want to generate...{% elif session_type == 'agent' %}Describe the task you want SIMBA to perform...{% elif session_type == 'voice' %}Speak your request...{% else %}Ask SIMBA anything...{% endif %}" rows="1"></textarea>
+                        <textarea id="user-input" placeholder="Speak your request..." rows="1"></textarea>
 
 
 
@@ -11967,8 +10959,8 @@
             // (pin/favorite/archive/folder change) needs this to decide whether
             // a chat still belongs where it's currently rendered, without ever
             // asking the server via a reload.
-            const CHAT_VIEW_MODE = "{{ view_mode|default:'active' }}";
-            const CHAT_FOLDER_FILTER = "{{ folder_filter|escapejs }}";
+            const CHAT_VIEW_MODE = "active";
+            const CHAT_FOLDER_FILTER = "";
             const CHAT_DATE_GROUP_LABELS = { today: 'Today', yesterday: 'Yesterday', week: 'Last 7 Days', month: 'Last 30 Days', older: 'Older' };
             const CHAT_DATE_GROUP_ORDER = ['today', 'yesterday', 'week', 'month', 'older'];
 
@@ -12185,7 +11177,7 @@
             }
 
             function refreshFolderChipsFromServer() {
-                fetch("{% url 'folders_summary' %}", { signal: AbortSignal.timeout(8000) })
+                fetch("/folders/summary/", { signal: AbortSignal.timeout(8000) })
                     .then(res => res.json())
                     .then(data => {
                         const section = document.querySelector('.folder-section');
@@ -13246,7 +12238,7 @@
                 if (name === null) return;
                 const trimmed = name.trim();
                 if (!trimmed) return;
-                fetch("{% url 'create_folder' %}", {
+                fetch("/folders/create/", {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRFToken': csrfToken },
                     body: `name=${encodeURIComponent(trimmed)}`,
@@ -13318,7 +12310,7 @@
                 if (newName === null) return;
                 const trimmed = newName.trim();
                 if (!trimmed || trimmed === oldName) return;
-                fetch("{% url 'rename_folder' %}", {
+                fetch("/folders/rename/", {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRFToken': csrfToken },
                     body: `old_name=${encodeURIComponent(oldName)}&new_name=${encodeURIComponent(trimmed)}`,
@@ -13343,7 +12335,7 @@
                 const menu = document.getElementById('folderContextMenu');
                 const name = menu.dataset.folderName;
                 closeFolderMenu();
-                fetch("{% url 'set_folder_color' %}", {
+                fetch("/folders/color/", {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRFToken': csrfToken },
                     body: `name=${encodeURIComponent(name)}&color=${encodeURIComponent(color)}`,
@@ -13367,7 +12359,7 @@
                     confirmLabel: 'Delete folder',
                     danger: true,
                     onConfirm: () => {
-                        fetch("{% url 'delete_folder' %}", {
+                        fetch("/folders/delete/", {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRFToken': csrfToken },
                             body: `name=${encodeURIComponent(name)}`,
@@ -14111,7 +13103,7 @@
                 const modelOption = document.querySelector(`#cyberOptions .cyber-option[data-value="${currentModel}"]`);
                 const isImageMode = currentModel === 'image-studio' || !!(modelOption && modelOption.innerText.toLowerCase().includes('image'));
 
-                const sessionTypeParam = new URLSearchParams(window.location.search).get("type") || "{{ session_type|default:'assistant' }}";
+                const sessionTypeParam = new URLSearchParams(window.location.search).get("type") || "voice";
 
                 if (isImageMode) {
                     input.placeholder = "Describe the image you want to generate...";
@@ -15030,8 +14022,8 @@
             // ================= Canonical User Message Renderer =================
             function renderCanonicalUserMessageHTML({ query, attachmentsHTML = '', userMessageId = '' }) {
                 const escapedQuery = escapeHtml(query || '');
-                const userDisplayName = "{{ profile.display_name|default:request.user.get_full_name|default:request.user.username|upper|escapejs }}";
-                const userInitial = "{{ profile.display_name|default:request.user.first_name|default:request.user.username|slice:':1'|upper|escapejs }}";
+                const userDisplayName = "VERIFY_HISTORY_USER";
+                const userInitial = "V";
                 const msgIdAttr = userMessageId ? ` data-message-id="${escapeHtml(userMessageId)}"` : '';
 
                 return `<div class="chat-block user-block"${msgIdAttr}>
@@ -15709,7 +14701,7 @@
                 try {
                     const startTime = performance.now();
                     const sessionParam = new URLSearchParams(window.location.search).get("session");
-                    const sessionTypeParam = new URLSearchParams(window.location.search).get("type") || "{{ session_type|default:'assistant' }}";
+                    const sessionTypeParam = new URLSearchParams(window.location.search).get("type") || "voice";
                     const attachedCtx = document.getElementById('agentContextSelect')?.value || '';
 
                     let fetchOptions;
@@ -16686,8 +15678,8 @@
                             else alert('Open a conversation first to export it as PDF.');
                         },
                     },
-                    { id: 'analytics', icon: 'fa-solid fa-chart-line', label: 'Open analytics', action: () => { saveChatStateBeforeLeaving(); window.location.href = "{% url 'analytics_dashboard' %}"; } },
-                    { id: 'settings', icon: 'fa-solid fa-gear', label: 'Open settings', action: () => { saveChatStateBeforeLeaving(); window.location.href = "{% url 'profile_settings' %}"; } },
+                    { id: 'analytics', icon: 'fa-solid fa-chart-line', label: 'Open analytics', action: () => { saveChatStateBeforeLeaving(); window.location.href = "/analytics/"; } },
+                    { id: 'settings', icon: 'fa-solid fa-gear', label: 'Open settings', action: () => { saveChatStateBeforeLeaving(); window.location.href = "/settings/"; } },
                     { id: 'focus-composer', icon: 'fa-solid fa-keyboard', label: 'Focus message box', action: () => { document.getElementById('user-input')?.focus(); } },
                     { id: 'search-conversations', icon: 'fa-solid fa-magnifying-glass', label: 'Search conversations', action: () => { document.getElementById('chat-search-input')?.focus(); } },
                     {
@@ -19643,7 +18635,7 @@
             }
 
             window.maybeVoiceSpeakResponse = function(rawText) {
-                const sessionType = new URLSearchParams(window.location.search).get('type') || '{{ session_type|default:"assistant" }}';
+                const sessionType = new URLSearchParams(window.location.search).get('type') || 'voice';
                 if (sessionType !== 'voice' && !isHandsFreeEnabled) return;
                 simbaSpeak(rawText);
             };
@@ -19719,70 +18711,7 @@
             };
         </script>
 
-    {% if session_type == 'agent' %}
-    <!-- Scoped Task History Overlay and Drawer (Strictly isolated to Agent Mode) -->
-    <div id="agentHistoryOverlay" class="agent-history-overlay" style="display:none;" onclick="toggleAgentTaskHistory(false)"></div>
-    <div id="agentTaskHistoryDrawer" class="agent-history-drawer" role="dialog" aria-modal="true" aria-label="Task Execution History">
-        <div class="drawer-header">
-            <span class="drawer-title"><i class="fa-solid fa-clock-rotate-left" style="color:var(--accent);"></i> TASK EXECUTION HISTORY</span>
-            <button type="button" class="drawer-close-btn" onclick="toggleAgentTaskHistory(false)" aria-label="Close Task History">
-                <i class="fa-solid fa-xmark"></i>
-            </button>
-        </div>
-        <div class="drawer-toolbar">
-            <div class="drawer-search-wrap">
-                <i class="fa-solid fa-magnifying-glass"></i>
-                <input type="text" id="taskHistorySearchInput" placeholder="Search tasks..." oninput="onTaskHistorySearchInput()" autocomplete="off">
-            </div>
-            <div class="drawer-filters-bar" id="taskHistoryFilterBar">
-                <button type="button" class="drawer-filter-btn active" data-status="all" onclick="filterTaskHistoryStatus('all')">All</button>
-                <button type="button" class="drawer-filter-btn" data-status="completed" onclick="filterTaskHistoryStatus('completed')"><i class="fa-solid fa-check"></i> Completed</button>
-                <button type="button" class="drawer-filter-btn" data-status="failed" onclick="filterTaskHistoryStatus('failed')"><i class="fa-solid fa-triangle-exclamation"></i> Failed</button>
-                <button type="button" class="drawer-filter-btn" data-status="running" onclick="filterTaskHistoryStatus('running')"><i class="fa-solid fa-gear fa-spin"></i> Running</button>
-            </div>
-        </div>
-        <div class="drawer-content" id="agentTaskHistoryList">
-            <!-- Dynamic task history cards loaded from /api/agent/task/history/ -->
-        </div>
-        <div class="simba-modal-footer" style="padding:10px 16px;">
-            <button type="button" class="btn-modal-secondary" style="width:100%; text-align:center;" onclick="toggleAgentTaskHistory(false)">Close History</button>
-        </div>
-    </div>
-
-    <!-- Action Discovery Modal (Dynamic registry tools browser) -->
-    <div id="actionDiscoveryModal" class="simba-custom-modal-overlay" style="display:none;" onclick="if(event.target===this)closeActionDiscoveryModal()">
-        <div class="simba-custom-modal discovery-modal" role="dialog" aria-modal="true" aria-label="Agent Action Discovery">
-            <div class="simba-modal-header">
-                <div style="display:flex; align-items:center; gap:10px;">
-                    <span class="simba-modal-title"><i class="fa-solid fa-bolt-lightning" style="color:var(--accent);"></i> AGENT ACTION DISCOVERY</span>
-                    <span class="discovery-target-chip" id="discoveryTargetChip">
-                        <span class="pc-dot"></span> Checking Desktop...
-                    </span>
-                </div>
-                <button type="button" class="drawer-close-btn" onclick="closeActionDiscoveryModal()" aria-label="Close Discovery"><i class="fa-solid fa-xmark"></i></button>
-            </div>
-            <div class="discovery-modal-toolbar">
-                <div class="discovery-search-wrap">
-                    <i class="fa-solid fa-magnifying-glass"></i>
-                    <input type="text" id="discoverySearchInput" placeholder="Search registered tools, categories, or keywords..." oninput="filterDiscoveredTools()" autocomplete="off">
-                </div>
-                <div class="discovery-category-tabs" id="discoveryCategoryTabs">
-                    <button type="button" class="discovery-tab active" data-cat="all" onclick="filterDiscoveryCategory('all')">All</button>
-                    <button type="button" class="discovery-tab" data-cat="browser" onclick="filterDiscoveryCategory('browser')"><i class="fa-solid fa-globe"></i> Web &amp; Browser</button>
-                    <button type="button" class="discovery-tab" data-cat="system" onclick="filterDiscoveryCategory('system')"><i class="fa-solid fa-desktop"></i> Desktop &amp; OS</button>
-                    <button type="button" class="discovery-tab" data-cat="filesystem" onclick="filterDiscoveryCategory('filesystem')"><i class="fa-solid fa-folder"></i> Filesystem</button>
-                    <button type="button" class="discovery-tab" data-cat="utility" onclick="filterDiscoveryCategory('utility')"><i class="fa-solid fa-calculator"></i> Utility &amp; Math</button>
-                </div>
-            </div>
-            <div class="discovery-modal-body" id="discoveryToolsGrid">
-                <!-- Dynamically populated from /api/agent/tools/ -->
-            </div>
-            <div class="simba-modal-footer">
-                <button type="button" class="btn-modal-secondary" onclick="closeActionDiscoveryModal()">Close</button>
-            </div>
-        </div>
-    </div>
-    {% endif %}
+    
 
     <!-- Desktop Agent Pairing & Status Modal -->
     <div id="pcAgentInstructionsModal" class="simba-custom-modal-overlay" style="display:none;" onclick="if(event.target===this)togglePcAgentModal()">
@@ -19796,13 +18725,13 @@
                     <div>
                         <div style="font-size:11px; color:rgba(255,255,255,0.5);">Connection State:</div>
                         <div id="modalPcStatusText" style="font-weight:700; font-size:13px; margin-top:2px;">
-                            {% if is_pc_connected %}<span style="color:#0edb2a;"><i class="fa-solid fa-circle-check"></i> Connected & Online</span>{% else %}<span style="color:#f87171;"><i class="fa-solid fa-circle-xmark"></i> Offline</span>{% endif %}
+                            <span style="color:#f87171;"><i class="fa-solid fa-circle-xmark"></i> Offline</span>
                         </div>
                     </div>
                     <div style="text-align:right;">
                         <div style="font-size:11px; color:rgba(255,255,255,0.5);">Target Device:</div>
                         <div id="modalPcDeviceText" style="font-weight:600; font-size:12px; margin-top:2px;">
-                            {{ pc_telemetry.hostname|default:"Windows PC" }}
+                            Windows PC
                         </div>
                     </div>
                 </div>

@@ -239,3 +239,88 @@ def agent_screen_awareness_toggle_view(request: HttpRequest) -> JsonResponse:
         "message": f"Screen access {status_str}.",
     })
 
+
+@login_required
+@require_POST
+def agent_task_cancel_view(request: HttpRequest) -> JsonResponse:
+    """Safely stops and cancels any active or in-flight agent task for current user."""
+    from chat.agent.task_manager import default_task_manager
+    task_id = request.POST.get("task_id")
+    if not task_id and request.body:
+        try:
+            body = json.loads(request.body.decode("utf-8"))
+            task_id = body.get("task_id")
+        except Exception:
+            pass
+    cancelled = default_task_manager.cancel_task(task_id=task_id, user_id=request.user.id)
+    return JsonResponse({"status": "ok", "cancelled": cancelled, "message": "Agent task cancelled."})
+
+
+@login_required
+@require_GET
+def agent_task_history_view(request: HttpRequest) -> JsonResponse:
+    """Returns dedicated task execution history for the current user with search and status filtering."""
+    from chat.agent.task_manager import default_task_manager
+    search = request.GET.get("search", "")
+    status_filter = request.GET.get("status", "")
+    try:
+        limit = min(int(request.GET.get("limit", 30)), 100)
+    except Exception:
+        limit = 30
+
+    history = default_task_manager.get_user_task_history(
+        request.user.id,
+        limit=limit,
+        search=search,
+        status_filter=status_filter,
+    )
+    return JsonResponse({"status": "ok", "tasks": history})
+
+
+@login_required
+@require_GET
+def agent_tools_list_view(request: HttpRequest) -> JsonResponse:
+    """Returns dynamic registry tools metadata for Action Discovery."""
+    from chat.agent.tools.registry import global_tool_registry
+    info = default_agent_hub.get_user_agent_info(request.user.id)
+    desktop_online = info.get("is_online", False)
+    tools = global_tool_registry.list_ui_tools(desktop_online=desktop_online)
+    return JsonResponse({
+        "status": "ok",
+        "tools": tools,
+        "desktop_online": desktop_online,
+    })
+
+
+@login_required
+@require_POST
+def agent_task_confirm_view(request: HttpRequest) -> JsonResponse:
+    """Allows user to approve or cancel a waiting sensitive task/tool action."""
+    from chat.agent.task_manager import default_task_manager
+    try:
+        data = json.loads(request.body.decode("utf-8")) if request.body else {}
+    except Exception:
+        data = {}
+
+    task_id = data.get("task_id") or request.POST.get("task_id")
+    action = data.get("action") or request.POST.get("action") or "allow"
+
+    if not task_id:
+        return JsonResponse({"error": "Missing task_id."}, status=400)
+
+    task = default_task_manager.get_task(task_id)
+    if not task:
+        return JsonResponse({"error": "Task not found."}, status=404)
+
+    if task.user_id != request.user.id:
+        return JsonResponse({"error": "Unauthorized."}, status=403)
+
+    if action == "allow":
+        default_task_manager.approve_task(task_id)
+        return JsonResponse({"status": "ok", "approved": True, "message": "Task approved for execution."})
+    else:
+        default_task_manager.cancel_task(task_id=task_id, user_id=request.user.id)
+        return JsonResponse({"status": "ok", "cancelled": True, "message": "Action cancelled by user."})
+
+
+

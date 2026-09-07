@@ -146,6 +146,10 @@ urlpatterns = [
     path('api/agent/status/', views.agent_status_view, name='agent_status'),
     path('api/agent/token/regenerate/', views.agent_regenerate_token_view, name='agent_regenerate_token'),
     path('api/agent/screen-awareness/toggle/', views.agent_screen_awareness_toggle_view, name='agent_screen_awareness_toggle'),
+    path('api/agent/task/cancel/', views.agent_task_cancel_view, name='agent_task_cancel'),
+    path('api/agent/task/confirm/', views.agent_task_confirm_view, name='agent_task_confirm'),
+    path('api/agent/task/history/', views.agent_task_history_view, name='agent_task_history'),
+    path('api/agent/tools/', views.agent_tools_list_view, name='agent_tools_list'),
 
     # Phase 3: Voice & Studio APIs
     path('api/voice/settings/', views.voice_settings_view, name='voice_settings'),

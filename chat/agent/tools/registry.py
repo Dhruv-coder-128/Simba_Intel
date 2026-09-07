@@ -38,6 +38,7 @@ class ExecutionResult:
     sensitive_action_data: Optional[Dict[str, Any]] = None
     duration_ms: Optional[float] = None
     command_id: Optional[str] = None
+    execution_target: str = "desktop"  # "cloud" or "desktop"
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -56,6 +57,7 @@ class ExecutionResult:
             "sensitive_action_data": self.sensitive_action_data,
             "duration_ms": self.duration_ms,
             "command_id": self.command_id,
+            "execution_target": self.execution_target,
         }
 
 
@@ -68,8 +70,20 @@ class Tool:
     risk_level: str = RiskLevel.SAFE.value
     is_sensitive: bool = False
     action_type: str = "general"
+    execution_target: str = "desktop"  # "cloud" or "desktop"
     timeout_seconds: float = 10.0
     verify_func: Optional[Callable[..., bool]] = None
+    display_name: str = ""
+    icon: str = "fa-terminal"
+    category: str = "system"  # "computer", "web", "files", "development", "system"
+    example_prompt: str = ""
+    requires_confirmation: bool = False
+
+    def __post_init__(self):
+        if not self.display_name:
+            self.display_name = self.name.replace("_", " ").title()
+        if not self.requires_confirmation and self.risk_level == RiskLevel.DANGEROUS.value:
+            self.requires_confirmation = True
 
     def validate_args(self, args: Dict[str, Any]) -> Dict[str, Any]:
         """Validates arguments against parameter definitions and applies defaults."""
@@ -103,6 +117,7 @@ class Tool:
                 output=str(result),
                 action_type=self.action_type,
                 risk_level=self.risk_level,
+                execution_target=self.execution_target,
             )
         if not result.tool:
             result.tool = self.name
@@ -110,6 +125,8 @@ class Tool:
             result.action = self.name
         if not result.action_type:
             result.action_type = self.action_type
+        if not getattr(result, 'execution_target', None):
+            result.execution_target = self.execution_target
         if result.risk_level == RiskLevel.SAFE.value and self.risk_level != RiskLevel.SAFE.value:
             result.risk_level = self.risk_level
         return result
@@ -129,6 +146,24 @@ class ToolRegistry:
 
     def list_tools(self) -> List[Tool]:
         return list(self._tools.values())
+
+    def list_ui_tools(self, desktop_online: bool = False) -> List[Dict[str, Any]]:
+        """Returns clean metadata for UI display / Action Discovery."""
+        ui_tools = []
+        for tool in self._tools.values():
+            ui_tools.append({
+                "id": tool.name,
+                "display_name": tool.display_name or tool.name.replace("_", " ").title(),
+                "description": tool.description,
+                "icon": tool.icon,
+                "category": tool.category,
+                "execution_target": tool.execution_target,
+                "risk_level": tool.risk_level,
+                "requires_confirmation": tool.requires_confirmation or tool.risk_level == RiskLevel.DANGEROUS.value,
+                "example_prompt": tool.example_prompt,
+                "available": True if tool.execution_target == "cloud" else desktop_online,
+            })
+        return ui_tools
 
     def get_llm_schemas(self) -> List[Dict[str, Any]]:
         """Returns JSON schema representation of tools for LLM prompts."""
@@ -157,9 +192,11 @@ class ToolRegistry:
                 },
                 "risk_level": tool.risk_level,
                 "is_sensitive": tool.is_sensitive,
+                "execution_target": tool.execution_target,
             })
         return schemas
 
 
 # Global registry instance
 global_tool_registry = ToolRegistry()
+

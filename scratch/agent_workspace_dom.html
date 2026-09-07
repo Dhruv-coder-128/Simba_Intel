@@ -1,0 +1,310 @@
+10526:                                 <span>Task History</span>
+10527:                             </button>
+10528:                         </div>
+10529:                     </div>
+10530:                     {% endif %}
+10531: 
+10532:             <div id="chat-flow">
+10533:                 {% if not messages %}
+10534:                 {% if session_type == 'agent' %}
+10535:                 <div class="agent-workspace-wrapper" id="agentWorkspace">
+10536:                     <!-- Agent Mode Header Row -->
+10537:                     <div class="agent-header-row">
+10538:                         <div class="agent-header-left">
+10539:                             <div class="agent-title-tag">
+10540:                                 <span class="agent-pulse-dot"></span>
+10541:                                 <span class="agent-mode-badge"><i class="fa-solid fa-robot"></i> AGENT MODE</span>
+10542:                                 <h2 class="agent-header-title">AGENT WORKSPACE</h2>
+10543:                             </div>
+10544:                             <p class="agent-header-subtitle">Plan, execute, verify, and complete real tasks.</p>
+10545:                         </div>
+10546:                         <div class="agent-header-right">
+10547:                             <div class="agent-system-strip" role="status" aria-label="System status">
+10548:                                 <span class="system-chip" title="Agent core online">
+10549:                                     <span class="status-dot dot-online"></span>
+10550:                                     <span>Agent: <strong>Online</strong></span>
+10551:                                 </span>
+10552:                                 <span class="system-chip desktop-chip" onclick="togglePcAgentModal()" title="Desktop Agent status (click to configure)">
+10553:                                     <span class="status-dot {% if is_pc_connected %}dot-online{% else %}dot-offline{% endif %}"></span>
+10554:                                     <span>Desktop: <strong>{% if is_pc_connected %}Connected{% else %}Offline{% endif %}</strong></span>
+10555:                                 </span>
+10556:                                 <span class="system-chip screen-chip" onclick="toggleScreenAwareness()" title="Screen visual analysis toggle">
+10557:                                     <span class="status-dot {% if screen_awareness_enabled %}dot-online{% else %}dot-disabled{% endif %}"></span>
+10558:                                     <span id="screenStatusHeaderLabel">Screen: <strong>{% if screen_awareness_enabled %}Available{% else %}Disabled{% endif %}</strong></span>
+10559:                                 </span>
+10560:                             </div>
+10561:                             <div class="agent-context-dropdown-wrap" title="Attach previous conversation context">
+10562:                                 <label for="agentContextSelect"><i class="fa-solid fa-paperclip"></i> Context:</label>
+10563:                                 <select id="agentContextSelect" class="simba-select" onchange="onAgentContextChange(this.value)" aria-label="Attach conversation context">
+10564:                                     <option value="">None (Independent Task)</option>
+10565:                                     {% for ctx_s in assistant_context_sessions %}
+10566:                                     <option value="{{ ctx_s.id }}">{{ ctx_s.title|truncatechars:24 }}</option>
+10567:                                     {% endfor %}
+10568:                                 </select>
+10569:                             </div>
+10570:                             <button type="button" class="btn-agent-header-action" onclick="openActionDiscoveryModal()" title="Discover and search all registered tools">
+10571:                                 <i class="fa-solid fa-toolbox"></i>
+10572:                                 <span>Tools</span>
+10573:                             </button>
+10574:                             <button type="button" class="btn-agent-header-action" onclick="toggleAgentTaskHistory()" title="View dedicated agent task execution history" aria-label="Open task history">
+10575:                                 <i class="fa-solid fa-clock-rotate-left"></i>
+10576:                                 <span>Task History</span>
+10577:                             </button>
+10578:                         </div>
+10579:                     </div>
+10580: 
+10581:                     <!-- Section 1: System Status Surface -->
+10582:                     <div class="agent-section">
+10583:                         <div class="agent-section-label">
+10584:                             <i class="fa-solid fa-signal"></i> SYSTEM STATUS
+10585:                         </div>
+10586:                         <div class="agent-status-grid">
+10587:                             <!-- Card 1: Agent Core -->
+10588:                             <div class="agent-status-card">
+10589:                                 <div class="agent-card-top">
+10590:                                     <span class="agent-card-meta">AGENT CORE</span>
+10591:                                     <span class="agent-lifecycle-badge status-idle" id="agentLifecycleBadge">
+10592:                                         <i class="fa-solid fa-circle-notch"></i>
+10593:                                         <span id="agentLifecycleText">IDLE</span>
+10594:                                     </span>
+10595:                                 </div>
+10596:                                 <div class="agent-card-desc" id="agentStatusDesc">
+10597:                                     Autonomous planner &amp; multi-step verification engine standing by.
+10598:                                 </div>
+10599:                             </div>
+10600: 
+10601:                             <!-- Card 2: Desktop Agent -->
+10602:                             <div class="agent-status-card">
+10603:                                 <div class="agent-card-top">
+10604:                                     <span class="agent-card-meta">DESKTOP AGENT</span>
+10605:                                     <span id="pcStatusChip" class="pc-status-chip {% if is_pc_connected %}connected{% else %}offline{% endif %}" onclick="togglePcAgentModal()" title="Desktop Agent bridge status">
+10606:                                         <span class="pc-dot"></span>
+10607:                                         <span id="pcStatusChipLabel">
+10608:                                             {% if is_pc_connected %}
+10609:                                             <i class="fa-brands fa-windows"></i> Connected
+10610:                                             {% else %}
+10611:                                             <i class="fa-solid fa-desktop"></i> Offline
+10612:                                             {% endif %}
+10613:                                         </span>
+10614:                                     </span>
+10615:                                 </div>
+10616:                                 <div class="agent-card-desc" id="pcStatusCardDesc">
+10617:                                     {% if is_pc_connected %}
+10618:                                     Active on {{ pc_telemetry.hostname|default:"Windows PC" }} ({{ pc_telemetry.platform|default:"Windows" }}). Local automation active.
+10619:                                     {% else %}
+10620:                                     Local computer control requires the Desktop Agent to be connected. Cloud tasks remain active.
+10621:                                     {% endif %}
+10622:                                 </div>
+10623:                                 <div style="margin-top:auto;">
+10624:                                     <button type="button" class="agent-card-action-btn" onclick="togglePcAgentModal()">
+10625:                                         <i class="fa-solid fa-circle-question"></i> Connection Bridge
+10626:                                     </button>
+10627:                                 </div>
+10628:                             </div>
+10629: 
+10630:                             <!-- Card 3: Screen Access -->
+10631:                             <div class="agent-status-card">
+10632:                                 <div class="agent-card-top">
+10633:                                     <span class="agent-card-meta">SCREEN ACCESS</span>
+10634:                                     <span id="screenStatusChip" class="screen-status-chip {% if screen_awareness_enabled %}enabled{% else %}disabled{% endif %}">
+10635:                                         <span class="screen-dot"></span>
+10636:                                         <span id="screenStatusLabel">{% if screen_awareness_enabled %}Available{% else %}Disabled{% endif %}</span>
+10637:                                     </span>
+10638:                                 </div>
+10639:                                 <div class="agent-card-desc" id="screenStatusDesc">
+10640:                                     {% if screen_awareness_enabled %}
+10641:                                     Real-time desktop display capture &amp; UI element awareness active.
+10642:                                     {% else %}
+10643:                                     Screen awareness is disabled. Click toggle to allow screen inspection.
+10644:                                     {% endif %}
+10645:                                 </div>
+10646:                                 <div style="margin-top:auto;">
+10647:                                     <button type="button" class="agent-card-action-btn" onclick="toggleScreenAwareness()">
+10648:                                         <i class="fa-solid fa-eye"></i> Toggle Awareness
+10649:                                     </button>
+10650:                                 </div>
+10651:                             </div>
+10652: 
+10653:                             <!-- Card 4: Execution State -->
+10654:                             <div class="agent-status-card">
+10655:                                 <div class="agent-card-top">
+10656:                                     <span class="agent-card-meta">EXECUTION STATE</span>
+10657:                                     <span class="agent-lifecycle-badge status-idle" id="agentExecutionBadge">
+10658:                                         <i class="fa-solid fa-bolt"></i>
+10659:                                         <span id="agentExecutionText">IDLE</span>
+10660:                                     </span>
+10661:                                 </div>
+10662:                                 <div class="agent-card-desc" id="agentExecutionDesc">
+10663:                                     Deterministic tool pipeline ready. No task currently running.
+10664:                                 </div>
+10665:                             </div>
+10666:                         </div>
+10667:                     </div>
+10668: 
+10669:                     <!-- Section 2: Current Task Center -->
+10670:                     <div class="agent-section">
+10671:                         <div class="agent-section-label">
+10672:                             <i class="fa-solid fa-list-check"></i> CURRENT TASK
+10673:                         </div>
+10674:                         <div class="agent-current-task-box">
+10675:                             <!-- Empty Task State -->
+10676:                             <div class="agent-empty-task-card" id="agentEmptyTaskCard">
+10677:                                 <div class="agent-empty-icon">
+10678:                                     <i class="fa-solid fa-terminal"></i>
+10679:                                 </div>
+10680:                                 <div class="agent-empty-title">READY FOR TASK</div>
+10681:                                 <div class="agent-empty-sub">
+10682:                                     Describe what you want SIMBA to accomplish.
+10683:                                 </div>
+10684:                                 <button type="button" class="btn-start-task" onclick="focusAgentComposer()">
+10685:                                     <i class="fa-solid fa-play"></i>
+10686:                                     <span>Start a Task</span>
+10687:                                 </button>
+10688:                             </div>
+10689: 
+10690:                             <!-- Active / Plan / Result Task Card -->
+10691:                             <div class="agent-active-task-card" id="agentActiveTaskCard" style="display:none;">
+10692:                                 <div class="agent-active-card-header">
+10693:                                     <div class="agent-active-info">
+10694:                                         <div style="display:flex; align-items:center; gap:8px;">
+10695:                                             <span class="agent-active-task-label">CURRENT TASK</span>
+10696:                                             <span class="agent-lifecycle-badge status-planning" id="agentTaskCardBadge">
+10697:                                                 <i class="fa-solid fa-circle-notch fa-spin"></i>
+10698:                                                 <span id="agentTaskCardBadgeText">PLANNING</span>
+10699:                                             </span>
+10700:                                         </div>
+10701:                                         <h3 class="agent-active-task-title" id="agentTaskCardTitle">Processing Request...</h3>
+10702:                                     </div>
+10703:                                     <div class="agent-task-actions-wrap" id="agentTaskControls">
+10704:                                         <button type="button" id="btnPauseAgentTask" class="btn-task-control pause" onclick="pauseCurrentAgentTask()" title="Pause current execution" style="display:none;">
+10705:                                             <i class="fa-solid fa-pause"></i> <span>Pause</span>
+10706:                                         </button>
+10707:                                         <button type="button" id="btnStopAgentTask" class="btn-task-control stop" onclick="stopCurrentAgentTask()" title="Safely stop and cancel running task">
+10708:                                             <i class="fa-solid fa-stop"></i> <span>Stop</span>
+10709:                                         </button>
+10710:                                         <button type="button" id="btnRunAgainAgentTask" class="btn-task-control rerun" onclick="reRunCompletedAgentTask()" title="Run this task again" style="display:none;">
+10711:                                             <i class="fa-solid fa-rotate-right"></i> <span>Run Again</span>
+10712:                                         </button>
+10713:                                     </div>
+10714:                                 </div>
+10715: 
+10716:                                 <!-- Plan Preview (Multi-Step Plan) -->
+10717:                                 <div class="agent-plan-preview-box" id="agentPlanPreviewBox" style="display:none;">
+10718:                                     <div class="agent-plan-preview-header">
+10719:                                         <i class="fa-solid fa-clipboard-list"></i>
+10720:                                         <span>EXECUTION PLAN</span>
+10721:                                     </div>
+10722:                                     <ol class="agent-plan-step-list" id="agentPlanStepList"></ol>
+10723:                                     <div class="agent-plan-controls" id="agentPlanControls">
+10724:                                         <button type="button" class="btn-execute-plan" onclick="executePlanApproved()">
+10725:                                             <i class="fa-solid fa-play"></i> <span>Run Task</span>
+10726:                                         </button>
+10727:                                     </div>
+10728:                                 </div>
+10729: 
+10730:                                 <!-- Real Step Progress Checklist -->
+10731:                                 <div class="agent-step-checklist" id="agentStepList">
+10732:                                     <div class="agent-checklist-item in-progress">
+10733:                                         <span class="checklist-bullet"><i class="fa-solid fa-circle-notch fa-spin"></i></span>
+10734:                                         <span class="checklist-text">Understand request</span>
+10735:                                     </div>
+10736:                                 </div>
+10737: 
+10738:                                 <!-- Task Result Summary -->
+10739:                                 <div class="agent-task-result-box" id="agentTaskResultBox" style="display:none;">
+10740:                                     <div class="agent-task-result-header" id="agentResultHeader">
+10741:                                         <i class="fa-solid fa-circle-check"></i>
+10742:                                         <span id="agentResultStatusTitle">TASK COMPLETED</span>
+10743:                                     </div>
+10744:                                     <div class="agent-task-result-summary" id="agentTaskResultSummary"></div>
+10745:                                     <details class="agent-technical-details" id="agentTechnicalDetails">
+10746:                                         <summary>Technical execution details</summary>
+10747:                                         <div class="agent-technical-content" id="agentTechnicalContent"></div>
+10748:                                     </details>
+10749:                                 </div>
+10750:                             </div>
+10751:                         </div>
+10752:                     </div>
+10753: 
+10754:                     <!-- Section 3: Quick Tasks -->
+10755:                     <div class="agent-section" id="agentQuickTasksSection">
+10756:                         <div class="agent-section-label" style="display:flex; justify-content:space-between; align-items:center;">
+10757:                             <span><i class="fa-solid fa-bolt"></i> QUICK TASKS</span>
+10758:                             <button type="button" class="btn-more-tasks-link" onclick="openActionDiscoveryModal()" aria-label="Discover all tools">
+10759:                                 <i class="fa-solid fa-toolbox"></i> More Tasks
+10760:                             </button>
+10761:                         </div>
+10762:                         <div class="agent-quick-grid">
+10763:                             <!-- 1. Open Website -->
+10764:                             <button type="button" class="agent-quick-card" onclick="executeQuickTask('Open YouTube and search Roblox gameplay')">
+10765:                                 <div class="agent-quick-top">
+10766:                                     <span class="agent-quick-icon" style="color:#ff3344;"><i class="fa-brands fa-youtube"></i></span>
+10767:                                     <span class="agent-quick-title">Open Website</span>
+10768:                                     <span class="agent-target-badge desktop">LOCAL</span>
+10769:                                 </div>
+10770:                                 <div class="agent-quick-desc">Open YouTube and search Roblox in browser</div>
+10771:                             </button>
+10772: 
+10773:                             <!-- 2. Search Web -->
+10774:                             <button type="button" class="agent-quick-card" onclick="executeQuickTask('Search web for latest AI news and summarize top results')">
+10775:                                 <div class="agent-quick-top">
+10776:                                     <span class="agent-quick-icon" style="color:#8b5cf6;"><i class="fa-solid fa-magnifying-glass"></i></span>
+10777:                                     <span class="agent-quick-title">Search Web</span>
+10778:                                     <span class="agent-target-badge cloud">CLOUD</span>
+10779:                                 </div>
+10780:                                 <div class="agent-quick-desc">Search web for latest AI news &amp; summarize</div>
+10781:                             </button>
+10782: 
+10783:                             <!-- 3. Inspect Screen -->
+10784:                             <button type="button" class="agent-quick-card" onclick="executeQuickTask('Inspect current screen and report active windows')">
+10785:                                 <div class="agent-quick-top">
+10786:                                     <span class="agent-quick-icon" style="color:#06b6d4;"><i class="fa-solid fa-eye"></i></span>
+10787:                                     <span class="agent-quick-title">Inspect Screen</span>
+10788:                                     <span class="agent-target-badge desktop">LOCAL</span>
+10789:                                 </div>
+10790:                                 <div class="agent-quick-desc">Capture display &amp; analyze active window</div>
+10791:                             </button>
+10792: 
+10793:                             <!-- 4. Create File -->
+10794:                             <button type="button" class="agent-quick-card" onclick="executeQuickTask('Open VS Code, create calculator.py, and save it')">
+10795:                                 <div class="agent-quick-top">
+10796:                                     <span class="agent-quick-icon" style="color:#007acc;"><i class="fa-solid fa-file-code"></i></span>
+10797:                                     <span class="agent-quick-title">Create File</span>
+10798:                                     <span class="agent-target-badge desktop">LOCAL</span>
+10799:                                 </div>
+10800:                                 <div class="agent-quick-desc">Open VS Code, create calculator.py, and save</div>
+10801:                             </button>
+10802: 
+10803:                             <!-- 5. Open Application -->
+10804:                             <button type="button" class="agent-quick-card" onclick="executeQuickTask('Open Notepad and write hello world')">
+10805:                                 <div class="agent-quick-top">
+10806:                                     <span class="agent-quick-icon" style="color:#10b981;"><i class="fa-solid fa-window-restore"></i></span>
+10807:                                     <span class="agent-quick-title">Open App</span>
+10808:                                     <span class="agent-target-badge desktop">LOCAL</span>
+10809:                                 </div>
+10810:                                 <div class="agent-quick-desc">Launch Notepad and write text document</div>
+10811:                             </button>
+10812: 
+10813:                             <!-- 6. Calculator -->
+10814:                             <button type="button" class="agent-quick-card" onclick="executeQuickTask('Calculate 125 * 8 / 2')">
+10815:                                 <div class="agent-quick-top">
+10816:                                     <span class="agent-quick-icon" style="color:#f59e0b;"><i class="fa-solid fa-calculator"></i></span>
+10817:                                     <span class="agent-quick-title">Calculator</span>
+10818:                                     <span class="agent-target-badge cloud">CLOUD</span>
+10819:                                 </div>
+10820:                                 <div class="agent-quick-desc">Safe arithmetic &amp; mathematical calculation</div>
+10821:                             </button>
+10822: 
+10823:                             <!-- 7. More Tasks Discovery -->
+10824:                             <button type="button" class="agent-quick-card discovery-trigger" onclick="openActionDiscoveryModal()">
+10825:                                 <div class="agent-quick-top">
+10826:                                     <span class="agent-quick-icon" style="color:var(--accent);"><i class="fa-solid fa-grid-2-plus"></i></span>
+10827:                                     <span class="agent-quick-title">More Tasks...</span>
+10828:                                 </div>
+10829:                                 <div class="agent-quick-desc">Browse full registered tools registry &amp; actions</div>
+10830:                             </button>
+10831:                         </div>
+10832:                     </div>
+10833:                 </div>
+10834:                 {% elif session_type == 'voice' %}
+10835:                 <div class="voice-workspace-wrapper" id="voiceWorkspace">

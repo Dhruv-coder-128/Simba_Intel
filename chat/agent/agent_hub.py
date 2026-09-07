@@ -203,6 +203,10 @@ class DesktopAgentHub:
             "last_seen": None,
         }
 
+    def get_user_agent_telemetry(self, user_id: int) -> Dict[str, Any]:
+        """Alias for get_user_agent_info returning connection metadata and telemetry."""
+        return self.get_user_agent_info(user_id)
+
     def poll_commands(self, user_id: int, agent_id: str, timeout: float = 25.0) -> List[Dict[str, Any]]:
         """Long-polling endpoint for Desktop Agent to retrieve queued commands."""
         # 1. Update heartbeat
@@ -342,6 +346,33 @@ class DesktopAgentHub:
             error="Desktop Agent returned an empty result.",
             output="",
         )
+
+    def cancel_user_commands(self, user_id: int) -> int:
+        """Cancels any pending commands for the user."""
+        cancelled_count = 0
+        with self.lock:
+            for cid, cmd in list(self.pending_commands.items()):
+                if cmd.user_id == user_id:
+                    cmd.status = "CANCELLED"
+                    cmd.result = ExecutionResult(
+                        success=False,
+                        tool=cmd.tool,
+                        action=cmd.tool,
+                        error="Task was cancelled by user.",
+                        details={"cancelled": True},
+                    )
+                    cmd.event.set()
+                    cancelled_count += 1
+            if user_id in self.command_queues:
+                q = self.command_queues[user_id]
+                while not q.empty():
+                    try:
+                        q.get_nowait()
+                        cancelled_count += 1
+                    except Exception:
+                        break
+        logger.info("Cancelled %d commands for user_id=%s", cancelled_count, user_id)
+        return cancelled_count
 
 
 default_agent_hub = DesktopAgentHub()

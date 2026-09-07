@@ -72,7 +72,10 @@ from chat.agent_views import (
     agent_heartbeat_view, agent_disconnect_view,
     agent_status_view, agent_regenerate_token_view,
     agent_screen_awareness_toggle_view,
+    agent_task_cancel_view, agent_task_history_view,
+    agent_tools_list_view, agent_task_confirm_view,
 )
+
 
 # Loaded once at import time (not per-request) - the same sorted list backs
 # both the Settings > General timezone <select> and server-side validation
@@ -530,6 +533,13 @@ def chat_home(request):
         (b for b in Broadcast.objects.filter(active=True).order_by('-created_at') if b.is_currently_visible()),
         None,
     )
+    user_id = request.user.id if request.user.is_authenticated else None
+    from chat.agent.agent_hub import default_agent_hub
+    from chat.agent.task_manager import default_task_manager
+    is_pc_connected = default_agent_hub.is_user_agent_online(user_id) if user_id else False
+    pc_telemetry = default_agent_hub.get_user_agent_info(user_id) if (user_id and is_pc_connected) else {}
+    agent_task_history = default_task_manager.get_user_task_history(user_id, limit=20) if user_id else []
+
     return render(request, 'chat.html', {
         'sessions': sessions,
         'pinned_sessions': pinned_sessions,
@@ -550,7 +560,12 @@ def chat_home(request):
         'email_verified': is_email_verified(request.user),
         'verification_required': verification_required(),
         'active_broadcast': active_broadcast,
+        'is_pc_connected': is_pc_connected,
+        'pc_telemetry': pc_telemetry,
+        'agent_task_history': agent_task_history,
+        'screen_awareness_enabled': getattr(profile, 'screen_awareness_enabled', True),
     })
+
 
 
 @login_required
@@ -1689,7 +1704,12 @@ def ask_ai(request):
                 return limit_response
 
             # Desktop Agent execution layer
-            if not attachments and default_agent_controller.can_handle(user_query):
+            is_agent_mode = (
+                session.session_type == ChatSession.SESSION_TYPE_AGENT
+                or request.POST.get("mode") == "agent"
+                or request.POST.get("is_agent_mode") in ["true", "1", "True"]
+            )
+            if not attachments and (is_agent_mode or default_agent_controller.can_handle(user_query)):
                 def agent_stream_generator():
                     full_response = ""
                     start_time = time.time()
@@ -1719,14 +1739,15 @@ def ask_ai(request):
                             {"role": "system", "content": "You are SIMBA_INTEL Desktop Agent Planner. Output strictly valid JSON without preamble."},
                             {"role": "user", "content": prompt_text}
                         ]
-                        gen_tokens, _, _ = _stream_with_failover(model_id, gen_messages, lambda u: None, allow_fallback=(routing_mode != "manual"))
+                        gen_tokens, _, _ = _stream_with_failover("ox-alpha", gen_messages, lambda u: None, allow_fallback=(routing_mode != "manual"))
                         parts = [t for t, is_notice in gen_tokens if not is_notice]
                         return "".join(parts).strip()
 
                     try:
                         agent_gen = default_agent_controller.execute_and_stream(
                             user_query,
-                            planner_llm_fn=ox_alpha_planner if model_id == "ox-alpha" else None,
+                            user_id=request.user.id if request.user.is_authenticated else None,
+                            planner_llm_fn=ox_alpha_planner,
                             text_generator_fn=synthesize_code_or_text,
                         )
                         for chunk in agent_gen:

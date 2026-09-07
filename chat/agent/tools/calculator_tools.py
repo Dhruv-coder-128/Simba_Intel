@@ -148,6 +148,10 @@ def evaluate_expression(expression: str) -> ExecutionResult:
 global_tool_registry.register(
     Tool(
         name="calculator",
+        display_name="Calculator",
+        icon="fa-calculator",
+        category="system",
+        example_prompt="Calculate 15% tip on 84.50",
         description="Safely computes mathematical and arithmetic expressions (e.g. '25 * 8', '125 / 5', 'sqrt(144)', '2 + 2').",
         parameters=[
             ToolParameter(
@@ -159,5 +163,7 @@ global_tool_registry.register(
         ],
         func=evaluate_expression,
         action_type="calculator",
+        execution_target="cloud",
     )
 )
+

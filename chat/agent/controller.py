@@ -10,6 +10,7 @@ from .executor import LocalExecutor, default_executor
 from .planner import AgentPlan, AgentPlanner, PlannedStep, default_planner
 from .tools.browser_tools import ENGINE_DISPLAY_NAMES
 from .tools.registry import ExecutionResult
+from .task_manager import TaskStatus, default_task_manager
 
 logger = logging.getLogger("simba_intel.agent.controller")
 
@@ -82,20 +83,33 @@ class AgentController:
 
             if res.requires_confirmation:
                 prompt_text = res.confirmation_prompt or f"Confirm execution of {action_name}?"
-                substep_items.append(f'<div class="action-substep text-warning"><i class="fa-solid fa-triangle-exclamation" style="color:#ffbb00;"></i> {prompt_text}</div>')
-                # Render interactive confirm/cancel buttons
+                reason_text = "This action requires explicit user permission before proceeding."
+                if "delete" in step.tool.lower():
+                    reason_text = "This action permanently removes a local file or directory."
+                elif "power" in step.tool.lower() or "bin" in step.tool.lower():
+                    reason_text = "This action modifies system power or permanently clears deleted items."
+
                 action_data = res.sensitive_action_data or {"tool_name": step.tool, "args": step.args}
                 action_json_escaped = json.dumps(action_data).replace('"', '&quot;')
                 substep_items.append(f"""
-                    <div class="agent-confirm-actions" style="margin-top:8px; display:flex; gap:8px;">
-                        <button type="button" class="agent-btn-confirm" onclick="confirmAgentAction(this, '{action_json_escaped}')" style="background:var(--accent,#0edb2a); color:#000; font-weight:700; border:none; padding:4px 12px; border-radius:4px; cursor:pointer; font-size:12px;">
-                            <i class="fa-solid fa-check"></i> Confirm
-                        </button>
-                        <button type="button" class="agent-btn-cancel" onclick="cancelAgentAction(this)" style="background:rgba(255,255,255,0.1); color:var(--text,#fff); border:1px solid rgba(255,255,255,0.2); padding:4px 12px; border-radius:4px; cursor:pointer; font-size:12px;">
-                            <i class="fa-solid fa-xmark"></i> Cancel
-                        </button>
+                    <div class="agent-permission-card" style="margin-top:10px; padding:12px 14px; background:rgba(255,187,0,0.08); border:1px solid rgba(255,187,0,0.3); border-radius:6px;">
+                        <div style="display:flex; align-items:center; gap:8px; font-size:11px; font-weight:700; color:#ffbb00; letter-spacing:0.05em; text-transform:uppercase; margin-bottom:8px;">
+                            <i class="fa-solid fa-shield-halved"></i> PERMISSION REQUIRED
+                        </div>
+                        <div style="font-size:12px; margin-bottom:4px;"><strong style="color:rgba(255,255,255,0.7);">Action:</strong> <span style="color:#fff;">{action_name}</span></div>
+                        <div style="font-size:12px; margin-bottom:4px;"><strong style="color:rgba(255,255,255,0.7);">Reason:</strong> <span style="color:rgba(255,255,255,0.9);">{reason_text}</span></div>
+                        <div style="font-size:12px; margin-bottom:10px;"><strong style="color:rgba(255,255,255,0.7);">Risk:</strong> <span style="color:#ff6b6b; font-weight:600;">{res.risk_level or 'Destructive'}</span></div>
+                        <div class="agent-confirm-actions" style="display:flex; gap:8px;">
+                            <button type="button" class="agent-btn-confirm" onclick="confirmAgentAction(this, '{action_json_escaped}')" style="background:var(--accent,#0edb2a); color:#000; font-weight:700; border:none; padding:6px 14px; border-radius:4px; cursor:pointer; font-size:12px; display:inline-flex; align-items:center; gap:6px;">
+                                <i class="fa-solid fa-check"></i> Allow Once
+                            </button>
+                            <button type="button" class="agent-btn-cancel" onclick="cancelAgentAction(this)" style="background:rgba(255,255,255,0.08); color:var(--text,#fff); border:1px solid rgba(255,255,255,0.2); padding:6px 14px; border-radius:4px; cursor:pointer; font-size:12px; display:inline-flex; align-items:center; gap:6px;">
+                                <i class="fa-solid fa-xmark"></i> Cancel
+                            </button>
+                        </div>
                     </div>
                 """)
+
 
             elif res.success:
                 substep_items.append(f'<div class="action-substep"><i class="fa-solid fa-check" style="color:var(--accent,#0edb2a);"></i> <span class="val-verified">{res.output}</span></div>')
@@ -427,8 +441,26 @@ class AgentController:
             return {"plan": plan, "results": [], "card_html": "", "full_response": ""}
 
         step_results: List[Tuple[PlannedStep, ExecutionResult]] = []
+        task_record = default_task_manager.create_task(
+            title=plan.summary or "Agent Task",
+            user_id=user_id,
+            steps=[{"tool": s.tool, "description": s.description, "args": s.args} for s in plan.steps],
+        )
 
         for i, step in enumerate(plan.steps):
+            if default_task_manager.is_task_cancelled(task_record.task_id, user_id):
+                yield "SIMBA_STATUS: CANCELLED\n\n"
+                default_task_manager.update_task_status(task_record.task_id, TaskStatus.CANCELLED, "Task cancelled by user.")
+                yield "\n\n⚠️ **Task Cancelled**: Execution was safely stopped."
+                return {
+                    "plan": plan,
+                    "results": step_results,
+                    "card_html": "",
+                    "natural_reply": "Task cancelled by user.",
+                    "full_response": "Task cancelled by user.",
+                }
+
+            default_task_manager.update_task_status(task_record.task_id, TaskStatus.EXECUTING)
             step_num = i + 1
             total_steps = len(plan.steps)
             status_label = f"STEP {step_num}/{total_steps}: {step.description.upper()}"
@@ -453,6 +485,21 @@ class AgentController:
             yield f"SIMBA_STATUS: VERIFYING {step.tool.upper()}...\n\n"
             step_results.append((step, res))
 
+            step_status = "verified" if res.success else ("pending" if res.requires_confirmation else "failed")
+            is_verified = False
+            if isinstance(res.details, dict):
+                is_verified = res.details.get("verification", {}).get("verified", False) if isinstance(res.details.get("verification"), dict) else False
+
+            default_task_manager.update_step_status(
+                task_record.task_id,
+                i,
+                status=step_status,
+                output=res.output,
+                error=res.error,
+                verified=is_verified,
+                details=res.details if isinstance(res.details, dict) else {},
+            )
+
             if not res.success or res.requires_confirmation:
                 if not res.success:
                     logger.warning("Agent step %s failed: %s", step.tool, res.error)
@@ -470,12 +517,16 @@ class AgentController:
 
         if has_offline:
             final_status = "AGENT_OFFLINE"
+            default_task_manager.update_task_status(task_record.task_id, TaskStatus.FAILED, "Desktop Agent is offline.")
         elif has_pending:
             final_status = "PENDING_CONFIRMATION"
+            default_task_manager.update_task_status(task_record.task_id, TaskStatus.WAITING_FOR_APPROVAL)
         elif all_success:
             final_status = "SUCCESS"
+            default_task_manager.complete_task(task_record.task_id, success=True, final_result=natural_reply)
         else:
             final_status = "FAILED"
+            default_task_manager.complete_task(task_record.task_id, success=False, final_result=natural_reply, failure_reason="Action execution incomplete")
 
         yield f"SIMBA_STATUS: {final_status}\n\n"
 
