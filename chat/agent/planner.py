@@ -24,6 +24,16 @@ class PlannedStep:
     generation_prompt: Optional[str] = None
     target_app: Optional[str] = None
 
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "tool": self.tool,
+            "args": self.args,
+            "description": self.description,
+            "needs_generation": self.needs_generation,
+            "generation_prompt": self.generation_prompt,
+            "target_app": self.target_app,
+        }
+
 
 @dataclass
 class AgentPlan:
@@ -34,6 +44,16 @@ class AgentPlan:
     chat_response: Optional[str] = None
     error: Optional[str] = None
     raw_plan: Optional[Dict[str, Any]] = None
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "is_agent_action": self.is_agent_action,
+            "summary": self.summary,
+            "steps": [s.to_dict() if hasattr(s, "to_dict") else s for s in self.steps],
+            "raw_query": self.raw_query,
+            "chat_response": self.chat_response,
+            "error": self.error,
+        }
 
 
 def is_coding_or_question_prompt(query: str) -> bool:

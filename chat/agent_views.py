@@ -184,11 +184,13 @@ def agent_disconnect_view(request: HttpRequest) -> JsonResponse:
 @login_required
 @require_GET
 def agent_status_view(request: HttpRequest) -> JsonResponse:
-    """Frontend web endpoint: Returns connection status, agent token, and screen awareness status."""
+    """Frontend web endpoint: Returns connection status, agent token, screen awareness status, and active task state."""
+    from chat.agent.task_manager import default_task_manager
     profile = getattr(request.user, "profile", None)
     agent_token = profile.get_or_create_agent_token() if profile else ""
     screen_awareness_enabled = profile.screen_awareness_enabled if profile else True
     info = default_agent_hub.get_user_agent_info(request.user.id)
+    active_task = default_task_manager.get_active_task_for_user(request.user.id)
 
     return JsonResponse({
         "connected": info.get("is_online", False),
@@ -201,6 +203,7 @@ def agent_status_view(request: HttpRequest) -> JsonResponse:
         },
         "agent_token": agent_token,
         "screen_awareness_enabled": screen_awareness_enabled,
+        "active_task": active_task.to_dict() if active_task else None,
     })
 
 
@@ -316,11 +319,64 @@ def agent_task_confirm_view(request: HttpRequest) -> JsonResponse:
         return JsonResponse({"error": "Unauthorized."}, status=403)
 
     if action == "allow":
-        default_task_manager.approve_task(task_id)
-        return JsonResponse({"status": "ok", "approved": True, "message": "Task approved for execution."})
+        from chat.agent.controller import default_agent_controller
+        exec_res = default_agent_controller.execute_approved_task(task_id, user_id=request.user.id)
+        return JsonResponse({
+            "status": "ok",
+            "approved": True,
+            "task": exec_res.get("task") or task.to_dict(),
+            "result": exec_res,
+            "message": "Task action approved and executed.",
+        })
     else:
         default_task_manager.cancel_task(task_id=task_id, user_id=request.user.id)
-        return JsonResponse({"status": "ok", "cancelled": True, "message": "Action cancelled by user."})
+        cancelled_task = default_task_manager.get_task(task_id) or task
+        return JsonResponse({
+            "status": "ok",
+            "cancelled": True,
+            "task": cancelled_task.to_dict(),
+            "message": "Action cancelled by user.",
+        })
+
+
+@login_required
+@require_GET
+def agent_active_task_view(request: HttpRequest) -> JsonResponse:
+    """Returns the current active or in-flight task for current user, or an IDLE state."""
+    from chat.agent.task_manager import default_task_manager, TaskStatus
+    active_task = default_task_manager.get_active_task_for_user(request.user.id)
+    if active_task:
+        return JsonResponse({
+            "status": "ok",
+            "has_active_task": True,
+            "task": active_task.to_dict(),
+        })
+    return JsonResponse({
+        "status": "ok",
+        "has_active_task": False,
+        "task": {
+            "task_id": None,
+            "status": TaskStatus.IDLE,
+            "title": "",
+            "user_request": "",
+            "steps": [],
+            "plan": {},
+        },
+    })
+
+
+@login_required
+@require_GET
+def agent_task_detail_view(request: HttpRequest, task_id: str) -> JsonResponse:
+    """Retrieves full structured representation of any specific agent task by ID."""
+    from chat.agent.task_manager import default_task_manager
+    task = default_task_manager.get_task(task_id)
+    if not task:
+        return JsonResponse({"error": "Task not found."}, status=404)
+    if task.user_id and task.user_id != request.user.id:
+        return JsonResponse({"error": "Unauthorized."}, status=403)
+    return JsonResponse({"status": "ok", "task": task.to_dict()})
+
 
 
 

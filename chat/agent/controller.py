@@ -413,44 +413,68 @@ class AgentController:
         self,
         query: str,
         user_id: Optional[int] = None,
+        session_id: Optional[int] = None,
         planner_llm_fn: Optional[Callable[[str], str]] = None,
         text_generator_fn: Optional[Callable[[str], str]] = None,
     ) -> Generator[str, None, Dict[str, Any]]:
-        """Executes the agent plan and yields streaming progress tokens."""
+        """Executes the agent plan and yields streaming progress tokens and task state events."""
         from .fast_router import default_fast_router
+
+        # 1. TASK RECEIVED -> UNDERSTANDING
+        task_record = default_task_manager.create_task(
+            title=query[:40],
+            user_id=user_id,
+            session_id=session_id,
+            user_request=query,
+            initial_status=TaskStatus.UNDERSTANDING,
+        )
+        yield "SIMBA_STATUS: UNDERSTANDING REQUEST...\n\n"
+        yield f"SIMBA_TASK_EVENT:{json.dumps(task_record.to_dict())}\n\n"
+
+        # Check fast router for deterministic actions
         fast_plan = default_fast_router.detect_fast_command(query)
         if fast_plan and fast_plan.is_agent_action and len(fast_plan.steps) > 0:
             gen = default_fast_router.execute_fast_stream(
-                fast_plan, self, user_id=user_id, text_generator_fn=text_generator_fn
+                fast_plan, self, user_id=user_id, text_generator_fn=text_generator_fn, task_record=task_record
             )
             for chunk in gen:
                 yield chunk
-            return
+            return {"plan": fast_plan, "results": [], "card_html": "", "full_response": "", "task": task_record.to_dict()}
 
-        yield "SIMBA_STATUS: INITIALIZING...\n\n"
+        # 2. PLANNING
+        default_task_manager.set_task_planning(task_record.task_id)
         yield "SIMBA_STATUS: PLANNING ACTION WITH OX ALPHA...\n\n"
+        yield f"SIMBA_TASK_EVENT:{json.dumps(task_record.to_dict())}\n\n"
+
         plan = self.planner.plan(query, llm_fn=planner_llm_fn)
+        default_task_manager.set_task_planning(
+            task_record.task_id,
+            plan=plan.to_dict() if hasattr(plan, "to_dict") else {},
+            steps=[{"tool": s.tool, "description": s.description, "args": s.args} for s in plan.steps],
+            title=plan.summary or query[:40],
+        )
+        yield f"SIMBA_TASK_EVENT:{json.dumps(task_record.to_dict())}\n\n"
 
         if plan.chat_response:
+            default_task_manager.complete_task(task_record.task_id, success=True, final_result=plan.chat_response)
+            yield f"SIMBA_TASK_EVENT:{json.dumps(task_record.to_dict())}\n\n"
             yield "SIMBA_STATUS: GENERATING RESPONSE...\n\n"
             yield plan.chat_response
-            return {"plan": plan, "results": [], "card_html": "", "full_response": plan.chat_response}
+            return {"plan": plan, "results": [], "card_html": "", "full_response": plan.chat_response, "task": task_record.to_dict()}
 
         if not plan.is_agent_action or not plan.steps:
-            yield "SIMBA_STATUS: EXECUTING...\n\n"
-            return {"plan": plan, "results": [], "card_html": "", "full_response": ""}
+            default_task_manager.complete_task(task_record.task_id, success=True, final_result="")
+            yield f"SIMBA_TASK_EVENT:{json.dumps(task_record.to_dict())}\n\n"
+            yield "SIMBA_STATUS: READY\n\n"
+            return {"plan": plan, "results": [], "card_html": "", "full_response": "", "task": task_record.to_dict()}
 
         step_results: List[Tuple[PlannedStep, ExecutionResult]] = []
-        task_record = default_task_manager.create_task(
-            title=plan.summary or "Agent Task",
-            user_id=user_id,
-            steps=[{"tool": s.tool, "description": s.description, "args": s.args} for s in plan.steps],
-        )
 
         for i, step in enumerate(plan.steps):
             if default_task_manager.is_task_cancelled(task_record.task_id, user_id):
+                default_task_manager.cancel_task(task_record.task_id, user_id)
                 yield "SIMBA_STATUS: CANCELLED\n\n"
-                default_task_manager.update_task_status(task_record.task_id, TaskStatus.CANCELLED, "Task cancelled by user.")
+                yield f"SIMBA_TASK_EVENT:{json.dumps(task_record.to_dict())}\n\n"
                 yield "\n\n⚠️ **Task Cancelled**: Execution was safely stopped."
                 return {
                     "plan": plan,
@@ -458,13 +482,72 @@ class AgentController:
                     "card_html": "",
                     "natural_reply": "Task cancelled by user.",
                     "full_response": "Task cancelled by user.",
+                    "task": task_record.to_dict(),
                 }
 
-            default_task_manager.update_task_status(task_record.task_id, TaskStatus.EXECUTING)
+            # 3. PERMISSION CHECK
+            tool_obj = self.executor.registry.get(step.tool)
+            is_sensitive = getattr(tool_obj, "is_sensitive", False) or getattr(tool_obj, "requires_confirmation", False) or any(k in step.tool.lower() for k in ["delete", "remove", "power", "shutdown", "reboot"])
+            if is_sensitive and not step.args.get("confirmed", False) and not step.args.get("overwrite", False):
+                risk_level = getattr(tool_obj, "risk_level", "DANGEROUS")
+                perm_details = {
+                    "task_id": task_record.task_id,
+                    "step_index": i,
+                    "tool": step.tool,
+                    "args": step.args,
+                    "description": step.description,
+                    "risk_level": risk_level,
+                }
+                default_task_manager.set_task_permission_required(
+                    task_record.task_id,
+                    step_index=i,
+                    details=perm_details,
+                )
+                default_task_manager.update_step_status(
+                    task_record.task_id,
+                    i,
+                    status="waiting_permission",
+                    details=perm_details,
+                )
+                yield "SIMBA_STATUS: WAITING FOR PERMISSION...\n\n"
+                yield f"SIMBA_TASK_EVENT:{json.dumps(task_record.to_dict())}\n\n"
+
+                perm_res = ExecutionResult(
+                    success=False,
+                    tool=step.tool,
+                    action=step.tool,
+                    is_sensitive=True,
+                    requires_confirmation=True,
+                    confirmation_prompt=f"Confirm execution of {step.description or step.tool}?",
+                    risk_level=risk_level,
+                    sensitive_action_data=perm_details,
+                    error="Action requires explicit user permission before proceeding.",
+                    details={"permission_required": True, "task_id": task_record.task_id, "step_index": i},
+                )
+                step_results.append((step, perm_res))
+                card_html = self.generate_action_card_html(plan, step_results)
+                perm_reply = f"🛡️ **Action Requires Permission**: `{step.tool}` has been flagged as sensitive. Please confirm or cancel above to proceed."
+                full_perm_output = f"{card_html}\n\n{perm_reply}"
+                yield full_perm_output
+                yield f"SIMBA_TASK_EVENT:{json.dumps(task_record.to_dict())}\n\n"
+                yield "SIMBA_STATUS: WAITING_FOR_PERMISSION\n\n"
+                return {
+                    "plan": plan,
+                    "results": step_results,
+                    "card_html": card_html,
+                    "natural_reply": perm_reply,
+                    "full_response": full_perm_output,
+                    "task": task_record.to_dict(),
+                }
+
+            # 4. EXECUTING
+            default_task_manager.set_task_executing(task_record.task_id, i, tool_name=step.tool)
             step_num = i + 1
             total_steps = len(plan.steps)
             status_label = f"STEP {step_num}/{total_steps}: {step.description.upper()}"
             yield f"SIMBA_STATUS: {status_label}...\n\n"
+            yield f"SIMBA_STATUS: EXECUTING {step.tool.upper()}...\n\n"
+            yield f"SIMBA_TASK_EVENT:{json.dumps(task_record.to_dict())}\n\n"
 
             if step.needs_generation and step.generation_prompt:
                 yield "SIMBA_STATUS: SYNTHESIZING CODE/CONTENT...\n\n"
@@ -479,16 +562,24 @@ class AgentController:
                     gen_content = f"# Generated content for: {step.generation_prompt}\n"
                 step.args["text"] = gen_content
 
-            yield f"SIMBA_STATUS: EXECUTING {step.tool.upper()}...\n\n"
             res = self.executor.execute_tool(step.tool, step.args, user_id=user_id)
-
-            yield f"SIMBA_STATUS: VERIFYING {step.tool.upper()}...\n\n"
             step_results.append((step, res))
 
-            step_status = "verified" if res.success else ("pending" if res.requires_confirmation else "failed")
-            is_verified = False
-            if isinstance(res.details, dict):
-                is_verified = res.details.get("verification", {}).get("verified", False) if isinstance(res.details.get("verification"), dict) else False
+            # 5. VERIFYING
+            verification_data = res.details.get("verification") if isinstance(res.details, dict) else {}
+            if not verification_data:
+                verification_data = {"verified": res.success, "output_verified": bool(res.output)}
+            default_task_manager.set_task_verifying(
+                task_record.task_id,
+                step_index=i,
+                tool_result=res.to_dict(),
+                verification_result=verification_data,
+            )
+            yield f"SIMBA_STATUS: VERIFYING {step.tool.upper()}...\n\n"
+            yield f"SIMBA_TASK_EVENT:{json.dumps(task_record.to_dict())}\n\n"
+
+            step_status = "verified" if res.success else "failed"
+            is_verified = bool(verification_data.get("verified", False)) if isinstance(verification_data, dict) else False
 
             default_task_manager.update_step_status(
                 task_record.task_id,
@@ -500,9 +591,8 @@ class AgentController:
                 details=res.details if isinstance(res.details, dict) else {},
             )
 
-            if not res.success or res.requires_confirmation:
-                if not res.success:
-                    logger.warning("Agent step %s failed: %s", step.tool, res.error)
+            if not res.success:
+                logger.warning("Agent step %s failed: %s", step.tool, res.error)
                 break
 
         card_html = self.generate_action_card_html(plan, step_results)
@@ -515,19 +605,22 @@ class AgentController:
         all_success = len(step_results) > 0 and all(r.success for _, r in step_results)
         has_offline = any(r.details.get("agent_offline") for _, r in step_results)
 
+        # 6. COMPLETED / FAILED / WAITING_FOR_PERMISSION
         if has_offline:
-            final_status = "AGENT_OFFLINE"
-            default_task_manager.update_task_status(task_record.task_id, TaskStatus.FAILED, "Desktop Agent is offline.")
+            final_status = TaskStatus.FAILED
+            default_task_manager.complete_task(task_record.task_id, success=False, final_result=natural_reply, failure_reason="Desktop Agent is offline.")
         elif has_pending:
-            final_status = "PENDING_CONFIRMATION"
-            default_task_manager.update_task_status(task_record.task_id, TaskStatus.WAITING_FOR_APPROVAL)
+            final_status = TaskStatus.WAITING_FOR_PERMISSION
+            default_task_manager.update_task_status(task_record.task_id, TaskStatus.WAITING_FOR_PERMISSION)
         elif all_success:
-            final_status = "SUCCESS"
+            final_status = TaskStatus.COMPLETED
             default_task_manager.complete_task(task_record.task_id, success=True, final_result=natural_reply)
         else:
-            final_status = "FAILED"
-            default_task_manager.complete_task(task_record.task_id, success=False, final_result=natural_reply, failure_reason="Action execution incomplete")
+            final_status = TaskStatus.FAILED
+            failure_msg = next((r.error for _, r in step_results if not r.success and r.error), "Action execution incomplete")
+            default_task_manager.complete_task(task_record.task_id, success=False, final_result=natural_reply, failure_reason=failure_msg)
 
+        yield f"SIMBA_TASK_EVENT:{json.dumps(task_record.to_dict())}\n\n"
         yield f"SIMBA_STATUS: {final_status}\n\n"
 
         return {
@@ -536,6 +629,84 @@ class AgentController:
             "card_html": card_html,
             "natural_reply": natural_reply,
             "full_response": full_output,
+            "task": task_record.to_dict(),
+        }
+
+    def execute_approved_task(self, task_id: str, user_id: Optional[int] = None) -> Dict[str, Any]:
+        """Resumes and executes the pending step for a task that was in WAITING_FOR_PERMISSION."""
+        task = default_task_manager.get_task(task_id)
+        if not task:
+            return {"success": False, "error": f"Task '{task_id}' not found."}
+
+        default_task_manager.approve_task(task_id)
+        step_idx = task.current_step_index
+        if task.permission_details and isinstance(task.permission_details, dict):
+            step_idx = task.permission_details.get("step_index", step_idx)
+
+        if not (0 <= step_idx < len(task.steps)):
+            default_task_manager.complete_task(task_id, success=True, final_result="No pending steps to execute.")
+            return {"success": True, "task": task.to_dict(), "output": "No pending steps."}
+
+        step_data = task.steps[step_idx]
+        tool_name = step_data.get("tool", "")
+        args = dict(step_data.get("args") or {})
+        args["confirmed"] = True
+        args["overwrite"] = True
+
+        # 1. Transition to EXECUTING
+        default_task_manager.set_task_executing(task_id, step_idx, tool_name=tool_name)
+
+        # 2. Execute the tool
+        res = self.executor.execute_tool(tool_name, args, user_id=user_id)
+
+        # 3. Transition to VERIFYING
+        verification_data = res.details.get("verification") if isinstance(res.details, dict) else {}
+        if not verification_data:
+            verification_data = {"verified": res.success, "output_verified": bool(res.output)}
+        default_task_manager.set_task_verifying(
+            task_id,
+            step_index=step_idx,
+            tool_result=res.to_dict(),
+            verification_result=verification_data,
+        )
+
+        step_status = "verified" if res.success else "failed"
+        is_verified = bool(verification_data.get("verified", False)) if isinstance(verification_data, dict) else False
+        default_task_manager.update_step_status(
+            task_id,
+            step_idx,
+            status=step_status,
+            output=res.output,
+            error=res.error,
+            verified=is_verified,
+            details=res.details if isinstance(res.details, dict) else {},
+        )
+
+        # 4. Check if there are subsequent steps or complete task
+        has_offline = bool(res.details.get("agent_offline")) if isinstance(res.details, dict) else False
+        if has_offline:
+            final_result = "Desktop Agent is offline. Local execution requires python simba_agent.py."
+            default_task_manager.complete_task(task_id, success=False, final_result=final_result, failure_reason=final_result)
+        elif not res.success:
+            final_result = res.error or f"Step execution failed for {tool_name}."
+            default_task_manager.complete_task(task_id, success=False, final_result=final_result, failure_reason=res.error or "Step failed.")
+        else:
+            all_done = all(s.get("status") in ["verified", "completed", "skipped", "approved"] for s in task.steps)
+            if all_done:
+                final_result = res.output or f"Action {tool_name} successfully executed and verified."
+                default_task_manager.complete_task(task_id, success=True, final_result=final_result)
+            else:
+                task.current_step_index = step_idx + 1
+                final_result = res.output
+
+        updated_task = default_task_manager.get_task(task_id) or task
+        return {
+            "success": res.success,
+            "tool": tool_name,
+            "output": res.output,
+            "error": res.error,
+            "task": updated_task.to_dict(),
+            "verification": verification_data,
         }
 
 

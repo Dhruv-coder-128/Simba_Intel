@@ -29,10 +29,6 @@ def health_check(request):
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('health/', health_check, name='health_check'),
-    # Custom Super Admin Console - superuser-gated (see chat/admin_views.py's
-    # superuser_required), deliberately separate from django.contrib.admin
-    # above (left in place for direct DB inspection, but not what operators
-    # use day-to-day).
     path('admin-console/', admin_views.admin_dashboard, name='admin_dashboard'),
     path('admin-console/search/', admin_views.admin_quick_search, name='admin_quick_search'),
     path('admin-console/live/', admin_views.admin_live_platform, name='admin_live_platform'),
@@ -57,9 +53,6 @@ urlpatterns = [
     path('admin-console/settings/', admin_views.admin_settings, name='admin_settings'),
     path('admin-console/live/logs/', admin_views.admin_live_log_stream, name='admin_live_log_stream'),
     path('favicon.ico', RedirectView.as_view(url='/static/favicon2.png', permanent=True)),
-    # Recovery-code password reset (additional to allauth's own link-based
-    # reset flow below, which is untouched) - registered before the allauth
-    # include so these exact paths always resolve here first.
     path('accounts/forgot-password/', views.forgot_password, name='forgot_password'),
     path('accounts/verify-recovery-code/', views.verify_recovery_code, name='verify_recovery_code'),
     path('accounts/reset-password-recovery/', views.reset_password_recovery, name='reset_password_recovery'),
@@ -137,7 +130,6 @@ urlpatterns = [
     path('system_stats/', views.system_stats, name='system_stats'),
     path('update_reaction/', views.update_reaction, name='update_reaction'),
 
-    # Desktop Agent API Endpoints (Phase 1 & 2.5: Cloud ↔ Local Desktop Agent Connection & Awareness)
     path('api/agent/connect/', views.agent_connect_view, name='agent_connect'),
     path('api/agent/poll/', views.agent_poll_view, name='agent_poll'),
     path('api/agent/result/', views.agent_result_view, name='agent_result'),
@@ -149,9 +141,10 @@ urlpatterns = [
     path('api/agent/task/cancel/', views.agent_task_cancel_view, name='agent_task_cancel'),
     path('api/agent/task/confirm/', views.agent_task_confirm_view, name='agent_task_confirm'),
     path('api/agent/task/history/', views.agent_task_history_view, name='agent_task_history'),
+    path('api/agent/task/active/', views.agent_active_task_view, name='agent_active_task'),
+    path('api/agent/task/<str:task_id>/', views.agent_task_detail_view, name='agent_task_detail'),
     path('api/agent/tools/', views.agent_tools_list_view, name='agent_tools_list'),
 
-    # Phase 3: Voice & Studio APIs
     path('api/voice/settings/', views.voice_settings_view, name='voice_settings'),
     path('api/voice-studio/history/', views.voice_studio_history_api, name='voice_studio_history'),
 ]

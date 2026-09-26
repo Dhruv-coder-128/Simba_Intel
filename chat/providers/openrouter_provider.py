@@ -10,7 +10,7 @@ from .base import BaseProvider
 class OpenRouterProvider(BaseProvider):
     provider_name = "openrouter"
     supported_models = [
-        "nvidia/nemotron-3-super-120b-a12b:free",
+        "stealth/space-bunny-alpha",
     ]
 
     OPENROUTER_API_BASE_URL = "https://openrouter.ai/api/v1"
@@ -88,7 +88,7 @@ class OpenRouterProvider(BaseProvider):
     def vision(
         self,
         messages: list[Dict[str, Any]],
-        model: str = "nvidia/nemotron-3-super-120b-a12b:free",
+        model: str = "stealth/space-bunny-alpha",
         on_usage: Optional[Callable[[dict], None]] = None,
         on_model_resolved: Optional[Callable[[dict], None]] = None,
         **kwargs,

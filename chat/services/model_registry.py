@@ -58,7 +58,7 @@ MODEL_REGISTRY: Dict[str, ModelConfig] = {
     "ox-alpha": ModelConfig(
         display_name="Ox Alpha",
         provider="openrouter",
-        actual_model="nvidia/nemotron-3-super-120b-a12b:free",
+        actual_model="stealth/space-bunny-alpha",
         supports_vision=False,
         context_window=128000,
     ),

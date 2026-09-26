@@ -171,9 +171,18 @@ class DesktopAgentHub:
                 if agent_id is None or conn.agent_id == agent_id:
                     conn.status = "OFFLINE"
                     logger.info("Agent disconnected: user_id=%s agent_id=%s", user_id, conn.agent_id)
+            # Clear DB profile agent_last_seen so DB fallback doesn't report online
+            try:
+                from chat.models import UserProfile
+                p = UserProfile.objects.filter(user_id=user_id).first()
+                if p and p.agent_last_seen:
+                    p.agent_last_seen = None
+                    p.save(update_fields=["agent_last_seen"])
+            except Exception:
+                pass
 
     def heartbeat(self, user_id: int, agent_id: Optional[str] = None) -> bool:
-        """Updates agent last_seen timestamp."""
+        """Updates agent last_seen timestamp and restores connection state if needed."""
         with self.lock:
             if user_id in self.active_agents:
                 conn = self.active_agents[user_id]
@@ -181,20 +190,93 @@ class DesktopAgentHub:
                     conn.last_seen = time.time()
                     conn.status = "ONLINE"
                     return True
+            else:
+                # Auto-hydrate connection for authenticated user if polling/heartbeat arrives
+                now = time.time()
+                hostname = "Windows PC"
+                platform_str = "Windows"
+                try:
+                    from chat.models import UserProfile
+                    p = UserProfile.objects.filter(user_id=user_id).first()
+                    if p:
+                        if p.agent_device_name:
+                            hostname = p.agent_device_name
+                        if p.agent_platform:
+                            platform_str = p.agent_platform
+                        p.agent_last_seen = timezone.now()
+                        p.save(update_fields=["agent_last_seen"])
+                except Exception:
+                    pass
+                conn = DesktopAgentConnection(
+                    user_id=user_id,
+                    agent_id=agent_id or f"win_{user_id}",
+                    connection_id=f"conn_{secrets.token_hex(8)}",
+                    status="ONLINE",
+                    platform=platform_str,
+                    hostname=hostname,
+                    connected_at=now,
+                    last_seen=now,
+                )
+                self.active_agents[user_id] = conn
+                return True
         return False
 
     def is_user_agent_online(self, user_id: int) -> bool:
         """Checks if the user has an active, authenticated Desktop Agent connected."""
         with self.lock:
             if user_id in self.active_agents:
-                return self.active_agents[user_id].is_alive()
+                conn = self.active_agents[user_id]
+                if conn.status == "OFFLINE":
+                    return False
+                return conn.is_alive()
+        # Fallback check against DB profile only if agent not tracked in memory (e.g. server restart)
+        try:
+            from chat.models import UserProfile
+            p = UserProfile.objects.filter(user_id=user_id).first()
+            if p and p.agent_last_seen:
+                delta = (timezone.now() - p.agent_last_seen).total_seconds()
+                if delta < HEARTBEAT_TIMEOUT_SECONDS:
+                    return True
+        except Exception:
+            pass
         return False
 
     def get_user_agent_info(self, user_id: int) -> Dict[str, Any]:
         """Returns the current connection metadata for the user's Desktop Agent."""
         with self.lock:
             if user_id in self.active_agents:
-                return self.active_agents[user_id].to_dict()
+                conn = self.active_agents[user_id]
+                if conn.status == "OFFLINE":
+                    return {
+                        "status": "OFFLINE",
+                        "is_online": False,
+                        "platform": conn.platform,
+                        "hostname": conn.hostname,
+                        "last_seen": conn.last_seen,
+                    }
+                if conn.is_alive():
+                    return conn.to_dict()
+        # Fallback to DB profile if seen within timeout
+        try:
+            from chat.models import UserProfile
+            p = UserProfile.objects.filter(user_id=user_id).first()
+            if p and p.agent_last_seen:
+                delta = (timezone.now() - p.agent_last_seen).total_seconds()
+                if delta < HEARTBEAT_TIMEOUT_SECONDS:
+                    return {
+                        "agent_id": f"win_{p.user_id}",
+                        "connection_id": "conn_db",
+                        "status": "ONLINE",
+                        "platform": p.agent_platform or "Windows",
+                        "hostname": p.agent_device_name or "Windows PC",
+                        "agent_version": "1.0.0",
+                        "connected_at": p.agent_last_seen.timestamp(),
+                        "last_seen": p.agent_last_seen.timestamp(),
+                        "seconds_since_last_seen": round(delta, 1),
+                        "is_online": True,
+                    }
+        except Exception:
+            pass
         return {
             "status": "OFFLINE",
             "is_online": False,

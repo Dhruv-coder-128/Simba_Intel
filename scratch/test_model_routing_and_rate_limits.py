@@ -41,7 +41,7 @@ class TestModelRoutingAndRateLimits(unittest.TestCase):
             "sky-net": ("mistral", "mistral-large-latest"),
             "sky-net-mini": ("mistral", "mistral-medium-3-5"),
             "quantum-core": ("nvidia", "quantum-core-pool"),
-            "ox-alpha": ("openrouter", "nvidia/nemotron-3-super-120b-a12b:free"),
+            "ox-alpha": ("openrouter", "stealth/space-bunny-alpha"),
             "image-studio": ("pollinations", "flux"),
         }
 

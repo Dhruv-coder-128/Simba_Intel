@@ -290,9 +290,40 @@ def save_config(server_url: str, token: str):
         logger.debug("Could not save config file: %s", e)
 
 
+def get_local_active_token() -> Optional[str]:
+    """In local development environment, checks if a local Django user session or UserProfile token exists."""
+    try:
+        import django
+        os.environ.setdefault("DJANGO_SETTINGS_MODULE", "simba_web.settings")
+        django.setup()
+        from django.contrib.sessions.models import Session
+        from chat.models import UserProfile
+        from django.utils import timezone
+
+        # 1. Look for most recent active user session
+        for s in Session.objects.filter(expire_date__gt=timezone.now()).order_by("-expire_date"):
+            try:
+                data = s.get_decoded()
+                uid = data.get("_auth_user_id")
+                if uid:
+                    profile = UserProfile.objects.filter(user_id=uid).first()
+                    if profile and profile.agent_token:
+                        return profile.agent_token
+            except Exception:
+                continue
+
+        # 2. Fallback to first profile with agent_token
+        p = UserProfile.objects.filter(agent_token__isnull=False).exclude(agent_token="").first()
+        if p:
+            return p.agent_token
+    except Exception:
+        pass
+    return None
+
+
 def main():
     parser = argparse.ArgumentParser(description="SIMBA INTEL Windows Desktop Agent")
-    parser.add_argument("--server", help="SIMBA Django server URL (e.g. http://localhost:8000 or https://simba-intel.onrender.com)")
+    parser.add_argument("--server", help="SIMBA Django server URL (e.g. http://127.0.0.1:8000 or https://simba-intel.onrender.com)")
     parser.add_argument("--token", help="Desktop Agent Secret Token (found in SIMBA Settings > Desktop Agent)")
     parser.add_argument("--no-save", action="store_true", help="Do not save token to local config file")
     args = parser.parse_args()
@@ -303,14 +334,27 @@ def main():
         args.server
         or os.environ.get("SIMBA_SERVER_URL")
         or saved_cfg.get("server_url")
-        or "http://localhost:8000"
+        or "http://127.0.0.1:8000"
     )
+
+    if "localhost:8000" in server_url:
+        server_url = server_url.replace("localhost:8000", "127.0.0.1:8000")
 
     token = (
         args.token
         or os.environ.get("SIMBA_AGENT_TOKEN")
-        or saved_cfg.get("token")
     )
+
+    # In local development, auto-discover active user token if not explicitly provided
+    is_local_dev = any(h in server_url for h in ("127.0.0.1", "localhost"))
+    if not token and is_local_dev:
+        local_token = get_local_active_token()
+        if local_token:
+            token = local_token
+            logger.info("Auto-discovered active local development user agent token.")
+
+    if not token:
+        token = saved_cfg.get("token")
 
     # If token not provided, prompt interactively
     if not token:

@@ -74,6 +74,7 @@ from chat.agent_views import (
     agent_screen_awareness_toggle_view,
     agent_task_cancel_view, agent_task_history_view,
     agent_tools_list_view, agent_task_confirm_view,
+    agent_active_task_view, agent_task_detail_view,
 )
 
 
@@ -517,6 +518,21 @@ def chat_home(request):
         except Exception:
             current_session = None
 
+    effective_session_type = session_type_filter or (current_session.session_type if current_session and current_session.session_type else 'assistant')
+
+    # Ensure sidebar sessions match effective mode if type wasn't explicitly specified in query params
+    if not session_type_filter and effective_session_type != 'assistant':
+        base_qs = ChatSession.objects.filter(user=request.user, is_archived=(view_mode == 'archived'), session_type=effective_session_type)
+        if folder_filter:
+            base_qs = base_qs.filter(folder=folder_filter)
+        base_qs = base_qs.annotate(
+            last_active=Coalesce(Max('thread__created_at'), 'created_at')
+        ).order_by('-is_pinned', '-last_active', '-id')
+        sessions = list(base_qs)
+        pinned_sessions = [s for s in sessions if s.is_pinned]
+        favorite_sessions = [s for s in sessions if s.is_favorite and not s.is_pinned]
+        other_sessions = [s for s in sessions if not s.is_pinned and not s.is_favorite]
+
     if current_session:
         selected_model = request.session.get(f"session_model_{current_session.id}", request.session.get("selected_model", profile.default_model))
     else:
@@ -539,6 +555,7 @@ def chat_home(request):
     is_pc_connected = default_agent_hub.is_user_agent_online(user_id) if user_id else False
     pc_telemetry = default_agent_hub.get_user_agent_info(user_id) if (user_id and is_pc_connected) else {}
     agent_task_history = default_task_manager.get_user_task_history(user_id, limit=20) if user_id else []
+    active_agent_task = default_task_manager.get_active_task_for_user(user_id).to_dict() if user_id and default_task_manager.get_active_task_for_user(user_id) else None
 
     return render(request, 'chat.html', {
         'sessions': sessions,
@@ -550,7 +567,7 @@ def chat_home(request):
         'folders': folders,
         'view_mode': view_mode,
         'folder_filter': folder_filter,
-        'session_type': session_type_filter or 'assistant',
+        'session_type': effective_session_type,
         'assistant_context_sessions': assistant_context_sessions,
         'messages': messages,
         'current_session': current_session,
@@ -562,7 +579,10 @@ def chat_home(request):
         'active_broadcast': active_broadcast,
         'is_pc_connected': is_pc_connected,
         'pc_telemetry': pc_telemetry,
+        'agent_token': profile.get_or_create_agent_token() if profile else '',
         'agent_task_history': agent_task_history,
+        'active_agent_task': active_agent_task,
+        'active_agent_task_json': json.dumps(active_agent_task) if active_agent_task else 'null',
         'screen_awareness_enabled': getattr(profile, 'screen_awareness_enabled', True),
     })
 
@@ -601,15 +621,12 @@ def profile_settings(request):
             profile.theme = theme
         if timezone_name in AVAILABLE_TIMEZONES and timezone_name != profile.timezone:
             profile.timezone = timezone_name
-            # An explicit pick from this form always wins from now on - stop
-            # letting the JS auto-detect on chat.html silently override it.
             profile.timezone_auto = False
         profile.memory_enabled = request.POST.get('memory_enabled') == 'on'
         profile.notifications_enabled = request.POST.get('notifications_enabled') == 'on'
         if 'screen_awareness_enabled' in request.POST:
             profile.screen_awareness_enabled = request.POST.get('screen_awareness_enabled') == 'on'
 
-        # --- Appearance (Part 6) ---
         accent_override = request.POST.get('accent_override', '').strip()
         if accent_override in {c for c, _ in UserProfile.ACCENT_OVERRIDE_CHOICES}:
             profile.accent_override = accent_override
@@ -631,12 +648,6 @@ def profile_settings(request):
         if request.headers.get('x-requested-with') == 'XMLHttpRequest':
             return JsonResponse({"status": "success", "message": "Settings saved successfully."})
 
-        # Saving returns to the conversation the user was on before opening
-        # Settings (restored client-side from sessionStorage into this hidden
-        # field) rather than reloading the settings page itself - ownership
-        # of next_session_id is re-checked by chat_home the same way any
-        # ?session= link is, so an invalid/foreign id just falls back to no
-        # session selected rather than ever leaking another user's chat.
         next_session_id = request.POST.get('next_session_id', '').strip()
         if next_session_id:
             return redirect(f'/?session={next_session_id}&saved=1')
@@ -663,7 +674,6 @@ def profile_settings(request):
             'fallback_chain_str': ", ".join(chain) if chain else "Direct Execution (No Standby)",
         })
 
-    # Find active default model object
     default_model_obj = next((m for m in models_enriched if m['id'] == profile.default_model), models_enriched[0] if models_enriched else None)
 
     return render(request, 'profile.html', {
@@ -1747,11 +1757,12 @@ def ask_ai(request):
                         agent_gen = default_agent_controller.execute_and_stream(
                             user_query,
                             user_id=request.user.id if request.user.is_authenticated else None,
+                            session_id=session.id,
                             planner_llm_fn=ox_alpha_planner,
                             text_generator_fn=synthesize_code_or_text,
                         )
                         for chunk in agent_gen:
-                            if not chunk.startswith("SIMBA_STATUS:"):
+                            if not chunk.startswith("SIMBA_STATUS:") and not chunk.startswith("SIMBA_TASK_EVENT:"):
                                 full_response += chunk
                             yield chunk
                     except (BrokenPipeError, ConnectionResetError, OSError) as bpe:
@@ -1781,9 +1792,17 @@ def ask_ai(request):
                                 start_time=start_time,
                                 streaming=True, memory_used=False,
                             )
+                            from chat.agent.task_manager import default_task_manager
+                            active_or_recent_task = default_task_manager.get_active_task_for_user(request.user.id)
+                            task_dict = active_or_recent_task.to_dict() if active_or_recent_task else None
                             user_msg, assistant_msg = append_turn(
                                 session, user_query, full_response,
-                                assistant_extra_data={"type": "agent_action", "stats": stats},
+                                assistant_extra_data={
+                                    "type": "agent_action",
+                                    "task_id": task_dict.get("task_id") if task_dict else None,
+                                    "task": task_dict,
+                                    "stats": stats,
+                                },
                                 latency=latency,
                             )
                             record_usage(
@@ -1976,7 +1995,12 @@ def session_suggest_followups(request, session_id):
         leaf = session.active_leaf
     if not leaf or leaf.role != "assistant" or not (leaf.content or "").strip():
         return JsonResponse({"suggestions": []})
-    return JsonResponse({"suggestions": suggest_followups(leaf.content)})
+
+    user_query = request.GET.get('query', '').strip()
+    if not user_query and leaf.parent and leaf.parent.role == 'user' and leaf.parent.content:
+        user_query = leaf.parent.content.strip()
+
+    return JsonResponse({"suggestions": suggest_followups(leaf.content, user_query=user_query)})
 
 
 @login_required
@@ -3952,6 +3976,11 @@ def agent_confirm_action(request):
     """Executes a confirmed sensitive agent tool on behalf of the user."""
     if request.method != "POST":
         return JsonResponse({"success": False, "error": "POST request required."}, status=405)
+
+    task_id = request.POST.get("task_id", "").strip()
+    if task_id:
+        exec_res = default_agent_controller.execute_approved_task(task_id, user_id=request.user.id)
+        return JsonResponse(exec_res)
 
     tool_name = request.POST.get("tool_name", "").strip()
     raw_args = request.POST.get("args", "{}")

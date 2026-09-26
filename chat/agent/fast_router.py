@@ -1105,35 +1105,55 @@ class FastCommandRouter:
         controller: Any,
         user_id: Optional[int] = None,
         text_generator_fn: Optional[Callable[[str], str]] = None,
+        task_record: Optional[Any] = None,
     ) -> Generator[str, None, Dict[str, Any]]:
-        """Executes a deterministic fast command plan and yields streaming status tokens and action card."""
+        """Executes a deterministic fast command plan and yields streaming status tokens and task state events."""
         start_time = time.time()
-        yield "SIMBA_STATUS: INITIALIZING...\n\n"
+        import json
+
+        if not task_record:
+            task_record = default_task_manager.create_task(
+                title=plan.summary or "Fast Action",
+                user_id=user_id,
+                user_request=plan.raw_query or plan.summary or "Fast Action",
+                initial_status=TaskStatus.UNDERSTANDING,
+            )
+            yield "SIMBA_STATUS: UNDERSTANDING REQUEST...\n\n"
+            yield f"SIMBA_TASK_EVENT:{json.dumps(task_record.to_dict())}\n\n"
+
+        # Transition to PLANNING & populate plan/steps
+        default_task_manager.set_task_planning(
+            task_record.task_id,
+            plan=plan.to_dict() if hasattr(plan, "to_dict") else {},
+            steps=[{"tool": s.tool, "description": s.description, "args": s.args} for s in plan.steps],
+            title=plan.summary or task_record.title,
+        )
+        yield "SIMBA_STATUS: PLANNING FAST ACTION...\n\n"
+        yield f"SIMBA_TASK_EVENT:{json.dumps(task_record.to_dict())}\n\n"
 
         if plan.chat_response:
+            default_task_manager.complete_task(task_record.task_id, success=True, final_result=plan.chat_response)
+            yield f"SIMBA_TASK_EVENT:{json.dumps(task_record.to_dict())}\n\n"
             yield "SIMBA_STATUS: EXECUTING...\n\n"
             yield plan.chat_response
-            yield "\n\nSIMBA_STATUS: SUCCESS\n\n"
+            yield "\n\nSIMBA_STATUS: COMPLETED\n\n"
             return {
                 "plan": plan,
                 "results": [],
                 "card_html": "",
                 "natural_reply": plan.chat_response,
                 "full_response": plan.chat_response,
+                "task": task_record.to_dict(),
                 "latency": round(time.time() - start_time, 3),
             }
 
         step_results: List[Tuple[PlannedStep, ExecutionResult]] = []
-        task_record = default_task_manager.create_task(
-            title=plan.summary or "Fast Action",
-            user_id=user_id,
-            steps=[{"tool": s.tool, "description": s.description, "args": s.args} for s in plan.steps],
-        )
 
         for i, step in enumerate(plan.steps):
             if default_task_manager.is_task_cancelled(task_record.task_id, user_id):
+                default_task_manager.cancel_task(task_record.task_id, user_id)
                 yield "SIMBA_STATUS: CANCELLED\n\n"
-                default_task_manager.update_task_status(task_record.task_id, TaskStatus.CANCELLED, "Task cancelled by user.")
+                yield f"SIMBA_TASK_EVENT:{json.dumps(task_record.to_dict())}\n\n"
                 yield "\n\n⚠️ **Task Cancelled**: Execution was safely stopped."
                 return {
                     "plan": plan,
@@ -1141,11 +1161,74 @@ class FastCommandRouter:
                     "card_html": "",
                     "natural_reply": "Task cancelled by user.",
                     "full_response": "Task cancelled by user.",
+                    "task": task_record.to_dict(),
                     "latency": round(time.time() - start_time, 3),
                 }
 
-            default_task_manager.update_task_status(task_record.task_id, TaskStatus.EXECUTING)
+            # PERMISSION CHECK
+            tool_obj = self.executor.registry.get(step.tool)
+            is_sensitive = getattr(tool_obj, "is_sensitive", False) or getattr(tool_obj, "requires_confirmation", False) or any(k in step.tool.lower() for k in ["delete", "remove", "power", "shutdown", "reboot"])
+            if is_sensitive and not step.args.get("confirmed", False) and not step.args.get("overwrite", False):
+                risk_level = getattr(tool_obj, "risk_level", "DANGEROUS")
+                perm_details = {
+                    "task_id": task_record.task_id,
+                    "step_index": i,
+                    "tool": step.tool,
+                    "args": step.args,
+                    "description": step.description,
+                    "risk_level": risk_level,
+                }
+                default_task_manager.set_task_permission_required(
+                    task_record.task_id,
+                    step_index=i,
+                    details=perm_details,
+                )
+                default_task_manager.update_step_status(
+                    task_record.task_id,
+                    i,
+                    status="waiting_permission",
+                    details=perm_details,
+                )
+                yield "SIMBA_STATUS: WAITING FOR PERMISSION...\n\n"
+                yield f"SIMBA_TASK_EVENT:{json.dumps(task_record.to_dict())}\n\n"
+
+                perm_res = ExecutionResult(
+                    success=False,
+                    tool=step.tool,
+                    action=step.tool,
+                    is_sensitive=True,
+                    requires_confirmation=True,
+                    confirmation_prompt=f"Confirm execution of {step.description or step.tool}?",
+                    risk_level=risk_level,
+                    sensitive_action_data=perm_details,
+                    error="Action requires explicit user permission before proceeding.",
+                    details={"permission_required": True, "task_id": task_record.task_id, "step_index": i},
+                )
+                step_results.append((step, perm_res))
+                card_html = controller.generate_action_card_html(plan, step_results)
+                perm_reply = f"🛡️ **Action Requires Permission**: `{step.tool}` has been flagged as sensitive. Please confirm or cancel above to proceed."
+                full_perm_output = f"{card_html}\n\n{perm_reply}"
+                yield full_perm_output
+                yield f"SIMBA_TASK_EVENT:{json.dumps(task_record.to_dict())}\n\n"
+                yield "SIMBA_STATUS: WAITING_FOR_PERMISSION\n\n"
+                return {
+                    "plan": plan,
+                    "results": step_results,
+                    "card_html": card_html,
+                    "natural_reply": perm_reply,
+                    "full_response": full_perm_output,
+                    "task": task_record.to_dict(),
+                    "latency": round(time.time() - start_time, 3),
+                }
+
+            # EXECUTING
+            default_task_manager.set_task_executing(task_record.task_id, i, tool_name=step.tool)
+            step_num = i + 1
+            total_steps = len(plan.steps)
+            status_label = f"STEP {step_num}/{total_steps}: {step.description.upper()}"
+            yield f"SIMBA_STATUS: {status_label}...\n\n"
             yield f"SIMBA_STATUS: EXECUTING {step.tool.upper()}...\n\n"
+            yield f"SIMBA_TASK_EVENT:{json.dumps(task_record.to_dict())}\n\n"
             logger.info("FAST_EXECUTE → action executed: %s args=%s user_id=%s", step.tool, step.args, user_id)
 
             if step.needs_generation and step.generation_prompt:
@@ -1164,10 +1247,21 @@ class FastCommandRouter:
             res = self.executor.execute_tool(step.tool, step.args, user_id=user_id)
             step_results.append((step, res))
 
-            step_status = "verified" if res.success else ("pending" if res.requires_confirmation else "failed")
-            is_verified = False
-            if isinstance(res.details, dict):
-                is_verified = res.details.get("verification", {}).get("verified", False) if isinstance(res.details.get("verification"), dict) else False
+            # VERIFYING
+            verification_data = res.details.get("verification") if isinstance(res.details, dict) else {}
+            if not verification_data:
+                verification_data = {"verified": res.success, "output_verified": bool(res.output)}
+            default_task_manager.set_task_verifying(
+                task_record.task_id,
+                step_index=i,
+                tool_result=res.to_dict(),
+                verification_result=verification_data,
+            )
+            yield f"SIMBA_STATUS: VERIFYING {step.tool.upper()}...\n\n"
+            yield f"SIMBA_TASK_EVENT:{json.dumps(task_record.to_dict())}\n\n"
+
+            step_status = "verified" if res.success else "failed"
+            is_verified = bool(verification_data.get("verified", False)) if isinstance(verification_data, dict) else False
 
             default_task_manager.update_step_status(
                 task_record.task_id,
@@ -1179,9 +1273,8 @@ class FastCommandRouter:
                 details=res.details if isinstance(res.details, dict) else {},
             )
 
-            if not res.success or res.requires_confirmation:
-                if not res.success:
-                    logger.warning("FAST_FAILED → action failed: %s (error=%s)", step.tool, res.error)
+            if not res.success:
+                logger.warning("FAST_FAILED → action failed: %s (error=%s)", step.tool, res.error)
                 break
 
         elapsed = round(time.time() - start_time, 3)
@@ -1204,19 +1297,22 @@ class FastCommandRouter:
         full_output = f"{card_html}\n\n{natural_reply}"
         yield full_output
 
+        # COMPLETED / FAILED / WAITING_FOR_PERMISSION
         if has_offline:
-            final_status = "AGENT_OFFLINE"
-            default_task_manager.update_task_status(task_record.task_id, TaskStatus.FAILED, "Desktop Agent is offline.")
+            final_status = TaskStatus.FAILED
+            default_task_manager.complete_task(task_record.task_id, success=False, final_result=natural_reply, failure_reason="Desktop Agent is offline.")
         elif has_pending:
-            final_status = "PENDING_CONFIRMATION"
-            default_task_manager.update_task_status(task_record.task_id, TaskStatus.WAITING_FOR_APPROVAL)
+            final_status = TaskStatus.WAITING_FOR_PERMISSION
+            default_task_manager.update_task_status(task_record.task_id, TaskStatus.WAITING_FOR_PERMISSION)
         elif all_success:
-            final_status = "SUCCESS"
+            final_status = TaskStatus.COMPLETED
             default_task_manager.complete_task(task_record.task_id, success=True, final_result=natural_reply)
         else:
-            final_status = "FAILED"
-            default_task_manager.complete_task(task_record.task_id, success=False, final_result=natural_reply, failure_reason="Action execution incomplete")
+            final_status = TaskStatus.FAILED
+            failure_msg = next((r.error for _, r in step_results if not r.success and r.error), "Action execution incomplete")
+            default_task_manager.complete_task(task_record.task_id, success=False, final_result=natural_reply, failure_reason=failure_msg)
 
+        yield f"SIMBA_TASK_EVENT:{json.dumps(task_record.to_dict())}\n\n"
         yield f"SIMBA_STATUS: {final_status}\n\n"
 
         return {
@@ -1225,6 +1321,7 @@ class FastCommandRouter:
             "card_html": card_html,
             "natural_reply": natural_reply,
             "full_response": full_output,
+            "task": task_record.to_dict(),
             "latency": elapsed,
         }
 

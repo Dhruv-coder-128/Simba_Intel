@@ -18,7 +18,7 @@ PROVIDER_REGISTRY: Dict[str, str] = {
     # be backed by a pool of real models with no special-casing anywhere
     # else in the codebase.
     "virtual": "chat.providers.virtual_provider.VirtualRouterProvider",
-    # OpenRouter API (powers Ox Alpha: nvidia/nemotron-3-super-120b-a12b:free)
+    # OpenRouter API (powers Ox Alpha: stealth/space-bunny-alpha)
     "openrouter": "chat.providers.openrouter_provider.OpenRouterProvider",
 }
 

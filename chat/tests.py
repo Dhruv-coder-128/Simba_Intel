@@ -44,7 +44,7 @@ class ModelRegistryTests(TestCase):
     def test_ox_alpha_is_registered_and_configured(self):
         config = get_model_config("ox-alpha")
         self.assertEqual(config.provider, "openrouter")
-        self.assertEqual(config.actual_model, "nvidia/nemotron-3-super-120b-a12b:free")
+        self.assertEqual(config.actual_model, "stealth/space-bunny-alpha")
         self.assertEqual(config.display_name, "Ox Alpha")
         self.assertFalse(config.supports_vision)
 
@@ -148,7 +148,7 @@ class OpenRouterProviderTests(TestCase):
         provider = OpenRouterProvider(api_key="test-openrouter-key")
         self.assertEqual(provider.get_provider_name(), "openrouter")
         self.assertEqual(provider.OPENROUTER_API_BASE_URL, "https://openrouter.ai/api/v1")
-        self.assertTrue(provider.is_model_supported("nvidia/nemotron-3-super-120b-a12b:free"))
+        self.assertTrue(provider.is_model_supported("stealth/space-bunny-alpha"))
 
     def test_chat_non_streaming(self):
         from chat.providers.openrouter_provider import OpenRouterProvider
@@ -158,7 +158,7 @@ class OpenRouterProviderTests(TestCase):
         fake_response.choices = [MagicMock(message=MagicMock(content="Ox Alpha response"))]
 
         with patch.object(provider.client.chat.completions, "create", return_value=fake_response) as mock_create:
-            result = provider.chat([{"role": "user", "content": "Hello"}], "nvidia/nemotron-3-super-120b-a12b:free")
+            result = provider.chat([{"role": "user", "content": "Hello"}], "stealth/space-bunny-alpha")
             mock_create.assert_called_once()
             self.assertEqual(result, "Ox Alpha response")
 
@@ -195,7 +195,7 @@ class OpenRouterProviderTests(TestCase):
         with patch.object(provider.client.chat.completions, "create", return_value=fake_stream):
             tokens = list(provider.chat_stream(
                 [{"role": "user", "content": "Hello"}],
-                "nvidia/nemotron-3-super-120b-a12b:free",
+                "stealth/space-bunny-alpha",
                 on_usage=captured_usage.update,
             ))
 
@@ -214,14 +214,14 @@ class OpenRouterProviderTests(TestCase):
         with patch.object(provider.client.chat.completions, "create", return_value=fake_response):
             result = provider.vision(
                 [{"role": "user", "content": "describe this"}],
-                "nvidia/nemotron-3-super-120b-a12b:free",
+                "stealth/space-bunny-alpha",
                 on_usage=captured_usage.update,
             )
             self.assertEqual(result, "Vision analysis")
             self.assertEqual(captured_usage, {"prompt_tokens": 15, "completion_tokens": 30})
 
         with self.assertRaises(NotImplementedError):
-            provider.generate_image("a dog", "nvidia/nemotron-3-super-120b-a12b:free")
+            provider.generate_image("a dog", "stealth/space-bunny-alpha")
 
 
 class _RateLimitError(Exception):
@@ -793,7 +793,7 @@ class OxAlphaViewIntegrationTests(TestCase):
         fake_client = MagicMock()
 
         def create(model, messages, stream=False, **kwargs):
-            self.assertEqual(model, "nvidia/nemotron-3-super-120b-a12b:free")
+            self.assertEqual(model, "stealth/space-bunny-alpha")
             return iter([_fake_stream_chunk("Hello from Ox Alpha.")])
 
         fake_client.chat.completions.create.side_effect = create
