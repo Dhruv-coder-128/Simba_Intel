@@ -194,25 +194,20 @@ class MessageAttachment(models.Model):
 class UserProfile(models.Model):
     THEME_CHOICES = [
         ("cyberpunk", "Cyber Dark (default)"),
-        ("midnight-purple", "Midnight"),
-        ("matrix-green", "Matrix"),
-        ("nord", "Nord"),
-        ("synthwave", "Synthwave"),
-        ("purple-neon", "Purple Neon"),
-        ("ocean", "Ocean"),
+        ("chatgpt", "ChatGPT Dark"),
+        ("claude", "Claude Warm Dark"),
+        ("gemini", "Gemini Deep Cosmos"),
+        ("monaco-grand", "Monaco 24K Gold"),
+        ("porsche-chalk", "Porsche Chalk"),
+        ("carbon-stealth", "Carbon Stealth"),
         ("minimal-dark", "Minimal Dark"),
         ("graphite", "Graphite"),
-        ("light", "Light"),
-        # Part 5 (Settings redesign task) - expanded theme set.
-        ("cyber-orange", "Cyber Orange"),
-        ("neon-green", "Neon Green"),
-        ("midnight-blue", "Midnight Blue"),
-        ("purple-matrix", "Purple Matrix"),
-        ("crimson-red", "Crimson Red"),
-        ("arctic-white", "Arctic White"),
+        ("nord", "Nord"),
         ("oled-black", "OLED Black"),
+        ("midnight-purple", "Midnight"),
+        ("neon-green", "Neon Green"),
+        ("crimson-red", "Crimson Red"),
         ("emerald", "Emerald"),
-        ("royal-gold", "Royal Gold"),
     ]
 
     # --- Appearance (Part 6) --- each rendered as a data-* attribute on
@@ -223,6 +218,12 @@ class UserProfile(models.Model):
     # only ever getting the theme's built-in one.
     ACCENT_OVERRIDE_CHOICES = [
         ("", "Theme default"),
+        ("gold", "Monaco 24K Gold"),
+        ("mint", "ChatGPT Mint"),
+        ("terracotta", "Claude Terracotta"),
+        ("celestial", "Gemini Celestial Blue"),
+        ("platinum", "Porsche Platinum"),
+        ("emerald", "Imperial Emerald"),
         ("cyan", "Cyan"),
         ("green", "Green"),
         ("blue", "Blue"),
@@ -230,7 +231,6 @@ class UserProfile(models.Model):
         ("pink", "Pink"),
         ("orange", "Orange"),
         ("red", "Red"),
-        ("gold", "Gold"),
     ]
     DENSITY_CHOICES = [
         ("comfortable", "Comfortable"),
@@ -1007,4 +1007,4 @@ class VoiceStudioGeneration(models.Model):
         ]
 
     def __str__(self):
-        return f"VoiceStudioGeneration({self.user_id}, {self.preset_name or self.voice_name})"
+        return f"VoiceStudioGeneration({self.user_id}, {self.preset_name or self.voice_name})"

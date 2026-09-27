@@ -33,78 +33,75 @@
             const terminal = document.getElementById('terminal-output');
             const cursor = document.getElementById('boot-cursor');
 
-            // ૧. બ્રાઉઝરનું નેવિગેશન ચેક કરો (લિંક ક્લિક કરી છે કે રિફ્રેશ માર્યું છે?)
-            const navEntries = performance.getEntriesByType("navigation");
-            const isReload = navEntries.length > 0 && navEntries[0].type === "reload";
+            if (bootScreen && terminal) {
+                // ૧. બ્રાઉઝરનું નેવિગેશન ચેક કરો (લિંક ક્લિક કરી છે કે રિફ્રેશ માર્યું છે?)
+                const navEntries = performance.getEntriesByType("navigation");
+                const isReload = navEntries.length > 0 && navEntries[0].type === "reload";
 
-            // ૨. સેશન ચેક કરો
-            const isFirstBoot = !sessionStorage.getItem('simba_booted');
+                // ૨. સેશન ચેક કરો
+                const isFirstBoot = !sessionStorage.getItem('simba_booted');
 
-            // ૩. 🚀 મેઈન ફિક્સ: જો યુઝરે ખાલી ચેટ બદલી હોય, તો બૂટ સ્ક્રીન તરત ગાયબ! 🚀
-            if (!isFirstBoot && !isReload) {
-                bootScreen.style.display = 'none';
-                // Don't return, continue to set up mobile menu
-            }
-
-            let bootLines = [];
-
-            if (isFirstBoot) {
-                // પહેલી વાર માટે આખો કમાન્ડ સેટ
-                bootLines = [
-                    "INITIALIZING SIMBA_INTEL KERNEL V3.0...",
-                    "ESTABLISHING SECURE UPLINK...",
-                    "ACCESS GRANTED.",
-                    "SYSTEM ONLINE."
-                ];
-                sessionStorage.setItem('simba_booted', 'true');
-            } else if (isReload) {
-                // માત્ર હાર્ડ રિફ્રેશ (F5) પર જ આ શોર્ટ બૂટ આવશે
-                bootLines = [
-                    "INITIALIZING SIMBA_INTEL KERNEL V3.0...",
-                    "RESTORING PREVIOUS SECURE SESSION...",
-                    "SYSTEM ONLINE."
-                ];
-            }
-
-            let lineIndex = 0;
-
-            function typeLine() {
-                if (lineIndex < bootLines.length) {
-                    cursor.style.display = 'none';
-                    const lineElement = document.createElement('div');
-                    lineElement.className = 'boot-line';
-                    terminal.appendChild(lineElement);
-
-                    let charIndex = 0;
-                    const text = bootLines[lineIndex];
-
-                    const typeSpeed = isFirstBoot ? 10 : 10;
-
-                    const typingInterval = setInterval(() => {
-                        lineElement.textContent += text[charIndex];
-                        charIndex++;
-
-                        if (charIndex >= text.length) {
-                            clearInterval(typingInterval);
-                            lineIndex++;
-                            cursor.style.display = 'inline-block';
-
-                            const delay = isFirstBoot ? (Math.random() * 50 + 10) : 100;
-                            setTimeout(typeLine, delay);
-                        }
-                    }, typeSpeed);
-                } else {
-                    setTimeout(() => {
-                        bootScreen.style.opacity = 0;
-                        setTimeout(() => {
-                            bootScreen.style.display = 'none';
-                        }, 800);
-                    }, isFirstBoot ? 300 : 300);
+                // ૩. 🚀 મેઈન ફિક્સ: જો યુઝરે ખાલી ચેટ બદલી હોય, તો બૂટ સ્ક્રીન તરત ગાયબ! 🚀
+                if (!isFirstBoot && !isReload) {
+                    bootScreen.style.display = 'none';
                 }
-            }
 
-            if (isFirstBoot || isReload) {
-                setTimeout(typeLine, 500);
+                let bootLines = [];
+
+                if (isFirstBoot) {
+                    bootLines = [
+                        "INITIALIZING SIMBA_INTEL KERNEL V3.0...",
+                        "ESTABLISHING SECURE UPLINK...",
+                        "ACCESS GRANTED.",
+                        "SYSTEM ONLINE."
+                    ];
+                    sessionStorage.setItem('simba_booted', 'true');
+                } else if (isReload) {
+                    bootLines = [
+                        "INITIALIZING SIMBA_INTEL KERNEL V3.0...",
+                        "RESTORING PREVIOUS SECURE SESSION...",
+                        "SYSTEM ONLINE."
+                    ];
+                }
+
+                let lineIndex = 0;
+
+                function typeLine() {
+                    if (lineIndex < bootLines.length) {
+                        if (cursor) cursor.style.display = 'none';
+                        const lineElement = document.createElement('div');
+                        lineElement.className = 'boot-line';
+                        terminal.appendChild(lineElement);
+
+                        let charIndex = 0;
+                        const text = bootLines[lineIndex];
+                        const typeSpeed = isFirstBoot ? 10 : 10;
+
+                        const typingInterval = setInterval(() => {
+                            lineElement.textContent += text[charIndex];
+                            charIndex++;
+
+                            if (charIndex >= text.length) {
+                                clearInterval(typingInterval);
+                                lineIndex++;
+                                if (cursor) cursor.style.display = 'inline-block';
+                                const delay = isFirstBoot ? (Math.random() * 50 + 10) : 100;
+                                setTimeout(typeLine, delay);
+                            }
+                        }, typeSpeed);
+                    } else {
+                        setTimeout(() => {
+                            bootScreen.style.opacity = 0;
+                            setTimeout(() => {
+                                bootScreen.style.display = 'none';
+                            }, 800);
+                        }, isFirstBoot ? 300 : 300);
+                    }
+                }
+
+                if (isFirstBoot || isReload) {
+                    setTimeout(typeLine, 500);
+                }
             }
 
             // ================= MOBILE MENU TOGGLE =================
@@ -1434,11 +1431,14 @@
             _confirmCallback = null;
         }
 
-        document.getElementById('confirmDialogConfirmBtn').addEventListener('click', () => {
-            const cb = _confirmCallback;
-            closeConfirmDialog();
-            if (cb) cb();
-        });
+        const confirmDialogBtn = document.getElementById('confirmDialogConfirmBtn');
+        if (confirmDialogBtn) {
+            confirmDialogBtn.addEventListener('click', () => {
+                const cb = _confirmCallback;
+                closeConfirmDialog();
+                if (cb) cb();
+            });
+        }
 
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape') closeConfirmDialog();
@@ -2308,11 +2308,13 @@
 
         // ================= Function to toggle aspect ratio selector visibility =================
         function updateAspectRatioVisibility() {
-            const currentModel = document.getElementById("model-selector").value;
+            const modelSelector = document.getElementById("model-selector");
+            if (!modelSelector) return;
+            const currentModel = modelSelector.value;
             // Check if model is image-studio (or whatever the image model ID is)
             const modelConfig = Array.from(document.querySelectorAll("#cyberOptions .cyber-option")).find(o => o.getAttribute("data-value") === currentModel);
             const isImageGenMode = !!(modelConfig && modelConfig.innerText.includes("Image"));
-            aspectWrapper.style.display = isImageGenMode ? "block" : "none";
+            if (aspectWrapper) aspectWrapper.style.display = isImageGenMode ? "block" : "none";
 
             // Attachments (Vision AI) don't apply in image-generation mode - hide the control there.
             const plusMenuWrapper = document.querySelector(".plus-menu-wrapper");
@@ -2347,7 +2349,7 @@
 
         // ================= Load saved aspect ratio =================
         const savedAspectRatio = localStorage.getItem("selected_aspect_ratio");
-        if (savedAspectRatio) {
+        if (savedAspectRatio && aspectHiddenInput && aspectText && aspectOptionsBox) {
             aspectHiddenInput.value = savedAspectRatio;
             aspectText.innerText = savedAspectRatio;
             aspectOptionsBox.querySelectorAll(".cyber-option").forEach(o => {
@@ -3317,47 +3319,56 @@
 
         // Event delegation: clicking a chip previews it (image -> lightbox, file ->
         // opens in a new tab); clicking the remove button removes it instead.
-        document.getElementById("attachment-preview").addEventListener("click", (e) => {
-            const chip = e.target.closest(".attachment-chip");
-            if (!chip) return;
-            const index = parseInt(chip.dataset.index, 10);
-            const attachment = pendingAttachments[index];
-            if (!attachment) return;
+        const attachPreviewEl = document.getElementById("attachment-preview");
+        if (attachPreviewEl) {
+            attachPreviewEl.addEventListener("click", (e) => {
+                const chip = e.target.closest(".attachment-chip");
+                if (!chip) return;
+                const index = parseInt(chip.dataset.index, 10);
+                const attachment = pendingAttachments[index];
+                if (!attachment) return;
 
-            if (e.target.closest(".attachment-chip-remove")) {
-                removeAttachmentAt(index);
-                return;
-            }
-            if (attachment.isImage && attachment.previewUrl) {
-                openAttachmentImageViewer(attachment.previewUrl, attachment.name, attachment.size);
-            } else if (!attachment.isImage) {
-                openPendingFileViewer(index);
-            }
-        });
+                if (e.target.closest(".attachment-chip-remove")) {
+                    removeAttachmentAt(index);
+                    return;
+                }
+                if (attachment.isImage && attachment.previewUrl) {
+                    openAttachmentImageViewer(attachment.previewUrl, attachment.name, attachment.size);
+                } else if (!attachment.isImage) {
+                    openPendingFileViewer(index);
+                }
+            });
+        }
 
-        document.getElementById("attach-input").addEventListener("change", (e) => {
-            addAttachments(e.target.files);
-            e.target.value = ""; // allow re-selecting the same file later
-        });
+        const attachInputEl = document.getElementById("attach-input");
+        if (attachInputEl) {
+            attachInputEl.addEventListener("change", (e) => {
+                addAttachments(e.target.files);
+                e.target.value = ""; // allow re-selecting the same file later
+            });
+        }
 
         // ----- Paste (Ctrl+V) - ChatGPT-style clipboard image paste -----
-        document.getElementById("user-input").addEventListener("paste", (e) => {
-            const items = e.clipboardData && e.clipboardData.items;
-            if (!items) return;
-            let pastedImage = false;
-            for (const item of items) {
-                if (item.kind === "file" && item.type.startsWith("image/")) {
-                    const file = item.getAsFile();
-                    if (!file) continue;
-                    const ext = (item.type.split("/")[1] || "png").replace("jpeg", "jpg");
-                    const hasRealName = file.name && !/^image\.(png|jpe?g)$/i.test(file.name);
-                    const named = hasRealName ? file : new File([file], `pasted-image-${Date.now()}.${ext}`, { type: file.type });
-                    addAttachment(named);
-                    pastedImage = true;
+        const pasteUserInput = document.getElementById("user-input");
+        if (pasteUserInput) {
+            pasteUserInput.addEventListener("paste", (e) => {
+                const items = e.clipboardData && e.clipboardData.items;
+                if (!items) return;
+                let pastedImage = false;
+                for (const item of items) {
+                    if (item.kind === "file" && item.type.startsWith("image/")) {
+                        const file = item.getAsFile();
+                        if (!file) continue;
+                        const ext = (item.type.split("/")[1] || "png").replace("jpeg", "jpg");
+                        const hasRealName = file.name && !/^image\.(png|jpe?g)$/i.test(file.name);
+                        const named = hasRealName ? file : new File([file], `pasted-image-${Date.now()}.${ext}`, { type: file.type });
+                        addAttachment(named);
+                        pastedImage = true;
+                    }
                 }
-            }
-            if (pastedImage) e.preventDefault();
-        });
+                if (pastedImage) e.preventDefault();
+            });
+        }
 
         // ----- Drag & Drop -----
         (function setupDragAndDrop() {
@@ -4011,7 +4022,7 @@
             setStatus("status-processing", "PROCESSING...");
 
             const welcomeContainer = document.querySelector('.welcome-container');
-            if (welcomeContainer) welcomeContainer.style.display = 'none';
+            if (welcomeContainer) welcomeContainer.remove();
 
             let modelId =
                 document.getElementById("model-selector")?.value ||
@@ -5325,12 +5336,23 @@
                 });
             });
 
-            // Kept in sync with UserProfile.THEME_CHOICES (chat/models.py) -
-            // this used to only list 4 of the 10 real themes.
+            // Kept in sync with UserProfile.THEME_CHOICES (chat/models.py)
             const themeNames = {
-                cyberpunk: 'Cyber Dark (default)', 'midnight-purple': 'Midnight', 'matrix-green': 'Matrix',
-                nord: 'Nord', synthwave: 'Synthwave', 'purple-neon': 'Purple Neon', ocean: 'Ocean',
-                'minimal-dark': 'Minimal Dark', graphite: 'Graphite', light: 'Light',
+                'cyberpunk': 'Cyber Dark (default)',
+                'chatgpt': 'ChatGPT Dark',
+                'claude': 'Claude Warm Dark',
+                'gemini': 'Gemini Deep Cosmos',
+                'monaco-grand': 'Monaco 24K Gold',
+                'porsche-chalk': 'Porsche Chalk',
+                'carbon-stealth': 'Carbon Stealth',
+                'minimal-dark': 'Minimal Dark',
+                'graphite': 'Graphite',
+                'nord': 'Nord',
+                'oled-black': 'OLED Black',
+                'midnight-purple': 'Midnight',
+                'neon-green': 'Neon Green',
+                'crimson-red': 'Crimson Red',
+                'emerald': 'Emerald',
             };
             Object.entries(themeNames).forEach(([value, name]) => {
                 items.push({
@@ -6007,7 +6029,7 @@
                 });
         }
 
-        const SYSTEM_STATS_INTERVAL_MS = 5000;
+        const SYSTEM_STATS_INTERVAL_MS = 12000;
         let statsInterval = null;
         function startStatsPolling() {
             if (statsInterval) return;
@@ -6067,88 +6089,68 @@
 
         // ===== SIMBA MIC VOICE SYSTEM =====
 
-        const micBtn = document.getElementById("micBtn")
-        const inputBox = document.getElementById("user-input")
-        const waveContainer = document.getElementById("wave-container")
+        const micBtn = document.getElementById("micBtn");
+        const inputBox = document.getElementById("user-input");
+        const waveContainer = document.getElementById("wave-container");
 
-        let recognition
-        let listening = false
-
+        let recognition;
+        let listening = false;
 
         // ---- SPEECH ENGINE (Unified with SIMBA Desktop Agent Pipeline) ----
-        if ('webkitSpeechRecognition' in window) {
-
-            recognition = new webkitSpeechRecognition()
-
-            recognition.continuous = true
-            recognition.interimResults = true
-            recognition.lang = "en-US"
+        if (micBtn && inputBox && ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)) {
+            const SpeechRecClass = window.SpeechRecognition || window.webkitSpeechRecognition;
+            recognition = new SpeechRecClass();
+            recognition.continuous = true;
+            recognition.interimResults = true;
+            recognition.lang = "en-US";
 
             recognition.onstart = () => {
-                micBtn.classList.add("mic-active")
-                if (waveContainer) {
-                    waveContainer.style.display = "flex"
-                }
-            }
+                if (micBtn) micBtn.classList.add("mic-active");
+                if (waveContainer) waveContainer.style.display = "flex";
+            };
 
             recognition.onresult = (event) => {
-                let transcript = ""
-
+                let transcript = "";
                 for (let i = event.resultIndex; i < event.results.length; i++) {
-                    transcript += event.results[i][0].transcript
+                    transcript += event.results[i][0].transcript;
                 }
-
-                transcript = transcript.trim()
-
-                // show live speech
-                inputBox.value = transcript
+                transcript = transcript.trim();
+                if (inputBox) inputBox.value = transcript;
 
                 if (event.results[event.results.length - 1].isFinal) {
                     const finalTranscript = transcript;
-                    inputBox.value = finalTranscript;
+                    if (inputBox) inputBox.value = finalTranscript;
                     listening = false;
-                    try {
-                        recognition.stop();
-                    } catch (e) { }
+                    try { recognition.stop(); } catch (e) { }
 
                     // Feed directly into the unified Agent / Chat pipeline
                     if (finalTranscript) {
                         sendQuery(finalTranscript);
                     }
                 }
-            }
+            };
 
             recognition.onend = () => {
-                micBtn.classList.remove("mic-active")
-                if (waveContainer) {
-                    waveContainer.style.display = "none"
-                }
+                if (micBtn) micBtn.classList.remove("mic-active");
+                if (waveContainer) waveContainer.style.display = "none";
                 if (listening) {
-                    try {
-                        recognition.start()
-                    } catch (e) { }
+                    try { recognition.start(); } catch (e) { }
                 }
-            }
+            };
         }
 
-
         // ---- MIC BUTTON ----
-        micBtn.onclick = () => {
-
-            if (!recognition) return
-
-            if (!listening) {
-
-                listening = true
-                recognition.start()
-
-            } else {
-
-                listening = false
-                recognition.stop()
-
-            }
-
+        if (micBtn) {
+            micBtn.onclick = () => {
+                if (!recognition) return;
+                if (!listening) {
+                    listening = true;
+                    try { recognition.start(); } catch (e) { }
+                } else {
+                    listening = false;
+                    try { recognition.stop(); } catch (e) { }
+                }
+            };
         }
 
 
@@ -6171,171 +6173,7 @@
 
         // ================= Professional Contextual Quick Action Engine =================
         const QUICK_ACTION_REGISTRY = {
-            'explain-pdf': {
-                id: 'explain-pdf',
-                label: 'Explain PDF',
-                icon: 'fa-solid fa-file-pdf',
-                category: 'understand',
-                mode: 'document',
-                badge: 'PDF Document Analysis',
-                placeholder: 'Attach a PDF or ask about your document...',
-                workflow: 'pdf',
-                description: 'Analyze, explain, or extract data from PDF files'
-            },
-            'analyze-image': {
-                id: 'analyze-image',
-                label: 'Analyze Image',
-                icon: 'fa-solid fa-image',
-                category: 'understand',
-                mode: 'vision',
-                badge: 'Vision Analysis',
-                placeholder: 'Attach an image or describe what to analyze...',
-                workflow: 'image-analysis',
-                description: 'Perform AI vision inspection on images or charts'
-            },
-            'write-code': {
-                id: 'write-code',
-                label: 'Write Code',
-                icon: 'fa-solid fa-code',
-                category: 'create',
-                mode: 'coding',
-                badge: 'Code Generator',
-                placeholder: 'Describe the code or function you want to create...',
-                workflow: 'coding',
-                description: 'Generate production-ready code in any language'
-            },
-            'debug-code': {
-                id: 'debug-code',
-                label: 'Debug Code',
-                icon: 'fa-solid fa-bug',
-                category: 'develop',
-                mode: 'diagnostics',
-                badge: 'Diagnostics & Debug',
-                placeholder: 'Paste your code snippet or describe the error...',
-                workflow: 'debug',
-                description: 'Find bugs, trace exceptions, and get fixes'
-            },
-            'generate-image': {
-                id: 'generate-image',
-                label: 'Generate Image',
-                icon: 'fa-solid fa-wand-magic-sparkles',
-                category: 'create',
-                mode: 'image',
-                badge: 'Image Studio',
-                placeholder: 'Describe the image you want to generate...',
-                workflow: 'image-gen',
-                description: 'Create high-resolution AI artwork via Image Studio'
-            },
-            'build-react-app': {
-                id: 'build-react-app',
-                label: 'Build React App',
-                icon: 'fa-brands fa-react',
-                category: 'develop',
-                mode: 'frontend',
-                badge: 'React App Builder',
-                placeholder: 'Describe the React app or UI component you want to build...',
-                workflow: 'frontend',
-                description: 'Scaffold interactive modern React web applications'
-            },
-            'sql-query': {
-                id: 'sql-query',
-                label: 'SQL Query',
-                icon: 'fa-solid fa-database',
-                category: 'develop',
-                mode: 'database',
-                badge: 'SQL & Database',
-                placeholder: 'Describe the SQL query or database problem...',
-                workflow: 'database',
-                description: 'Write, optimize, and explain SQL queries'
-            },
-            'summarize-notes': {
-                id: 'summarize-notes',
-                label: 'Summarize Notes',
-                icon: 'fa-solid fa-file-invoice',
-                category: 'understand',
-                mode: 'memory',
-                badge: 'Summarization',
-                placeholder: 'Paste notes or attach a document to summarize...',
-                workflow: 'summarize',
-                description: 'Synthesize meeting notes, articles, or transcripts'
-            },
-            'refactor-code': {
-                id: 'refactor-code',
-                label: 'Refactor Code',
-                icon: 'fa-solid fa-arrows-rotate',
-                category: 'develop',
-                mode: 'coding',
-                badge: 'Code Refactor',
-                placeholder: 'Paste the code you want to optimize and refactor...',
-                workflow: 'coding',
-                description: 'Clean up code architecture, naming, and patterns'
-            },
-            'test-code': {
-                id: 'test-code',
-                label: 'Test Code',
-                icon: 'fa-solid fa-vial-circle-check',
-                category: 'develop',
-                mode: 'coding',
-                badge: 'Test Suite Generator',
-                placeholder: 'Paste code to generate unit & integration tests...',
-                workflow: 'coding',
-                description: 'Generate unit tests and edge-case assertions'
-            },
-            'explain-code': {
-                id: 'explain-code',
-                label: 'Explain Code',
-                icon: 'fa-solid fa-circle-question',
-                category: 'understand',
-                mode: 'coding',
-                badge: 'Code Explanation',
-                placeholder: 'Paste the code you want explained step-by-step...',
-                workflow: 'coding',
-                description: 'Break down complex logic into clear explanations'
-            },
-            'extract-text': {
-                id: 'extract-text',
-                label: 'Extract Text (OCR)',
-                icon: 'fa-solid fa-font',
-                category: 'understand',
-                mode: 'vision',
-                badge: 'Text Extraction OCR',
-                placeholder: 'Attach an image or screenshot to extract text from...',
-                workflow: 'image-analysis',
-                description: 'Extract readable text and tabular data from images'
-            },
-            'describe-image': {
-                id: 'describe-image',
-                label: 'Describe Image',
-                icon: 'fa-solid fa-eye',
-                category: 'understand',
-                mode: 'vision',
-                badge: 'Visual Description',
-                placeholder: 'Attach an image to get a detailed scene description...',
-                workflow: 'image-analysis',
-                description: 'Generate detailed accessibility and visual descriptions'
-            },
-            'optimize-query': {
-                id: 'optimize-query',
-                label: 'Optimize Query',
-                icon: 'fa-solid fa-gauge-high',
-                category: 'develop',
-                mode: 'database',
-                badge: 'Query Optimization',
-                placeholder: 'Paste the slow SQL query and table schemas to optimize...',
-                workflow: 'database',
-                description: 'Improve database indexes, joins, and query plan speed'
-            },
-            'extract-key-points': {
-                id: 'extract-key-points',
-                label: 'Extract Key Points',
-                icon: 'fa-solid fa-list-check',
-                category: 'understand',
-                mode: 'document',
-                badge: 'Key Points Extraction',
-                placeholder: 'Attach a document or paste text to extract key bullet points...',
-                workflow: 'pdf',
-                description: 'Pull high-impact takeaways from lengthy text'
-            }
+            
         };
 
         let activeTaskMode = null;
@@ -6475,10 +6313,10 @@
 
         let showAllQuickActions = false;
 
-        function toggleMoreQuickActions() {
-            showAllQuickActions = !showAllQuickActions;
-            renderQuickActions();
-        }
+        // function toggleMoreQuickActions() {
+        //     showAllQuickActions = !showAllQuickActions;
+        //     renderQuickActions();
+        // }
 
         function filterQuickActions(category) {
             currentActionCategory = category;
@@ -6495,14 +6333,15 @@
             const container = document.getElementById('qcCommandsContainer');
             if (!container) return;
 
-            const ctx = detectCurrentChatContext();
             let actionIds = [];
+            const CORE_CAP_IDS = ['generate-image', 'explain-pdf', 'analyze-image', 'write-code', 'debug-code'];
+            const EXTENDED_CAP_IDS = ['build-react-app', 'sql-query', 'summarize-notes'];
 
             if (currentActionCategory === 'all') {
                 if (showAllQuickActions) {
-                    actionIds = Object.keys(QUICK_ACTION_REGISTRY);
+                    actionIds = [...CORE_CAP_IDS, ...EXTENDED_CAP_IDS];
                 } else {
-                    actionIds = getContextPrioritizedActionIds(ctx).slice(0, 8);
+                    actionIds = CORE_CAP_IDS;
                 }
             } else {
                 actionIds = Object.keys(QUICK_ACTION_REGISTRY).filter(id => {
@@ -6513,25 +6352,25 @@
             let chipsHTML = actionIds.map(id => {
                 const a = QUICK_ACTION_REGISTRY[id];
                 if (!a) return '';
-                return `<button type="button" class="qc-chip" data-action="${a.id}" data-mode="${a.mode}" onclick="activateQuickAction('${a.id}')" title="${escapeHtml(a.description || a.label)}" aria-label="${escapeHtml(a.label)}">
-                        <span class="qc-chip-icon"><i class="${a.icon}"></i></span>
+                return `<button type="button" class="simba-zen-cap qc-chip" data-action="${a.id}" data-mode="${a.mode}" onclick="activateQuickAction('${a.id}')" title="${escapeHtml(a.description || a.label)}" aria-label="${escapeHtml(a.label)}">
+                        <span class="simba-zen-cap-icon qc-chip-icon"><i class="${a.icon}"></i></span>
                         <span>${escapeHtml(a.label)}</span>
                     </button>`;
             }).join('');
 
-            if (currentActionCategory === 'all') {
-                if (showAllQuickActions) {
-                    chipsHTML += `<button type="button" class="qc-chip qc-chip-more" onclick="toggleMoreQuickActions()" title="Show fewer assistant actions" aria-label="Show fewer actions">
-                            <span class="qc-chip-icon"><i class="fa-solid fa-chevron-up"></i></span>
-                            <span>Less</span>
-                        </button>`;
-                } else {
-                    chipsHTML += `<button type="button" class="qc-chip qc-chip-more" onclick="toggleMoreQuickActions()" title="View all available assistant actions" aria-label="View all actions">
-                            <span class="qc-chip-icon"><i class="fa-solid fa-ellipsis"></i></span>
-                            <span>More</span>
-                        </button>`;
-                }
-            }
+            // if (currentActionCategory === 'all') {
+            //     if (showAllQuickActions) {
+            //         chipsHTML += `<button type="button" class="simba-zen-cap qc-chip qc-chip-more" onclick="toggleMoreQuickActions()" title="Show fewer capabilities" aria-label="Show fewer capabilities">
+            //                 <span class="simba-zen-cap-icon qc-chip-icon"><i class="fa-solid fa-chevron-up"></i></span>
+            //                 <span>Less</span>
+            //             </button>`;
+            //     } else {
+            //         chipsHTML += `<button type="button" class="simba-zen-cap qc-chip qc-chip-more" onclick="toggleMoreQuickActions()" title="View more capabilities" aria-label="View more capabilities">
+            //                 <span class="simba-zen-cap-icon qc-chip-icon"><i class="fa-solid fa-ellipsis"></i></span>
+            //                 <span>More</span>
+            //             </button>`;
+            //     }
+            // }
 
             container.innerHTML = chipsHTML;
 
@@ -6727,13 +6566,15 @@
             { section: 'Bookmarks & Prompts', title: 'Open Prompt Library', subtitle: 'Browse and run reusable prompt templates', icon: 'fa-solid fa-book-bookmark', badge: 'Prompts', action: () => { openPromptLibrary(); } },
             { section: 'Bookmarks & Prompts', title: 'Save Prompt to Library', subtitle: 'Store current composer text', icon: 'fa-solid fa-floppy-disk', badge: 'Save', action: () => { savePromptFromComposer(); } },
 
-            { section: 'Themes & Visuals', title: 'Theme: Cyberpunk (Cyan)', subtitle: 'Default futuristic cyan glow', icon: 'fa-solid fa-palette', badge: 'Theme', action: () => { applySimbaTheme('cyberpunk'); } },
+            { section: 'Themes & Visuals', title: 'Theme: Cyber Dark', subtitle: 'Default futuristic cyan glow', icon: 'fa-solid fa-palette', badge: 'Theme', action: () => { applySimbaTheme('cyberpunk'); } },
+            { section: 'Themes & Visuals', title: 'Theme: ChatGPT Dark', subtitle: 'OpenAI authentic slate & mint', icon: 'fa-solid fa-palette', badge: 'Theme', action: () => { applySimbaTheme('chatgpt'); } },
+            { section: 'Themes & Visuals', title: 'Theme: Claude Warm Dark', subtitle: 'Anthropic warm ivory & terracotta', icon: 'fa-solid fa-palette', badge: 'Theme', action: () => { applySimbaTheme('claude'); } },
+            { section: 'Themes & Visuals', title: 'Theme: Gemini Deep Cosmos', subtitle: 'Google cosmic indigo & celestial sparkle', icon: 'fa-solid fa-palette', badge: 'Theme', action: () => { applySimbaTheme('gemini'); } },
+            { section: 'Themes & Visuals', title: 'Theme: Monaco 24K Gold', subtitle: 'Riviera high-roller luxury', icon: 'fa-solid fa-coins', badge: 'Theme', action: () => { applySimbaTheme('monaco-grand'); } },
+            { section: 'Themes & Visuals', title: 'Theme: Porsche Chalk', subtitle: 'Stuttgart automotive slate platinum', icon: 'fa-solid fa-car', badge: 'Theme', action: () => { applySimbaTheme('porsche-chalk'); } },
+            { section: 'Themes & Visuals', title: 'Theme: Carbon Stealth', subtitle: 'Bespoke matte carbon & diamond silver', icon: 'fa-solid fa-shield-halved', badge: 'Theme', action: () => { applySimbaTheme('carbon-stealth'); } },
+            { section: 'Themes & Visuals', title: 'Theme: OLED Black', subtitle: 'Pitch black high-contrast OLED', icon: 'fa-solid fa-moon', badge: 'Theme', action: () => { applySimbaTheme('oled-black'); } },
             { section: 'Themes & Visuals', title: 'Theme: Midnight Purple', subtitle: 'Deep cosmic violet ambient palette', icon: 'fa-solid fa-palette', badge: 'Theme', action: () => { applySimbaTheme('midnight-purple'); } },
-            { section: 'Themes & Visuals', title: 'Theme: Matrix Green', subtitle: 'Terminal phosphor emerald matrix', icon: 'fa-solid fa-palette', badge: 'Theme', action: () => { applySimbaTheme('matrix-green'); } },
-            { section: 'Themes & Visuals', title: 'Theme: Cyber Orange', subtitle: 'Amber industrial tech glow', icon: 'fa-solid fa-palette', badge: 'Theme', action: () => { applySimbaTheme('cyber-orange'); } },
-            { section: 'Themes & Visuals', title: 'Theme: Ocean Cyan', subtitle: 'Deep sea aquamarine interface', icon: 'fa-solid fa-palette', badge: 'Theme', action: () => { applySimbaTheme('ocean'); } },
-            { section: 'Themes & Visuals', title: 'Theme: Nord Frost', subtitle: 'Arctic muted blue-grey palette', icon: 'fa-solid fa-palette', badge: 'Theme', action: () => { applySimbaTheme('nord'); } },
-            { section: 'Themes & Visuals', title: 'Theme: Light Mode', subtitle: 'Clean high-contrast crisp theme', icon: 'fa-solid fa-sun', badge: 'Theme', action: () => { applySimbaTheme('light'); } },
 
             { section: 'Slash Commands', title: '/agent <task>', subtitle: 'Direct desktop agent automation task', icon: 'fa-solid fa-terminal', badge: 'Command', action: () => { focusComposerWithText('/agent '); } },
             { section: 'Slash Commands', title: '/voice <text>', subtitle: 'Synthesize audio response', icon: 'fa-solid fa-wave-square', badge: 'Command', action: () => { focusComposerWithText('/voice '); } },
@@ -6866,11 +6707,16 @@
         }
 
         // Keyboard navigation for Command Palette (Ctrl+K, Cmd+K, Ctrl+Shift+P)
-        document.addEventListener('keydown', (e) => {
-            const isK = (e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k';
-            const isP = (e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 'p';
+        window.openCommandPalette = openCommandPalette;
+        window.closeCommandPalette = closeCommandPalette;
+
+        // Use capture phase (true) so global shortcuts execute before any child element intercepts
+        window.addEventListener('keydown', (e) => {
+            const isK = (e.ctrlKey || e.metaKey) && (e.key.toLowerCase() === 'k' || e.code === 'KeyK');
+            const isP = (e.ctrlKey || e.metaKey) && e.shiftKey && (e.key.toLowerCase() === 'p' || e.code === 'KeyP');
             if (isK || isP) {
                 e.preventDefault();
+                e.stopPropagation();
                 e.stopImmediatePropagation();
                 const modal = document.getElementById('commandPalette');
                 if (modal && (modal.classList.contains('active') || modal.classList.contains('show'))) {
@@ -6903,9 +6749,9 @@
                 e.preventDefault();
                 executePaletteItem(paletteActiveIndex);
             }
-        });
+        }, true);
 
-        // Global Shortcut: Ctrl + Windows key (or Alt+M or Ctrl+Shift+V) -> Toggle Voice Agent Mic
+        // Global Shortcut: F2, Ctrl+Space, Ctrl+Windows, Alt+M, or Ctrl+Shift+V -> Toggle Voice Agent Mic
         window.toggleVoiceListening = function () {
             if (typeof toggleVoiceAgentListening === 'function') {
                 toggleVoiceAgentListening();
@@ -6917,19 +6763,25 @@
             }
         };
 
-        document.addEventListener('keydown', (e) => {
+        window.addEventListener('keydown', (e) => {
+            // Function Key F2 (or F4)
+            const isFunctionKey = (e.key === 'F2' || e.code === 'F2' || e.key === 'F4' || e.code === 'F4');
+            // Ctrl + Space
+            const isCtrlSpace = (e.ctrlKey || e.metaKey) && (e.code === 'Space' || e.key === ' ');
+            // Ctrl + Windows Key
             const isWin = e.key === 'Meta' || e.key === 'OS' || e.code === 'MetaLeft' || e.code === 'MetaRight';
             const isCtrl = e.key === 'Control' || e.code === 'ControlLeft' || e.code === 'ControlRight';
             const hasWin = e.metaKey || isWin;
             const hasCtrl = e.ctrlKey || isCtrl;
-
             const isCtrlWin = (hasWin && hasCtrl && (isWin || isCtrl));
+            // Alt + M or Ctrl + Shift + V
             const isAltM = (e.altKey && (e.code === 'KeyM' || e.key === 'm' || e.key === 'M'));
             const isCtrlShiftV = (e.ctrlKey && e.shiftKey && (e.code === 'KeyV' || e.key === 'v' || e.key === 'V'));
 
-            if (isCtrlWin || isAltM || isCtrlShiftV) {
+            if (isFunctionKey || isCtrlSpace || isCtrlWin || isAltM || isCtrlShiftV) {
                 e.preventDefault();
                 e.stopPropagation();
+                e.stopImmediatePropagation();
                 const currentType = new URLSearchParams(window.location.search).get('type') || '{{ session_type|default:"assistant" }}';
                 if (currentType === 'voice') {
                     if (typeof toggleVoiceAgentListening === 'function') {
@@ -6939,7 +6791,7 @@
                     window.location.href = '/?type=voice&autolisten=1';
                 }
             }
-        });
+        }, true);
 
         function updatePaletteActiveDOM() {
             const items = document.querySelectorAll('.palette-item');
@@ -8850,45 +8702,16 @@
             });
         };
 
-        window.submitDirectAgentTask = function () {
-            const input = document.getElementById('agentDirectInput');
-            if (!input) return;
-            const text = (input.value || '').trim();
-            if (!text) {
-                if (typeof showSimbaToast === 'function') {
-                    showSimbaToast('Please enter an objective or prompt for the agent', 'warning', 2500);
-                }
-                input.focus();
-                return;
-            }
-            const composerInput = document.getElementById('user-input');
-            if (composerInput) {
-                composerInput.value = text;
-                if (typeof autoResizeComposerInput === 'function') autoResizeComposerInput(composerInput);
-            }
-            input.value = '';
-            if (typeof logAgentTerminal === 'function') {
-                logAgentTerminal('STEP', 'Submitted mission: "' + text.slice(0, 60) + (text.length > 60 ? '...' : '') + '"');
-            }
-            if (typeof sendQuery === 'function') {
-                sendQuery();
-            }
-        };
 
-        window.handleAgentDirectInputKeyDown = function (e) {
-            if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                window.submitDirectAgentTask();
-            }
-        };
 
         window.fillAgentDirectPrompt = function (text) {
-            const input = document.getElementById('agentDirectInput');
+            const input = document.getElementById('user-input') || document.getElementById('agentDirectInput');
             if (input) {
                 input.value = text;
                 input.focus();
+                if (typeof autoResizeComposerInput === 'function') autoResizeComposerInput(input);
                 if (typeof showSimbaToast === 'function') {
-                    showSimbaToast('Preset loaded into mission console', 'info', 2000);
+                    showSimbaToast('Mission loaded into composer - press Enter to engage', 'info', 2000);
                 }
             }
         };
@@ -9096,10 +8919,10 @@
             }
             // Run initial check immediately
             window.syncDesktopAgentStatus(true);
-            // Poll every 4 seconds for real-time transitions
+            // Poll every 8 seconds for background status sync without hammering the thread
             _pcStatusInterval = setInterval(function () {
                 window.syncDesktopAgentStatus(false);
-            }, 4000);
+            }, 8000);
         };
 
         window.stopDesktopAgentPolling = function () {
@@ -9506,6 +9329,9 @@
             _voiceSpeechRate = parseFloat(rate) || 1.0;
             localStorage.setItem('simba_voice_rate', String(_voiceSpeechRate));
 
+            const lbl = document.getElementById('voiceSpeedLabel');
+            if (lbl) lbl.textContent = _voiceSpeechRate.toFixed(1) + 'x';
+
             const pills = document.querySelectorAll('.voice-speed-pill');
             pills.forEach(p => {
                 if (parseFloat(p.getAttribute('data-rate')) === _voiceSpeechRate) {
@@ -9518,6 +9344,20 @@
             if (typeof showSimbaToast === 'function') {
                 showSimbaToast(`Speech rate: ${_voiceSpeechRate}x`, 'info', 1800);
             }
+        };
+
+        window.cycleVoiceSpeed = function () {
+            const speeds = [1.0, 1.2, 1.5, 0.8];
+            let current = _voiceSpeechRate || 1.0;
+            let nextIndex = 0;
+            for (let i = 0; i < speeds.length; i++) {
+                if (Math.abs(speeds[i] - current) < 0.05) {
+                    nextIndex = (i + 1) % speeds.length;
+                    break;
+                }
+            }
+            const nextSpeed = speeds[nextIndex];
+            setVoiceSpeechRate(nextSpeed);
         };
 
         window.setVoiceInputMode = function (mode) {
@@ -10419,22 +10259,60 @@
         };
 
         window.toggleVoiceAgentListening = function () {
-            if (!voiceRecognition) initVoiceAgent();
-            if (!voiceRecognition) {
-                showSimbaToast("Speech recognition is not supported in this browser. Please use Chrome or Edge.", "warning", 3500);
+            // Immediate AudioContext unlock on direct user interaction
+            try {
+                const ctx = getAudioContext();
+                if (ctx && ctx.state === 'suspended') ctx.resume();
+            } catch (_) { }
+
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            if (!SpeechRecognition) {
+                showSimbaToast("Speech recognition is not supported in this browser. Please use Chrome or Edge.", "warning", 4500);
+                const heroStatus = document.getElementById('voiceHeroStatus');
+                if (heroStatus) heroStatus.textContent = 'BROWSER NOT SUPPORTED';
+                const heroSub = document.getElementById('voiceHeroSubtext');
+                if (heroSub) heroSub.textContent = 'Voice recognition requires Google Chrome or Microsoft Edge.';
                 return;
             }
+
+            if (!voiceRecognition) initVoiceAgent();
             simbaStopSpeaking(false);
+
             if (isVoiceListening) {
-                cancelVoiceInteraction('User stopped listening');
+                if (typeof playVoiceSfx === 'function') playVoiceSfx('listen_stop');
+                stopVoiceListening();
             } else {
-                if (window.simbaVoiceState.status !== 'READY') {
-                    window.simbaVoiceStateMachine.transition('READY');
+                // Immediate tactical UI activation so user never feels "nothing clicked"
+                const micBtn = document.getElementById('voiceMainMicBtn');
+                if (micBtn) micBtn.classList.add('active');
+                const vis = document.getElementById('voiceVisualizerContainer');
+                if (vis) vis.classList.add('active');
+                const heroStatus = document.getElementById('voiceHeroStatus');
+                if (heroStatus) heroStatus.textContent = 'LISTENING...';
+                const heroSub = document.getElementById('voiceHeroSubtext');
+                if (heroSub) heroSub.textContent = 'Listening to your voice... Speak now';
+                if (typeof playVoiceSfx === 'function') playVoiceSfx('listen_start');
+
+                if (window.simbaVoiceState && window.simbaVoiceState.status !== 'READY') {
+                    if (window.simbaVoiceStateMachine) {
+                        try { window.simbaVoiceStateMachine.transition('READY'); } catch (_) { }
+                    }
                 }
+
                 try {
                     voiceRecognition.start();
                 } catch (e) {
-                    try { voiceRecognition.stop(); voiceRecognition.start(); } catch (_) { }
+                    if (e.name === 'InvalidStateError') {
+                        isVoiceListening = true;
+                    } else {
+                        console.warn('[Voice] recognition start retry:', e);
+                        try {
+                            voiceRecognition.abort();
+                            setTimeout(() => {
+                                try { voiceRecognition.start(); } catch (_) { }
+                            }, 50);
+                        } catch (_) { }
+                    }
                 }
             }
         };
@@ -10444,6 +10322,14 @@
                 try { voiceRecognition.stop(); } catch (e) { }
             }
             isVoiceListening = false;
+            const micBtn = document.getElementById('voiceMainMicBtn');
+            if (micBtn) micBtn.classList.remove('active', 'processing', 'speaking');
+            const vis = document.getElementById('voiceVisualizerContainer');
+            if (vis) vis.classList.remove('active', 'processing', 'speaking');
+            const heroStatus = document.getElementById('voiceHeroStatus');
+            if (heroStatus) heroStatus.textContent = 'READY TO LISTEN';
+            const heroSub = document.getElementById('voiceHeroSubtext');
+            if (heroSub) heroSub.textContent = 'Tap the orb or press F2 to speak to SIMBA';
             cancelVoiceInteraction('Listening stopped by user');
         };
 

@@ -75,9 +75,9 @@ MIDDLEWARE = [
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
-    # Needs request.user (set by AuthenticationMiddleware above) to let
-    # superusers through during an active kill switch.
     'chat.middleware.MaintenanceModeMiddleware',
+    # Activates the authenticated user's UserProfile.timezone for proper local timestamps
+    'chat.middleware.TimezoneMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'allauth.account.middleware.AccountMiddleware',

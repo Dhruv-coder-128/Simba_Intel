@@ -1206,14 +1206,14 @@ class UserProfileTests(TestCase):
         response = self.client.post(reverse("profile_settings"), {
             "display_name": "Dhruv S",
             "default_model": "sky-net",
-            "theme": "matrix-green",
+            "theme": "chatgpt",
             "memory_enabled": "on",
         })
         self.assertEqual(response.status_code, 302)
         profile = UserProfile.objects.get(user=self.user)
         self.assertEqual(profile.display_name, "Dhruv S")
         self.assertEqual(profile.default_model, "sky-net")
-        self.assertEqual(profile.theme, "matrix-green")
+        self.assertEqual(profile.theme, "chatgpt")
         self.assertTrue(profile.memory_enabled)
         self.assertFalse(profile.notifications_enabled)  # unchecked checkbox
 
@@ -1238,10 +1238,11 @@ class UserProfileTests(TestCase):
 
     def test_session_selection_still_overrides_profile_default(self):
         UserProfile.objects.update_or_create(user=self.user, defaults={"default_model": "sky-net"})
+        session_obj = ChatSession.objects.create(user=self.user, title="Existing Session")
         session = self.client.session
         session["selected_model"] = "nova-mind"
         session.save()
-        response = self.client.get(reverse("home"))
+        response = self.client.get(reverse("home") + f"?session={session_obj.id}")
         self.assertEqual(response.context["selected_model"], "nova-mind")
 
     def test_theme_rendered_on_html_tag(self):

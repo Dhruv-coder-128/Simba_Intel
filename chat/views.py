@@ -866,7 +866,7 @@ def clear_memory(request):
     return JsonResponse({"status": "success", "deleted": count})
 
 
-def compute_analytics_metrics(user, range_param='all'):
+def compute_analytics_metrics(user, range_param='30d'):
     """Central analytics computation engine for Simba Intel.
     Calculates aggregated metrics, time series, performance stats, and intelligence
     insights across UsageEvent, ChatSession, and Message tables without N+1 queries.
@@ -882,8 +882,11 @@ def compute_analytics_metrics(user, range_param='all'):
     now = timezone.now()
     today = timezone.localdate()
 
-    # Time range filtering
-    start_cutoff = None
+    # Time range filtering (default: 30 days)
+    if range_param not in ('today', '7d', '30d'):
+        range_param = '30d'
+
+    start_cutoff = now - timedelta(days=30)
     if range_param == 'today':
         start_cutoff = timezone.make_aware(timezone.datetime.combine(today, timezone.datetime.min.time()))
     elif range_param == '7d':
@@ -1050,24 +1053,41 @@ def compute_analytics_metrics(user, range_param='all'):
         monthly_series.append({'label': key, 'requests': monthly_by_key.get(key, 0)})
 
     # Heatmap and Latency Histogram
-    raw_pairs = list(events.values_list('created_at', 'latency'))
+    user_tz = None
+    if user and hasattr(user, 'profile') and user.profile.timezone:
+        try:
+            import zoneinfo
+            user_tz = zoneinfo.ZoneInfo(user.profile.timezone)
+        except Exception:
+            user_tz = None
+    if not user_tz:
+        try:
+            user_tz = timezone.get_current_timezone()
+        except Exception:
+            user_tz = None
+
+    # Temporal Activity Heatmap: Use 30-day rolling activity to display true Day of Week × Hour distribution
+    heatmap_window_start = now - timedelta(days=30)
+    heatmap_events_qs = UsageEvent.objects.filter(user=user, success=True, created_at__gte=heatmap_window_start)
+    raw_heatmap_timestamps = list(heatmap_events_qs.values_list('created_at', flat=True))
     heatmap_counts = defaultdict(int)
-    latency_buckets = [0, 0, 0, 0, 0]  # <1s, 1-2s, 2-3s, 3-5s, 5s+
-    for created_at, latency in raw_pairs:
-        local_dt = timezone.localtime(created_at)
+    for created_at in raw_heatmap_timestamps:
+        local_dt = timezone.localtime(created_at, timezone=user_tz) if user_tz else timezone.localtime(created_at)
         heatmap_counts[(local_dt.weekday(), local_dt.hour)] += 1
-        if latency is None:
-            continue
-        elif latency < 1:
+
+    latency_buckets = [0, 0, 0, 0, 0]  # <1s, 1-2s, 2-3s, 3-5s, 5s+
+    for lat in events.exclude(latency__isnull=True).values_list('latency', flat=True):
+        if lat < 1:
             latency_buckets[0] += 1
-        elif latency < 2:
+        elif lat < 2:
             latency_buckets[1] += 1
-        elif latency < 3:
+        elif lat < 3:
             latency_buckets[2] += 1
-        elif latency < 5:
+        elif lat < 5:
             latency_buckets[3] += 1
         else:
             latency_buckets[4] += 1
+
     heatmap_data = [
         {'day': d, 'hour': h, 'count': c} for (d, h), c in heatmap_counts.items()
     ]
@@ -1164,7 +1184,9 @@ def analytics_dashboard(request):
         return redirect('home')
 
     profile = UserProfile.get_or_create_for(request.user)
-    range_param = request.GET.get('range', 'all').lower()
+    range_param = request.GET.get('range', '30d').lower()
+    if range_param not in ('today', '7d', '30d'):
+        range_param = '30d'
     metrics = compute_analytics_metrics(request.user, range_param=range_param)
     context = {'profile': profile, **metrics}
     return render(request, 'analytics.html', context)
@@ -1177,7 +1199,9 @@ def analytics_data_api(request):
     if not FeatureFlag.is_enabled('analytics', default=True):
         return JsonResponse({"error": "Analytics is temporarily disabled"}, status=403)
 
-    range_param = request.GET.get('range', 'all').lower()
+    range_param = request.GET.get('range', '30d').lower()
+    if range_param not in ('today', '7d', '30d'):
+        range_param = '30d'
     metrics = compute_analytics_metrics(request.user, range_param=range_param)
 
     recent_events_data = [
@@ -1240,7 +1264,18 @@ def analytics_export(request):
         return HttpResponseForbidden("Analytics disabled")
 
     export_format = request.GET.get('format', 'csv').lower()
-    events = UsageEvent.objects.filter(user=request.user).order_by('-created_at')
+    range_param = request.GET.get('range', '30d').lower()
+    if range_param not in ('today', '7d', '30d'):
+        range_param = '30d'
+
+    now = timezone.now()
+    start_cutoff = now - timedelta(days=30)
+    if range_param == 'today':
+        start_cutoff = timezone.make_aware(timezone.datetime.combine(timezone.localdate(), timezone.datetime.min.time()))
+    elif range_param == '7d':
+        start_cutoff = now - timedelta(days=7)
+
+    events = UsageEvent.objects.filter(user=request.user, created_at__gte=start_cutoff).order_by('-created_at')
 
     if export_format == 'json':
         import json

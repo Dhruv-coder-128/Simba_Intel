@@ -1,15 +1,16 @@
             <div class="agent-workspace agent-workspace-wrapper" id="agentWorkspace">
-                <!-- Agent Mode Header Row -->
+                <!-- Clean Executive Agent Header -->
                 <div class="agent-header-row">
                     <div class="agent-header-left">
                         <div class="agent-title-tag">
                             <span class="agent-pulse-dot"></span>
                             <span class="agent-mode-badge"><i class="fa-solid fa-robot"></i> AGENT MODE</span>
-                            <h2 class="agent-header-title">AGENT MODE</h2>
+                            <h2 class="agent-header-title">AUTONOMOUS AGENT</h2>
                         </div>
-                        <p class="agent-header-subtitle">Plan, execute, verify, and complete real tasks.</p>
+                        <p class="agent-header-subtitle">Plan, execute, and verify system automation.</p>
                     </div>
                     <div class="agent-header-right">
+                        <!-- Compact System Status Strip -->
                         <div class="agent-system-strip" role="status" aria-label="System status">
                             <span class="system-chip" title="Agent core online">
                                 <span class="status-dot dot-online"></span>
@@ -22,6 +23,7 @@
                                 <span id="pcStatusHeaderLabel">Desktop: <strong>{% if is_pc_connected %}Online{% else %}Offline{% endif %}</strong></span>
                             </span>
                         </div>
+                        <!-- Context Attachment -->
                         <div class="agent-context-dropdown-wrap" title="Attach previous conversation context">
                             <label for="agentContextSelect"><i class="fa-solid fa-paperclip"></i> Context:</label>
                             <select id="agentContextSelect" class="simba-select"
@@ -32,6 +34,7 @@
                                 {% endfor %}
                             </select>
                         </div>
+                        <!-- Tools & History Actions -->
                         <button type="button" class="btn-agent-header-action" onclick="openActionDiscoveryModal()"
                             title="Discover and search all registered tools">
                             <i class="fa-solid fa-toolbox"></i>
@@ -45,453 +48,373 @@
                     </div>
                 </div>
 
-                <!-- Section 1: System Status Surface -->
-                <div class="agent-section">
-                    <div class="agent-section-label">
-                        <i class="fa-solid fa-signal"></i> SYSTEM STATUS
-                    </div>
-                    <div class="agent-status-grid">
-                        <!-- Card 1: Agent Core -->
-                        <div class="agent-status-card">
-                            <div class="agent-card-top">
-                                <span class="agent-card-meta">AGENT CORE</span>
-                                <span class="agent-lifecycle-badge status-idle" id="agentLifecycleBadge">
-                                    <i class="fa-solid fa-circle-notch"></i>
-                                    <span id="agentLifecycleText">IDLE</span>
-                                </span>
+                <!-- Slim Desktop Bridge Notification Bar (Clean & Compact) -->
+                <div class="agent-bridge-banner {% if is_pc_connected %}online{% endif %}" id="agentBridgeBanner">
+                    <div class="bridge-banner-top-row">
+                        <div class="bridge-banner-left">
+                            <div class="bridge-beacon-wrap">
+                                <span class="bridge-beacon {% if is_pc_connected %}online{% endif %}" id="bridgeBeaconDot"></span>
+                                <i class="{% if is_pc_connected %}fa-brands fa-windows{% else %}fa-solid fa-tower-broadcast{% endif %}" id="bridgeBeaconIcon"></i>
                             </div>
-                            <div class="agent-card-desc" id="agentStatusDesc">
-                                Autonomous planner &amp; multi-step verification engine standing by.
-                            </div>
-                        </div>
-
-                        <!-- Card 2: Desktop Agent -->
-                        <div class="agent-status-card">
-                            <div class="agent-card-top">
-                                <span class="agent-card-meta">DESKTOP AGENT</span>
-                                <span id="pcStatusChip"
-                                    class="pc-status-chip {% if is_pc_connected %}connected{% else %}offline{% endif %}"
-                                    onclick="togglePcAgentModal()" title="Desktop Agent bridge status">
-                                    <span class="pc-dot"></span>
-                                    <span id="pcStatusChipLabel">
-                                        {% if is_pc_connected %}
-                                        <i class="fa-brands fa-windows"></i> Desktop Online
-                                        {% else %}
-                                        <i class="fa-solid fa-desktop"></i> Desktop Offline
-                                        {% endif %}
-                                    </span>
-                                </span>
-                            </div>
-                            <div class="agent-card-desc" id="pcStatusCardDesc">
-                                {% if is_pc_connected %}
-                                Active on {{ pc_telemetry.hostname|default:"Windows PC" }} ({{ pc_telemetry.platform|default:"Windows" }}). Local automation active.
-                                {% else %}
-                                Local computer control requires the Desktop Agent to be connected. Cloud tasks remain active.
-                                {% endif %}
-                            </div>
-                            <div style="margin-top:auto;">
-                                <button type="button" class="agent-card-action-btn" onclick="togglePcAgentModal()">
-                                    <i class="fa-solid fa-circle-question"></i> Connection Bridge
-                                </button>
-                            </div>
-                        </div>
-
-                        <!-- Card 3: Execution State -->
-                        <div class="agent-status-card">
-                            <div class="agent-card-top">
-                                <span class="agent-card-meta">EXECUTION STATE</span>
-                                <span class="agent-lifecycle-badge status-idle" id="agentExecutionBadge">
-                                    <i class="fa-solid fa-bolt"></i>
-                                    <span id="agentExecutionText">IDLE</span>
-                                </span>
-                            </div>
-                            <div class="agent-card-desc" id="agentExecutionDesc">
-                                Deterministic tool pipeline ready. No task currently running.
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Interactive Desktop Bridge Quick Launch Bar -->
-                    <div class="agent-bridge-banner {% if is_pc_connected %}online{% endif %}" id="agentBridgeBanner" style="margin-top:14px;">
-                        <div class="bridge-banner-top-row">
-                            <div class="bridge-banner-left">
-                                <div class="bridge-beacon-wrap">
-                                    <span class="bridge-beacon {% if is_pc_connected %}online{% endif %}" id="bridgeBeaconDot"></span>
-                                    <i class="{% if is_pc_connected %}fa-brands fa-windows{% else %}fa-solid fa-tower-broadcast{% endif %}" id="bridgeBeaconIcon"></i>
+                            <div class="bridge-banner-text-block">
+                                <div class="bridge-banner-title" id="bridgeBannerTitle">
+                                    {% if is_pc_connected %}
+                                    DESKTOP BRIDGE CONNECTED &bull; {{ pc_telemetry.hostname|default:"WINDOWS PC"|upper }}
+                                    {% else %}
+                                    LOCAL DESKTOP AGENT DISCONNECTED
+                                    {% endif %}
                                 </div>
-                                <div class="bridge-banner-text-block">
-                                    <div class="bridge-banner-title" id="bridgeBannerTitle">
-                                        {% if is_pc_connected %}
-                                        DESKTOP BRIDGE CONNECTED // {{ pc_telemetry.hostname|default:"WINDOWS PC"|upper }}
-                                        {% else %}
-                                        DESKTOP AGENT DISCONNECTED // LOCAL PC CONTROL STANDING BY
-                                        {% endif %}
-                                    </div>
-                                    <div class="bridge-banner-sub" id="bridgeBannerSub">
-                                        {% if is_pc_connected %}
-                                        Platform: {{ pc_telemetry.platform|default:"Windows" }} • TLS WebSocket Active • Local Automation Ready
-                                        {% else %}
-                                        Run the local bridge command below in terminal to enable mouse, keyboard, app launching, and local file access:
-                                        {% endif %}
-                                    </div>
+                                <div class="bridge-banner-sub" id="bridgeBannerSub">
+                                    {% if is_pc_connected %}
+                                    Platform: {{ pc_telemetry.platform|default:"Windows" }} &bull; TLS WebSocket Active &bull; Local Automation Ready
+                                    {% else %}
+                                    Run the bridge script in your terminal to enable local mouse, keyboard, and app controls:
+                                    {% endif %}
                                 </div>
                             </div>
-                            <div class="bridge-banner-actions">
-                                <button type="button" class="btn-ping-bridge {% if is_pc_connected %}online{% endif %}" id="btnPingBridge" onclick="pingDesktopBridge()" title="Verify bridge connection status">
-                                    <i class="fa-solid fa-rotate" id="pingBridgeIcon"></i> <span id="pingBridgeLabel">{% if is_pc_connected %}Bridge Online{% else %}Check Bridge{% endif %}</span>
-                                </button>
-                            </div>
                         </div>
-                        <div class="bridge-command-ribbon" id="bridgeCommandPill" {% if is_pc_connected %}style="display:none;"{% endif %}>
-                            <div class="bridge-cmd-code-wrap">
-                                <i class="fa-solid fa-terminal" style="color:var(--agent-accent); font-size:12px;"></i>
-                                <code id="pcAgentRunCmdBanner">python simba_agent.py{% if profile.agent_token %} --token {{ profile.agent_token }}{% endif %}</code>
-                            </div>
-                            <button type="button" class="btn-copy-bridge-cmd" onclick="copyPcAgentCommand()" title="Copy command to clipboard">
-                                <i class="fa-solid fa-copy"></i> <span>Copy Command</span>
+                        <div class="bridge-banner-actions">
+                            <button type="button" class="btn-ping-bridge {% if is_pc_connected %}online{% endif %}" id="btnPingBridge" onclick="pingDesktopBridge()" title="Verify bridge connection status">
+                                <i class="fa-solid fa-rotate" id="pingBridgeIcon"></i> <span id="pingBridgeLabel">{% if is_pc_connected %}Bridge Online{% else %}Check Bridge{% endif %}</span>
                             </button>
                         </div>
                     </div>
+                    <div class="bridge-command-ribbon" id="bridgeCommandPill" {% if is_pc_connected %}style="display:none;"{% endif %}>
+                        <div class="bridge-cmd-code-wrap">
+                            <i class="fa-solid fa-terminal" style="color:var(--agent-accent); font-size:12px;"></i>
+                            <code id="pcAgentRunCmdBanner">python simba_agent.py{% if profile.agent_token %} --token {{ profile.agent_token }}{% endif %}</code>
+                        </div>
+                        <button type="button" class="btn-copy-bridge-cmd" onclick="copyPcAgentCommand()" title="Copy command to clipboard">
+                            <i class="fa-solid fa-copy"></i> <span>Copy Command</span>
+                        </button>
+                    </div>
                 </div>
 
-                <!-- Section 2: Current Task Center -->
-                <div class="agent-section">
-                    <div class="agent-section-label">
-                        <i class="fa-solid fa-list-check"></i> CURRENT TASK
-                    </div>
-                    <div class="agent-current-task-box">
-                        <!-- Empty Task State with Mission Command Console -->
-                        <div class="agent-empty-task-card" id="agentEmptyTaskCard">
-                            <div class="agent-mission-console" id="agentMissionConsole">
-                                <div class="console-top-bar">
-                                    <div class="console-title">
-                                        <i class="fa-solid fa-terminal" style="color:var(--agent-accent);"></i>
-                                        <span>MISSION CONTROL // AUTOMATION DISPATCH</span>
+                <!-- Hidden fallback nodes for legacy JS state watchers -->
+                <div style="display:none;" aria-hidden="true">
+                    <span id="agentLifecycleBadge" class="status-idle"><i class="fa-solid fa-circle-notch"></i><span id="agentLifecycleText">IDLE</span></span>
+                    <span id="agentLifecycleBadgeHeader" class="status-idle"><i class="fa-solid fa-circle-notch"></i><span id="agentLifecycleTextHeader">IDLE</span></span>
+                    <span id="agentStatusDesc">Autonomous planner &amp; multi-step verification engine standing by.</span>
+                    <span id="pcStatusChip" class="{% if is_pc_connected %}connected{% else %}offline{% endif %}"><span class="pc-dot"></span><span id="pcStatusChipLabel">Desktop Offline</span></span>
+                    <span id="pcStatusCardDesc">Local automation status</span>
+                    <span id="agentExecutionBadge" class="status-idle"><i class="fa-solid fa-bolt"></i><span id="agentExecutionText">IDLE</span></span>
+                    <span id="agentExecutionDesc">Deterministic tool pipeline ready.</span>
+                </div>
+
+                <!-- Unified Task & Automation Center -->
+                <div class="agent-main-stage">
+                    <!-- Idle State: Clean Unified Automation Missions -->
+                    <div class="agent-empty-task-card" id="agentEmptyTaskCard">
+                        <div class="agent-mission-board">
+                            <div class="mission-board-header">
+                                <div class="mission-board-title-group">
+                                    <div class="mission-title">
+                                        <i class="fa-solid fa-bolt" style="color:var(--agent-accent);"></i>
+                                        <span>AUTOMATION MISSIONS</span>
                                     </div>
-                                    <div class="console-meta-pills">
-                                        <span class="console-pill"><i class="fa-solid fa-shield-halved"></i> Safety Guard: Active</span>
-                                        <span class="console-pill"><i class="fa-solid fa-robot"></i> Multi-Step Planner: Ready</span>
+                                    <p class="mission-desc">Launch an autonomous workflow or describe your custom task in the command bar below.</p>
+                                </div>
+                                <div class="mission-meta-pills">
+                                    <span class="mission-pill"><i class="fa-solid fa-shield-halved"></i> Safety Guard: Active</span>
+                                    <span class="mission-pill"><i class="fa-solid fa-diagram-project"></i> Multi-Step Planner: Ready</span>
+                                </div>
+                            </div>
+
+                            <div class="agent-missions-grid">
+                                <!-- Mission 1: Web Research -->
+                                <button type="button" class="agent-mission-card"
+                                    onclick="executeQuickTask('Search web for latest AI news and summarize top results')">
+                                    <div class="mission-card-top">
+                                        <span class="mission-card-icon" style="color:#8b5cf6;"><i class="fa-solid fa-magnifying-glass"></i></span>
+                                        <span class="mission-card-title">Web Research &amp; Synthesis</span>
+                                        <span class="agent-target-badge cloud">CLOUD</span>
                                     </div>
-                                </div>
-                                <div class="console-input-wrap">
-                                    <textarea id="agentDirectTaskInput" class="agent-console-textarea" rows="2"
-                                        placeholder="Describe your automation goal... e.g., 'Open Chrome, search Nvidia latest news, and write a summary in notes.txt'"
-                                        onkeydown="handleAgentDirectInputKeyDown(event)"></textarea>
-                                    <button type="button" class="btn-engage-agent" id="btnEngageAgent" onclick="submitDirectAgentTask()">
-                                        <i class="fa-solid fa-bolt-lightning"></i>
-                                        <span>Engage Agent</span>
-                                    </button>
-                                </div>
-                                <div class="console-shortcuts-row">
-                                    <span class="shortcuts-label">Quick Missions:</span>
-                                    <button type="button" class="console-preset-chip" onclick="fillAgentDirectPrompt('Search web for latest AI news and summarize top breakthroughs')">
-                                        <i class="fa-solid fa-magnifying-glass"></i> AI News Summary
-                                    </button>
-                                    <button type="button" class="console-preset-chip" onclick="fillAgentDirectPrompt('Open YouTube and search synthwave chill mix')">
-                                        <i class="fa-brands fa-youtube"></i> Play Music
-                                    </button>
-                                    <button type="button" class="console-preset-chip" onclick="fillAgentDirectPrompt('Open Notepad, write meeting notes for project launch, and save to desktop')">
-                                        <i class="fa-solid fa-file-pen"></i> Create Document
-                                    </button>
-                                    <button type="button" class="console-preset-chip" onclick="fillAgentDirectPrompt('Calculate compound interest for $10000 invested for 5 years at 7% annual yield')">
-                                        <i class="fa-solid fa-calculator"></i> Calculate
-                                    </button>
-                                </div>
+                                    <p class="mission-card-desc">Search the live web for breaking news, parse insights, and summarize.</p>
+                                    <div class="mission-card-action">
+                                        <span>Launch Task</span> <i class="fa-solid fa-arrow-right"></i>
+                                    </div>
+                                </button>
+
+                                <!-- Mission 2: Document Creation -->
+                                <button type="button" class="agent-mission-card"
+                                    onclick="executeQuickTask('Open Notepad, write meeting notes for project launch, and save to desktop')">
+                                    <div class="mission-card-top">
+                                        <span class="mission-card-icon" style="color:#10b981;"><i class="fa-solid fa-file-pen"></i></span>
+                                        <span class="mission-card-title">Document &amp; Notes Creation</span>
+                                        <span class="agent-target-badge desktop">LOCAL</span>
+                                    </div>
+                                    <p class="mission-card-desc">Launch text editor, draft formatted agenda notes, and save locally.</p>
+                                    <div class="mission-card-action">
+                                        <span>Launch Task</span> <i class="fa-solid fa-arrow-right"></i>
+                                    </div>
+                                </button>
+
+                                <!-- Mission 3: Code & File Scripting -->
+                                <button type="button" class="agent-mission-card"
+                                    onclick="executeQuickTask('Open VS Code, create calculator.py, and save it')">
+                                    <div class="mission-card-top">
+                                        <span class="mission-card-icon" style="color:#007acc;"><i class="fa-solid fa-file-code"></i></span>
+                                        <span class="mission-card-title">Code &amp; File Automation</span>
+                                        <span class="agent-target-badge desktop">LOCAL</span>
+                                    </div>
+                                    <p class="mission-card-desc">Open VS Code editor, generate clean Python script, and save to disk.</p>
+                                    <div class="mission-card-action">
+                                        <span>Launch Task</span> <i class="fa-solid fa-arrow-right"></i>
+                                    </div>
+                                </button>
+
+                                <!-- Mission 4: Data Calculation -->
+                                <button type="button" class="agent-mission-card"
+                                    onclick="executeQuickTask('Calculate compound interest for $10000 invested for 5 years at 7% annual yield')">
+                                    <div class="mission-card-top">
+                                        <span class="mission-card-icon" style="color:#f59e0b;"><i class="fa-solid fa-calculator"></i></span>
+                                        <span class="mission-card-title">Data &amp; Quantitative Math</span>
+                                        <span class="agent-target-badge cloud">CLOUD</span>
+                                    </div>
+                                    <p class="mission-card-desc">Compute multi-year yield, financial amortization, and statistics.</p>
+                                    <div class="mission-card-action">
+                                        <span>Launch Task</span> <i class="fa-solid fa-arrow-right"></i>
+                                    </div>
+                                </button>
+
+                                <!-- Mission 5: Media Navigation -->
+                                <button type="button" class="agent-mission-card"
+                                    onclick="executeQuickTask('Open YouTube and search synthwave chill mix')">
+                                    <div class="mission-card-top">
+                                        <span class="mission-card-icon" style="color:#ff3344;"><i class="fa-brands fa-youtube"></i></span>
+                                        <span class="mission-card-title">Media &amp; Browser Action</span>
+                                        <span class="agent-target-badge desktop">LOCAL</span>
+                                    </div>
+                                    <p class="mission-card-desc">Open web browser, navigate to media source, and initiate playback.</p>
+                                    <div class="mission-card-action">
+                                        <span>Launch Task</span> <i class="fa-solid fa-arrow-right"></i>
+                                    </div>
+                                </button>
+
+                                <!-- Mission 6: Registered Tools Discovery -->
+                                <button type="button" class="agent-mission-card discovery-trigger"
+                                    onclick="openActionDiscoveryModal()">
+                                    <div class="mission-card-top">
+                                        <span class="mission-card-icon" style="color:var(--accent);"><i class="fa-solid fa-toolbox"></i></span>
+                                        <span class="mission-card-title">Registered Tools Catalog</span>
+                                        <span class="agent-target-badge" style="background:rgba(var(--accent-rgb),0.15); color:var(--accent);">REGISTRY</span>
+                                    </div>
+                                    <p class="mission-card-desc">Inspect all 25+ automation capabilities, tool schemas, and permissions.</p>
+                                    <div class="mission-card-action">
+                                        <span>Explore Tools</span> <i class="fa-solid fa-arrow-up-right"></i>
+                                    </div>
+                                </button>
                             </div>
                         </div>
+                    </div>
 
-                        <!-- Active / Plan / Execution / Verification / Result Task Workspace Card -->
-                        <div class="agent-active-task-card" id="agentActiveTaskCard" style="display:none;">
-                            <!-- 1. AGENT TASK HEADER -->
-                            <div class="agent-task-header-block">
-                                <div class="agent-task-header-top">
-                                    <div class="agent-task-label-row">
-                                        <span class="agent-active-task-label"><i class="fa-solid fa-robot"></i> AGENT TASK</span>
-                                        <span class="agent-task-id-badge" id="agentTaskIdBadge" style="display:none;">ID: -</span>
-                                        <span class="agent-task-id-badge" id="agentTaskTimeBadge" style="display:none; font-size:10px; opacity:0.75;"></span>
-                                        <span class="agent-lifecycle-badge status-planning" id="agentTaskCardBadge">
-                                            <i class="fa-solid fa-circle-notch fa-spin"></i>
-                                            <span id="agentTaskCardBadgeText">PLANNING</span>
-                                        </span>
-                                    </div>
-                                    <div class="agent-task-actions-wrap" id="agentTaskControls">
-                                        <button type="button" id="btnStopAgentTask" class="btn-task-control stop"
-                                            onclick="stopCurrentAgentTask()" title="Safely stop and cancel running task"
-                                            style="display:none;">
-                                            <i class="fa-solid fa-stop"></i> <span>Stop</span>
-                                        </button>
-                                        <button type="button" id="btnRunAgainAgentTask" class="btn-task-control rerun"
-                                            onclick="reRunCompletedAgentTask()" title="Run this task again"
-                                            style="display:none;">
-                                            <i class="fa-solid fa-rotate-right"></i> <span>Run Again</span>
-                                        </button>
-                                    </div>
+                    <!-- Active / Plan / Execution / Verification / Result Task Workspace Card -->
+                    <div class="agent-active-task-card" id="agentActiveTaskCard" style="display:none;">
+                        <!-- 1. AGENT TASK HEADER -->
+                        <div class="agent-task-header-block">
+                            <div class="agent-task-header-top">
+                                <div class="agent-task-label-row">
+                                    <span class="agent-active-task-label"><i class="fa-solid fa-robot"></i> AGENT TASK</span>
+                                    <span class="agent-task-id-badge" id="agentTaskIdBadge" style="display:none;">ID: -</span>
+                                    <span class="agent-task-id-badge" id="agentTaskTimeBadge" style="display:none; font-size:10px; opacity:0.75;"></span>
+                                    <span class="agent-lifecycle-badge status-planning" id="agentTaskCardBadge">
+                                        <i class="fa-solid fa-circle-notch fa-spin"></i>
+                                        <span id="agentTaskCardBadgeText">PLANNING</span>
+                                    </span>
                                 </div>
-                                <!-- 2. USER TASK / REQUEST -->
-                                <div class="agent-task-request-box">
-                                    <div class="agent-request-label">
-                                        <i class="fa-solid fa-terminal"></i> USER TASK
-                                    </div>
-                                    <div class="agent-request-text" id="agentTaskUserRequest">Processing Request...</div>
-                                    <h3 class="agent-active-task-title" id="agentTaskCardTitle" style="display:none;">Processing Request...</h3>
-                                </div>
-                            </div>
-
-                            <!-- Pipeline Stages: TASK → PLAN → EXECUTION → VERIFICATION → RESULT -->
-                            <div class="agent-pipeline-bar" id="agentPipelineBar">
-                                <div class="pipeline-node active" id="pnode-task" data-stage="task">
-                                    <span class="node-icon"><i class="fa-solid fa-clipboard-question"></i></span>
-                                    <span class="node-label">TASK</span>
-                                </div>
-                                <div class="pipeline-line" id="pline-1"></div>
-                                <div class="pipeline-node" id="pnode-plan" data-stage="plan">
-                                    <span class="node-icon"><i class="fa-solid fa-diagram-project"></i></span>
-                                    <span class="node-label">PLAN</span>
-                                </div>
-                                <div class="pipeline-line" id="pline-2"></div>
-                                <div class="pipeline-node" id="pnode-exec" data-stage="exec">
-                                    <span class="node-icon"><i class="fa-solid fa-gears"></i></span>
-                                    <span class="node-label">EXECUTION</span>
-                                </div>
-                                <div class="pipeline-line" id="pline-3"></div>
-                                <div class="pipeline-node" id="pnode-verif" data-stage="verif">
-                                    <span class="node-icon"><i class="fa-solid fa-shield-check"></i></span>
-                                    <span class="node-label">VERIFICATION</span>
-                                </div>
-                                <div class="pipeline-line" id="pline-4"></div>
-                                <div class="pipeline-node" id="pnode-result" data-stage="result">
-                                    <span class="node-icon"><i class="fa-solid fa-flag-checkered"></i></span>
-                                    <span class="node-label">RESULT</span>
-                                </div>
-                            </div>
-
-                            <!-- 3. EXECUTION PLAN -->
-                            <div class="agent-sub-panel plan-panel" id="agentPlanPanel">
-                                <div class="agent-sub-panel-header">
-                                    <div class="sub-panel-title">
-                                        <i class="fa-solid fa-diagram-project"></i>
-                                        <span>EXECUTION PLAN</span>
-                                    </div>
-                                    <span class="agent-plan-step-counter" id="agentPlanStepCounter">0 steps planned</span>
-                                </div>
-                                <div class="agent-step-checklist" id="agentStepList">
-                                    <div class="agent-checklist-item in-progress">
-                                        <span class="checklist-bullet"><i class="fa-solid fa-circle-notch fa-spin"></i></span>
-                                        <span class="checklist-text">Synthesizing execution plan...</span>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <!-- 4. CURRENT EXECUTION -->
-                            <div class="agent-sub-panel execution-panel" id="agentExecutionPanel" style="display:none;">
-                                <div class="agent-sub-panel-header">
-                                    <div class="sub-panel-title">
-                                        <i class="fa-solid fa-bolt"></i>
-                                        <span>CURRENT ACTION</span>
-                                    </div>
-                                    <span class="agent-exec-status-badge" id="agentExecStatusBadge">Executing</span>
-                                </div>
-                                <div class="agent-exec-grid">
-                                    <div class="agent-exec-field">
-                                        <span class="field-tag">TOOL</span>
-                                        <span class="field-val code-val" id="agentExecToolVal">-</span>
-                                    </div>
-                                    <div class="agent-exec-field">
-                                        <span class="field-tag">CURRENT STEP</span>
-                                        <span class="field-val" id="agentExecStepVal">-</span>
-                                    </div>
-                                    <div class="agent-exec-field full-width" id="agentExecArgsField" style="display:none;">
-                                        <span class="field-tag" id="agentExecArgsLabel">PARAMETERS</span>
-                                        <span class="field-val" id="agentExecArgsVal">-</span>
-                                    </div>
-                                    <div class="agent-exec-field full-width" id="agentExecResultField" style="display:none;">
-                                        <span class="field-tag">TOOL RESULT</span>
-                                        <div class="field-output-box" id="agentExecResultVal"></div>
-                                    </div>
-                                </div>
-                                <!-- Interactive Cyberpunk Terminal STDOUT Stream Box -->
-                                <div class="agent-terminal-box" id="agentTerminalBox">
-                                    <div class="agent-terminal-header">
-                                        <div class="terminal-dots">
-                                            <span class="tdot red"></span>
-                                            <span class="tdot yellow"></span>
-                                            <span class="tdot green"></span>
-                                        </div>
-                                        <span class="terminal-title"><i class="fa-solid fa-terminal"></i> TOOL EXECUTION STREAM // STDOUT</span>
-                                        <button type="button" class="terminal-copy-btn" onclick="copyAgentTerminalOutput()" title="Copy output">
-                                            <i class="fa-regular fa-copy"></i>
-                                        </button>
-                                    </div>
-                                    <div class="agent-terminal-body" id="agentTerminalBody">
-                                        <div class="terminal-line"><span class="t-prompt">&gt;</span> Pipeline connected. Monitoring tool execution...</div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <!-- 5. PERMISSION REQUIRED -->
-                            <div class="agent-sub-panel permission-panel" id="agentPermissionPanel" style="display:none;">
-                                <div class="agent-sub-panel-header permission-header">
-                                    <div class="sub-panel-title">
-                                        <i class="fa-solid fa-shield-halved"></i>
-                                        <span>PERMISSION REQUIRED</span>
-                                    </div>
-                                    <span class="permission-tag">APPROVAL REQUIRED</span>
-                                </div>
-                                <div class="permission-body">
-                                    <p class="permission-desc" id="agentPermissionDesc">
-                                        The agent is requesting permission to execute an external tool action.
-                                    </p>
-                                    <div class="permission-spec-box" id="agentPermissionSpec"></div>
-                                    <div class="permission-actions-bar">
-                                        <button type="button" class="btn-permission-allow" id="btnAgentAllowPermission"
-                                            onclick="approveCurrentAgentPermission()">
-                                            <i class="fa-solid fa-check"></i> <span>Allow Once [Y]</span>
-                                        </button>
-                                        <button type="button" class="btn-permission-deny" id="btnAgentDenyPermission"
-                                            onclick="denyCurrentAgentPermission()">
-                                            <i class="fa-solid fa-ban"></i> <span>Cancel Task [N]</span>
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <!-- 6. VERIFICATION -->
-                            <div class="agent-sub-panel verification-panel" id="agentVerificationPanel" style="display:none;">
-                                <div class="agent-sub-panel-header verification-header">
-                                    <div class="sub-panel-title">
-                                        <i class="fa-solid fa-shield-check"></i>
-                                        <span>VERIFYING RESULT</span>
-                                    </div>
-                                    <span class="verification-badge checking" id="agentVerificationBadge">CHECKING</span>
-                                </div>
-                                <div class="verification-body" id="agentVerificationBody">
-                                    <div class="verification-item">
-                                        <span class="v-icon" style="color:var(--agent-accent);"><i class="fa-solid fa-circle-notch fa-spin"></i></span>
-                                        <span class="v-text" id="agentVerificationStatusText">Verifying execution outcome with system state...</span>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <!-- 7. FINAL RESULT / TASK FAILED -->
-                            <div class="agent-task-result-box" id="agentTaskResultBox" style="display:none;">
-                                <div class="agent-task-result-header" id="agentResultHeader">
-                                    <i class="fa-solid fa-circle-check"></i>
-                                    <span id="agentResultStatusTitle">TASK COMPLETED</span>
-                                </div>
-                                <div class="agent-task-result-summary" id="agentTaskResultSummary"></div>
-                                <div class="agent-debrief-metrics" id="agentDebriefMetrics" style="display:none;">
-                                    <span class="agent-debrief-metric" id="debriefMetricSteps"><i class="fa-solid fa-list-check"></i> Steps: <strong id="debriefStepsVal">0</strong></span>
-                                    <span class="agent-debrief-metric" id="debriefMetricTime"><i class="fa-regular fa-clock"></i> Duration: <strong id="debriefTimeVal">0s</strong></span>
-                                    <span class="agent-debrief-metric" id="debriefMetricStatus"><i class="fa-solid fa-shield-check"></i> Outcome: <strong id="debriefStatusVal">Verified</strong></span>
-                                </div>
-                                <details class="agent-technical-details" id="agentTechnicalDetails" style="display:none;">
-                                    <summary>Technical execution details</summary>
-                                    <div class="agent-technical-content" id="agentTechnicalContent"></div>
-                                </details>
-                            </div>
-
-                            <!-- 8. TASK STATUS FOOTER -->
-                            <div class="agent-task-footer-bar" id="agentTaskFooterBar">
-                                <div class="agent-task-status-indicator">
-                                    <span class="status-dot dot-online" id="agentTaskFooterDot"></span>
-                                    <span class="agent-task-status-text" id="agentTaskFooterText">STATUS: IDLE</span>
-                                </div>
-                                <div class="agent-task-footer-actions">
-                                    <button type="button" id="btnStopAgentTaskFooter" class="btn-task-control stop"
-                                        onclick="stopCurrentAgentTask()" style="display:none;">
-                                        <i class="fa-solid fa-stop"></i> <span>Stop Task</span>
+                                <div class="agent-task-actions-wrap" id="agentTaskControls">
+                                    <button type="button" id="btnStopAgentTask" class="btn-task-control stop"
+                                        onclick="stopCurrentAgentTask()" title="Safely stop and cancel running task"
+                                        style="display:none;">
+                                        <i class="fa-solid fa-stop"></i> <span>Stop</span>
                                     </button>
-                                    <button type="button" id="btnRunAgainAgentTaskFooter" class="btn-task-control rerun"
-                                        onclick="reRunCompletedAgentTask()" style="display:none;">
+                                    <button type="button" id="btnRunAgainAgentTask" class="btn-task-control rerun"
+                                        onclick="reRunCompletedAgentTask()" title="Run this task again"
+                                        style="display:none;">
                                         <i class="fa-solid fa-rotate-right"></i> <span>Run Again</span>
                                     </button>
                                 </div>
                             </div>
+                            <!-- 2. USER TASK / REQUEST -->
+                            <div class="agent-task-request-box">
+                                <div class="agent-request-label">
+                                    <i class="fa-solid fa-terminal"></i> USER TASK
+                                </div>
+                                <div class="agent-request-text" id="agentTaskUserRequest">Processing Request...</div>
+                                <h3 class="agent-active-task-title" id="agentTaskCardTitle" style="display:none;">Processing Request...</h3>
+                            </div>
                         </div>
-                    </div>
-                </div>
 
-                <!-- Section 3: Quick Tasks -->
-                <div class="agent-section" id="agentQuickTasksSection">
-                    <div class="agent-section-label"
-                        style="display:flex; justify-content:space-between; align-items:center;">
-                        <span><i class="fa-solid fa-bolt"></i> QUICK TASKS</span>
-                        <button type="button" class="btn-more-tasks-link" onclick="openActionDiscoveryModal()"
-                            aria-label="Discover all tools">
-                            <i class="fa-solid fa-toolbox"></i> More Tasks
-                        </button>
-                    </div>
-                    <div class="agent-quick-grid">
-                        <!-- 1. Open Website -->
-                        <button type="button" class="agent-quick-card"
-                            onclick="executeQuickTask('Open YouTube and search Roblox gameplay')">
-                            <div class="agent-quick-top">
-                                <span class="agent-quick-icon" style="color:#ff3344;"><i
-                                        class="fa-brands fa-youtube"></i></span>
-                                <span class="agent-quick-title">Open Website</span>
-                                <span class="agent-target-badge desktop">LOCAL</span>
+                        <!-- Pipeline Stages: TASK → PLAN → EXECUTION → VERIFICATION → RESULT -->
+                        <div class="agent-pipeline-bar" id="agentPipelineBar">
+                            <div class="pipeline-node active" id="pnode-task" data-stage="task">
+                                <span class="node-icon"><i class="fa-solid fa-clipboard-question"></i></span>
+                                <span class="node-label">TASK</span>
                             </div>
-                            <div class="agent-quick-desc">Open YouTube and search Roblox in browser</div>
-                        </button>
+                            <div class="pipeline-line" id="pline-1"></div>
+                            <div class="pipeline-node" id="pnode-plan" data-stage="plan">
+                                <span class="node-icon"><i class="fa-solid fa-diagram-project"></i></span>
+                                <span class="node-label">PLAN</span>
+                            </div>
+                            <div class="pipeline-line" id="pline-2"></div>
+                            <div class="pipeline-node" id="pnode-exec" data-stage="exec">
+                                <span class="node-icon"><i class="fa-solid fa-gears"></i></span>
+                                <span class="node-label">EXECUTION</span>
+                            </div>
+                            <div class="pipeline-line" id="pline-3"></div>
+                            <div class="pipeline-node" id="pnode-verif" data-stage="verif">
+                                <span class="node-icon"><i class="fa-solid fa-shield-check"></i></span>
+                                <span class="node-label">VERIFICATION</span>
+                            </div>
+                            <div class="pipeline-line" id="pline-4"></div>
+                            <div class="pipeline-node" id="pnode-result" data-stage="result">
+                                <span class="node-icon"><i class="fa-solid fa-flag-checkered"></i></span>
+                                <span class="node-label">RESULT</span>
+                            </div>
+                        </div>
 
-                        <!-- 2. Search Web -->
-                        <button type="button" class="agent-quick-card"
-                            onclick="executeQuickTask('Search web for latest AI news and summarize top results')">
-                            <div class="agent-quick-top">
-                                <span class="agent-quick-icon" style="color:#8b5cf6;"><i
-                                        class="fa-solid fa-magnifying-glass"></i></span>
-                                <span class="agent-quick-title">Search Web</span>
-                                <span class="agent-target-badge cloud">CLOUD</span>
+                        <!-- 3. EXECUTION PLAN -->
+                        <div class="agent-sub-panel plan-panel" id="agentPlanPanel">
+                            <div class="agent-sub-panel-header">
+                                <div class="sub-panel-title">
+                                    <i class="fa-solid fa-diagram-project"></i>
+                                    <span>EXECUTION PLAN</span>
+                                </div>
+                                <span class="agent-plan-step-counter" id="agentPlanStepCounter">0 steps planned</span>
                             </div>
-                            <div class="agent-quick-desc">Search web for latest AI news &amp; summarize</div>
-                        </button>
+                            <div class="agent-step-checklist" id="agentStepList">
+                                <div class="agent-checklist-item in-progress">
+                                    <span class="checklist-bullet"><i class="fa-solid fa-circle-notch fa-spin"></i></span>
+                                    <span class="checklist-text">Synthesizing execution plan...</span>
+                                </div>
+                            </div>
+                        </div>
 
-                        <!-- 4. Create File -->
-                        <button type="button" class="agent-quick-card"
-                            onclick="executeQuickTask('Open VS Code, create calculator.py, and save it')">
-                            <div class="agent-quick-top">
-                                <span class="agent-quick-icon" style="color:#007acc;"><i
-                                        class="fa-solid fa-file-code"></i></span>
-                                <span class="agent-quick-title">Create File</span>
-                                <span class="agent-target-badge desktop">LOCAL</span>
+                        <!-- 4. CURRENT EXECUTION -->
+                        <div class="agent-sub-panel execution-panel" id="agentExecutionPanel" style="display:none;">
+                            <div class="agent-sub-panel-header">
+                                <div class="sub-panel-title">
+                                    <i class="fa-solid fa-bolt"></i>
+                                    <span>CURRENT ACTION</span>
+                                </div>
+                                <span class="agent-exec-status-badge" id="agentExecStatusBadge">Executing</span>
                             </div>
-                            <div class="agent-quick-desc">Open VS Code, create calculator.py, and save</div>
-                        </button>
+                            <div class="agent-exec-grid">
+                                <div class="agent-exec-field">
+                                    <span class="field-tag">TOOL</span>
+                                    <span class="field-val code-val" id="agentExecToolVal">-</span>
+                                </div>
+                                <div class="agent-exec-field">
+                                    <span class="field-tag">CURRENT STEP</span>
+                                    <span class="field-val" id="agentExecStepVal">-</span>
+                                </div>
+                                <div class="agent-exec-field full-width" id="agentExecArgsField" style="display:none;">
+                                    <span class="field-tag" id="agentExecArgsLabel">PARAMETERS</span>
+                                    <span class="field-val" id="agentExecArgsVal">-</span>
+                                </div>
+                                <div class="agent-exec-field full-width" id="agentExecResultField" style="display:none;">
+                                    <span class="field-tag">TOOL RESULT</span>
+                                    <div class="field-output-box" id="agentExecResultVal"></div>
+                                </div>
+                            </div>
+                            <!-- Interactive Cyberpunk Terminal STDOUT Stream Box -->
+                            <div class="agent-terminal-box" id="agentTerminalBox">
+                                <div class="agent-terminal-header">
+                                    <div class="terminal-dots">
+                                        <span class="tdot red"></span>
+                                        <span class="tdot yellow"></span>
+                                        <span class="tdot green"></span>
+                                    </div>
+                                    <span class="terminal-title"><i class="fa-solid fa-terminal"></i> TOOL EXECUTION STREAM // STDOUT</span>
+                                    <button type="button" class="terminal-copy-btn" onclick="copyAgentTerminalOutput()" title="Copy output">
+                                        <i class="fa-regular fa-copy"></i>
+                                    </button>
+                                </div>
+                                <div class="agent-terminal-body" id="agentTerminalBody">
+                                    <div class="terminal-line"><span class="t-prompt">&gt;</span> Pipeline connected. Monitoring tool execution...</div>
+                                </div>
+                            </div>
+                        </div>
 
-                        <!-- 5. Open Application -->
-                        <button type="button" class="agent-quick-card"
-                            onclick="executeQuickTask('Open Notepad and write hello world')">
-                            <div class="agent-quick-top">
-                                <span class="agent-quick-icon" style="color:#10b981;"><i
-                                        class="fa-solid fa-window-restore"></i></span>
-                                <span class="agent-quick-title">Open App</span>
-                                <span class="agent-target-badge desktop">LOCAL</span>
+                        <!-- 5. PERMISSION REQUIRED -->
+                        <div class="agent-sub-panel permission-panel" id="agentPermissionPanel" style="display:none;">
+                            <div class="agent-sub-panel-header permission-header">
+                                <div class="sub-panel-title">
+                                    <i class="fa-solid fa-shield-halved"></i>
+                                    <span>PERMISSION REQUIRED</span>
+                                </div>
+                                <span class="permission-tag">APPROVAL REQUIRED</span>
                             </div>
-                            <div class="agent-quick-desc">Launch Notepad and write text document</div>
-                        </button>
+                            <div class="permission-body">
+                                <p class="permission-desc" id="agentPermissionDesc">
+                                    The agent is requesting permission to execute an external tool action.
+                                </p>
+                                <div class="permission-spec-box" id="agentPermissionSpec"></div>
+                                <div class="permission-actions-bar">
+                                    <button type="button" class="btn-permission-allow" id="btnAgentAllowPermission"
+                                        onclick="approveCurrentAgentPermission()">
+                                        <i class="fa-solid fa-check"></i> <span>Allow Once [Y]</span>
+                                    </button>
+                                    <button type="button" class="btn-permission-deny" id="btnAgentDenyPermission"
+                                        onclick="denyCurrentAgentPermission()">
+                                        <i class="fa-solid fa-ban"></i> <span>Cancel Task [N]</span>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
 
-                        <!-- 6. Calculator -->
-                        <button type="button" class="agent-quick-card"
-                            onclick="executeQuickTask('Calculate 125 * 8 / 2')">
-                            <div class="agent-quick-top">
-                                <span class="agent-quick-icon" style="color:#f59e0b;"><i
-                                        class="fa-solid fa-calculator"></i></span>
-                                <span class="agent-quick-title">Calculator</span>
-                                <span class="agent-target-badge cloud">CLOUD</span>
+                        <!-- 6. VERIFICATION -->
+                        <div class="agent-sub-panel verification-panel" id="agentVerificationPanel" style="display:none;">
+                            <div class="agent-sub-panel-header verification-header">
+                                <div class="sub-panel-title">
+                                    <i class="fa-solid fa-shield-check"></i>
+                                    <span>VERIFYING RESULT</span>
+                                </div>
+                                <span class="verification-badge checking" id="agentVerificationBadge">CHECKING</span>
                             </div>
-                            <div class="agent-quick-desc">Safe arithmetic &amp; mathematical calculation</div>
-                        </button>
+                            <div class="verification-body" id="agentVerificationBody">
+                                <div class="verification-item">
+                                    <span class="v-icon" style="color:var(--agent-accent);"><i class="fa-solid fa-circle-notch fa-spin"></i></span>
+                                    <span class="v-text" id="agentVerificationStatusText">Verifying execution outcome with system state...</span>
+                                </div>
+                            </div>
+                        </div>
 
-                        <!-- 7. More Tasks Discovery -->
-                        <button type="button" class="agent-quick-card discovery-trigger"
-                            onclick="openActionDiscoveryModal()">
-                            <div class="agent-quick-top">
-                                <span class="agent-quick-icon" style="color:var(--accent);"><i
-                                        class="fa-solid fa-grid-2-plus"></i></span>
-                                <span class="agent-quick-title">More Tasks...</span>
+                        <!-- 7. FINAL RESULT / TASK FAILED -->
+                        <div class="agent-task-result-box" id="agentTaskResultBox" style="display:none;">
+                            <div class="agent-task-result-header" id="agentResultHeader">
+                                <i class="fa-solid fa-circle-check"></i>
+                                <span id="agentResultStatusTitle">TASK COMPLETED</span>
                             </div>
-                            <div class="agent-quick-desc">Browse full registered tools registry &amp; actions</div>
-                        </button>
+                            <div class="agent-task-result-summary" id="agentTaskResultSummary"></div>
+                            <div class="agent-debrief-metrics" id="agentDebriefMetrics" style="display:none;">
+                                <span class="agent-debrief-metric" id="debriefMetricSteps"><i class="fa-solid fa-list-check"></i> Steps: <strong id="debriefStepsVal">0</strong></span>
+                                <span class="agent-debrief-metric" id="debriefMetricTime"><i class="fa-regular fa-clock"></i> Duration: <strong id="debriefTimeVal">0s</strong></span>
+                                <span class="agent-debrief-metric" id="debriefMetricStatus"><i class="fa-solid fa-shield-check"></i> Outcome: <strong id="debriefStatusVal">Verified</strong></span>
+                            </div>
+                            <details class="agent-technical-details" id="agentTechnicalDetails" style="display:none;">
+                                <summary>Technical execution details</summary>
+                                <div class="agent-technical-content" id="agentTechnicalContent"></div>
+                            </details>
+                        </div>
+
+                        <!-- 8. TASK STATUS FOOTER -->
+                        <div class="agent-task-footer-bar" id="agentTaskFooterBar">
+                            <div class="agent-task-status-indicator">
+                                <span class="status-dot dot-online" id="agentTaskFooterDot"></span>
+                                <span class="agent-task-status-text" id="agentTaskFooterText">STATUS: IDLE</span>
+                            </div>
+                            <div class="agent-task-footer-actions">
+                                <button type="button" id="btnStopAgentTaskFooter" class="btn-task-control stop"
+                                    onclick="stopCurrentAgentTask()" style="display:none;">
+                                    <i class="fa-solid fa-stop"></i> <span>Stop Task</span>
+                                </button>
+                                <button type="button" id="btnRunAgainAgentTaskFooter" class="btn-task-control rerun"
+                                    onclick="reRunCompletedAgentTask()" style="display:none;">
+                                    <i class="fa-solid fa-rotate-right"></i> <span>Run Again</span>
+                                </button>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>

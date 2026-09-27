@@ -1,270 +1,89 @@
-            <!-- Assistant Mode: Conversation-First -->
+            <!-- Assistant Mode: Simba Intelligence Clean Workspace -->
             {% if not messages %}
             <div class="welcome-container" id="qcHome">
-                <div class="qc-field" aria-hidden="true">
-                    <div class="qc-radial qc-radial-1" id="qcRadial1"></div>
-                    <div class="qc-radial qc-radial-2"></div>
-                    <div class="qc-grid"></div>
-                    <div class="qc-particles" id="qcParticles">
-                        <span></span><span></span><span></span><span></span><span></span>
-                        <span></span><span></span><span></span><span></span><span></span>
-                    </div>
-                </div>
+                <!-- Atmospheric ambient lighting -->
+                <div class="simba-ambient-glow" id="simbaAmbientGlow" aria-hidden="true"></div>
 
-                <div class="qc-topbar">
-                    <span class="qc-topbar-item" id="qcTime">--:--:--</span>
-                    <span class="qc-topbar-sep">&bull;</span>
-                    <span class="qc-topbar-item" id="qcDate">-- --- ----</span>
-                    <span class="qc-topbar-sep">&bull;</span>
-
-                </div>
-
-                <div class="qc-main">
-                    <div class="qc-core-wrap" id="qcCoreWrap">
-                        <div class="qc-core" id="qcCore" aria-hidden="true">
-                            <div class="qc-core-ring qc-ring-outer"></div>
-                            <div class="qc-core-ring qc-ring-mid"></div>
-                            <div class="qc-core-ring qc-ring-inner"></div>
-                            <div class="qc-core-orbit"><span class="qc-orbit-node"></span></div>
-                            <div class="qc-core-orbit qc-orbit-reverse"><span class="qc-orbit-node"></span></div>
-                            <div class="qc-core-center">
-                                <div class="qc-core-logo" id="qcCoreIcon" aria-hidden="true">&gt;_&lt;</div>
+                <div class="simba-clean-shell">
+                    <!-- Simba >_< Animated Emblem -->
+                    <div class="simba-emblem-stage">
+                        <div class="simba-core-emblem" id="qcEmblem" title="Simba Intelligence">
+                            <!-- Ethereal Conic Rotating Halo -->
+                            <div class="simba-emblem-halo" aria-hidden="true"></div>
+                            <!-- Energy Pulse Ring -->
+                            <div class="simba-energy-ring" aria-hidden="true"></div>
+                            <!-- Frosted Glass Squircle Vessel -->
+                            <div class="simba-emblem-glass">
+                                <div class="simba-emblem-sheen" aria-hidden="true"></div>
+                                <div class="simba-emblem-face" id="qcCoreIcon" aria-label="Simba Mascot">
+                                    <span class="simba-eye left">&gt;</span>
+                                    <span class="simba-mouth">_</span>
+                                    <span class="simba-eye right">&lt;</span>
+                                </div>
                             </div>
                         </div>
-                    </div>
-                    <p class="qc-core-status" id="qcCoreStatus">IDLE</p>
 
-                    <h1 class="qc-title">SIMBA_INTEL</h1>
-                    <p class="qc-subtitle">Your Personal Artificial Intelligence Operating System. Standing by for
-                        commands, {{ profile.display_name|default:request.user.get_full_name|default:request.user.username|upper }}.
-                    </p>
-
-                    <div class="qc-category-bar" id="qcCategoryBar" role="tablist" aria-label="Quick Action Categories">
-                        <button type="button" class="qc-cat-btn active" data-category="all"
-                            onclick="filterQuickActions('all')" role="tab" aria-selected="true">All</button>
-                        <button type="button" class="qc-cat-btn" data-category="create"
-                            onclick="filterQuickActions('create')" role="tab" aria-selected="false">Create</button>
-                        <button type="button" class="qc-cat-btn" data-category="understand"
-                            onclick="filterQuickActions('understand')" role="tab"
-                            aria-selected="false">Understand</button>
-                        <button type="button" class="qc-cat-btn" data-category="develop"
-                            onclick="filterQuickActions('develop')" role="tab" aria-selected="false">Develop</button>
+                        <!-- System Core Badge -->
+                        <div class="simba-system-badge">
+                            <span class="simba-status-pulse"></span>
+                            <span>SIMBA INTELLIGENCE</span>
+                        </div>
                     </div>
 
-                    <div class="qc-commands" id="qcCommandsContainer" role="toolbar"
-                        aria-label="Contextual Quick Actions">
-                        <button type="button" class="qc-chip" data-action="explain-pdf" data-mode="document"
-                            onclick="activateQuickAction('explain-pdf')"
-                            title="Attach a PDF or ask questions about your document" aria-label="Explain PDF">
-                            <span class="qc-chip-icon"><i class="fa-solid fa-file-pdf"></i></span><span>Explain
-                                PDF</span>
-                        </button>
-                        <button type="button" class="qc-chip" data-action="analyze-image" data-mode="vision"
-                            onclick="activateQuickAction('analyze-image')"
-                            title="Attach an image for AI vision analysis" aria-label="Analyze Image">
-                            <span class="qc-chip-icon"><i class="fa-solid fa-image"></i></span><span>Analyze
-                                Image</span>
-                        </button>
-                        <button type="button" class="qc-chip" data-action="write-code" data-mode="coding"
-                            onclick="activateQuickAction('write-code')" title="Activate coding assistant mode"
-                            aria-label="Write Code">
-                            <span class="qc-chip-icon"><i class="fa-solid fa-code"></i></span><span>Write Code</span>
-                        </button>
-                        <button type="button" class="qc-chip" data-action="debug-code" data-mode="diagnostics"
-                            onclick="activateQuickAction('debug-code')" title="Activate code debugging & diagnostics"
-                            aria-label="Debug Code">
-                            <span class="qc-chip-icon"><i class="fa-solid fa-bug"></i></span><span>Debug Code</span>
-                        </button>
-                        <button type="button" class="qc-chip" data-action="generate-image" data-mode="image"
-                            onclick="activateQuickAction('generate-image')"
-                            title="Switch to Image Studio image generation" aria-label="Generate Image">
-                            <span class="qc-chip-icon"><i
-                                    class="fa-solid fa-wand-magic-sparkles"></i></span><span>Generate Image</span>
-                        </button>
-                        <button type="button" class="qc-chip" data-action="build-react-app" data-mode="frontend"
-                            onclick="activateQuickAction('build-react-app')"
-                            title="Activate frontend application builder" aria-label="Build React App">
-                            <span class="qc-chip-icon"><i class="fa-brands fa-react"></i></span><span>Build React
-                                App</span>
-                        </button>
-                        <button type="button" class="qc-chip" data-action="sql-query" data-mode="database"
-                            onclick="activateQuickAction('sql-query')" title="Activate SQL & database query assistant"
-                            aria-label="SQL Query">
-                            <span class="qc-chip-icon"><i class="fa-solid fa-database"></i></span><span>SQL Query</span>
-                        </button>
-                        <button type="button" class="qc-chip" data-action="summarize-notes" data-mode="memory"
-                            onclick="activateQuickAction('summarize-notes')" title="Summarize notes or documents"
-                            aria-label="Summarize Notes">
-                            <span class="qc-chip-icon"><i class="fa-solid fa-file-invoice"></i></span><span>Summarize
-                                Notes</span>
-                        </button>
-                        <button type="button" class="qc-chip qc-chip-more" onclick="toggleMoreQuickActions()"
-                            title="View all available assistant actions" aria-label="View all actions">
-                            <span class="qc-chip-icon"><i class="fa-solid fa-ellipsis"></i></span><span>More</span>
-                        </button>
+                    <!-- Human Greeting & Subtitle -->
+                    <div class="simba-clean-header">
+                        <h1 class="simba-clean-title">
+                            <span id="simbaGreetingPrefix">Good evening</span>, <span class="simba-clean-user">{{ profile.display_name|default:request.user.first_name|default:request.user.username }}</span>
+                        </h1>
+                        <p class="simba-clean-subtitle">
+                            What will we create, architect, or explore together today?
+                        </p>
+                    </div>
+
+                    <!-- Clean Keyboard Shortcuts Hint -->
+                    <div class="simba-clean-hint">
+                        <span><kbd>Ctrl</kbd>+<kbd>K</kbd> Command Palette</span>
+                        <span class="simba-clean-sep">&bull;</span>
+                        <span><kbd>Ctrl</kbd>+<kbd>Space</kbd> Voice Agent</span>
                     </div>
                 </div>
+
+                <!-- Hidden fallback containers for backwards compatibility -->
+                <div id="simbaPromptsGrid" style="display:none;" aria-hidden="true"></div>
+                <div id="qcCommandsContainer" style="display:none;" aria-hidden="true"></div>
             </div>
             <script>
                 (function () {
-                    var core = document.getElementById('qcCore');
-                    var coreWrap = document.getElementById('qcCoreWrap');
-                    var statusEl = document.getElementById('qcCoreStatus');
-                    var homeEl = document.getElementById('qcHome');
-                    if (!core || !coreWrap) return;
-
-                    var reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
-                        || document.documentElement.getAttribute('data-animation') === 'none'
-                        || document.documentElement.getAttribute('data-animation') === 'reduced';
-
-                    // Each command's own mode: color, orbit-speed multiplier
-                    // (relative to idle), and glow-pulse intensity multiplier.
-                    // The center glyph itself never changes (see .qc-core-logo -
-                    // it's the brand mark, not a per-mode icon) - only its glow
-                    // color follows the mode, same as everything else.
-                    var MODES = {
-                        document: { rgb: '110, 200, 255', label: 'DOCUMENT MODE', speed: 1.3, pulse: 1.0 },
-                        vision: { rgb: '255, 185, 80', label: 'VISION MODE', speed: 0.6, pulse: 1.15 },
-                        coding: { rgb: '110, 255, 160', label: 'CODING MODE', speed: 1.9, pulse: 1.0 },
-                        diagnostics: { rgb: '255, 95, 95', label: 'DIAGNOSTICS MODE', speed: 2.2, pulse: 1.25 },
-                        image: { rgb: '255, 105, 210', label: 'IMAGE STUDIO MODE', speed: 0.9, pulse: 1.3 },
-                        frontend: { rgb: '80, 230, 210', label: 'FRONTEND MODE', speed: 1.6, pulse: 1.05 },
-                        database: { rgb: '150, 140, 255', label: 'DATABASE MODE', speed: 1.0, pulse: 0.9 },
-                        memory: { rgb: '215, 170, 255', label: 'MEMORY MODE', speed: 0.7, pulse: 1.1 }
-                    };
-                    var IDLE_LABEL = 'IDLE';
-
-                    // ---- Staged, cinematic mode transition ----
-                    // Colors/glow are plain CSS transitions (see the .qc-* rules
-                    // in <style> - each layer has its own transition-delay so
-                    // glow -> rings -> particles -> pulse cascade in, matching
-                    // "glow gradually changes, then rings accelerate, then
-                    // particles shift color, then pulse grows"). Ring rotation
-                    // SPEED can't be smoothly interpolated by CSS at all
-                    // (animation-duration changes snap at the next cycle
-                    // instead of easing), so it's driven by the rAF loop below
-                    // instead, which eases toward a target speed every frame -
-                    // that's what actually satisfies "rings should never stop
-                    // instantly, smooth easing only." Status text can't be
-                    // transitioned either (text content isn't animatable), so
-                    // it gets a manual opacity crossfade timed to land last in
-                    // the sequence.
-                    var statusFadeTimer = null;
-
-                    function crossfadeStatus(label) {
-                        if (!statusEl) return;
-                        clearTimeout(statusFadeTimer);
-                        statusEl.style.opacity = '0';
-                        statusFadeTimer = setTimeout(function () {
-                            statusEl.textContent = label;
-                            requestAnimationFrame(function () {
-                                statusEl.style.opacity = '1';
-                            });
-                        }, 200);
-                    }
-
-                    function applyMode(modeKey) {
-                        var m = modeKey && MODES[modeKey];
-                        if (m) {
-                            core.style.setProperty('--mode-rgb', m.rgb);
-                            core.style.setProperty('--pulse-scale', m.pulse);
-                            ringSpeed.target = m.speed;
-                            crossfadeStatus(m.label);
+                    // 1. Dynamic Human Greeting
+                    var greetingPrefix = document.getElementById('simbaGreetingPrefix');
+                    if (greetingPrefix) {
+                        var hr = new Date().getHours();
+                        if (hr < 12) {
+                            greetingPrefix.textContent = 'Good morning';
+                        } else if (hr < 17) {
+                            greetingPrefix.textContent = 'Good afternoon';
                         } else {
-                            core.style.removeProperty('--mode-rgb');
-                            core.style.removeProperty('--pulse-scale');
-                            ringSpeed.target = 1;
-                            crossfadeStatus(IDLE_LABEL);
+                            greetingPrefix.textContent = 'Good evening';
                         }
                     }
 
-                    window.applyQcMode = applyMode;
-
-                    document.querySelectorAll('#qcHome .qc-chip[data-mode]').forEach(function (chip) {
-                        chip.addEventListener('mouseenter', function () { applyMode(chip.dataset.mode); });
-                        chip.addEventListener('focus', function () { applyMode(chip.dataset.mode); });
-                        chip.addEventListener('mouseleave', function () { applyMode(null); });
-                        chip.addEventListener('blur', function () { applyMode(null); });
-                    });
-
-                    // ---- Ring/orbit rotation, driven by requestAnimationFrame ----
-                    // Idle speed -> acceleration -> target speed -> deceleration
-                    // -> idle, with pure easing (exponential smoothing toward a
-                    // target multiplier every frame) instead of CSS keyframes,
-                    // which is the only way to get a genuinely smooth speed
-                    // change rather than a snap at the next animation cycle.
-                    // Skipped entirely under reduced motion - rings stay static.
-                    var ringEls = {
-                        outer: core.querySelector('.qc-ring-outer'),
-                        mid: core.querySelector('.qc-ring-mid'),
-                        orbit: core.querySelector('.qc-core-orbit:not(.qc-orbit-reverse)'),
-                        orbitRev: core.querySelector('.qc-orbit-reverse')
+                    // Helper for programmatic composer prompt setting
+                    window.setComposerPrompt = function (promptText, modeKey) {
+                        var input = document.getElementById('user-input');
+                        if (input) {
+                            input.value = promptText;
+                            input.focus();
+                            if (typeof autoResizeComposerInput === 'function') {
+                                autoResizeComposerInput(input);
+                            }
+                            input.dispatchEvent(new Event('input', { bubbles: true }));
+                        }
+                        if (modeKey === 'image' && typeof switchToImageMode === 'function') {
+                            switchToImageMode();
+                        }
                     };
-                    var ringBaseDegPerSec = { outer: 14, mid: -46, orbit: 62, orbitRev: -42 };
-                    var ringAngle = { outer: 0, mid: 0, orbit: 0, orbitRev: 0 };
-                    var ringSpeed = { current: 1, target: 1 };
-                    var lastFrameTime = null;
 
-                    function tickRings(now) {
-                        // Same self-stopping idea as the clock below - once
-                        // the welcome screen is hidden (first message sent),
-                        // there's no point still computing rotation angles for
-                        // an invisible element every frame for the rest of the
-                        // page's life.
-                        if (!homeEl || !homeEl.isConnected || homeEl.style.display === 'none') return;
-
-                        if (lastFrameTime === null) lastFrameTime = now;
-                        var dt = Math.min((now - lastFrameTime) / 1000, 0.05);
-                        lastFrameTime = now;
-
-                        ringSpeed.current += (ringSpeed.target - ringSpeed.current) * Math.min(dt * 3.2, 1);
-
-                        for (var key in ringEls) {
-                            var el = ringEls[key];
-                            if (!el) continue;
-                            ringAngle[key] = (ringAngle[key] + ringBaseDegPerSec[key] * ringSpeed.current * dt) % 360;
-                            el.style.transform = 'rotate(' + ringAngle[key].toFixed(2) + 'deg)';
-                        }
-
-                        requestAnimationFrame(tickRings);
-                    }
-                    if (!reducedMotion) {
-                        requestAnimationFrame(tickRings);
-                    }
-
-                    // Subtle mouse-tracking tilt - pointer devices only, and
-                    // never fires at all under reduced-motion preferences.
-                    if (!reducedMotion && window.matchMedia('(pointer: fine)').matches) {
-                        coreWrap.addEventListener('mousemove', function (e) {
-                            var rect = coreWrap.getBoundingClientRect();
-                            var px = (e.clientX - rect.left) / rect.width - 0.5;
-                            var py = (e.clientY - rect.top) / rect.height - 0.5;
-                            core.style.transform = 'rotateX(' + (-py * 10).toFixed(2) + 'deg) rotateY(' + (px * 10).toFixed(2) + 'deg)';
-                        });
-                        coreWrap.addEventListener('mouseleave', function () {
-                            core.style.transform = '';
-                        });
-                    }
-
-                    // Live status bar clock - stops itself once the welcome
-                    // screen is hidden (sendQuery() hides it via display:none
-                    // rather than removing it, since a returning user might
-                    // come back to an empty session later) so this doesn't
-                    // keep ticking in the background for the rest of the
-                    // page's life after the first message is sent.
-                    var timeEl = document.getElementById('qcTime');
-                    var dateEl = document.getElementById('qcDate');
-                    var clockInterval = setInterval(function () {
-                        if (!homeEl || !homeEl.isConnected || homeEl.style.display === 'none') {
-                            clearInterval(clockInterval);
-                            return;
-                        }
-                        var now = new Date();
-                        if (timeEl) timeEl.textContent = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-                        if (dateEl) dateEl.textContent = now.toLocaleDateString([], { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' });
-                    }, 1000);
-                    if (timeEl) timeEl.textContent = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-                    if (dateEl) dateEl.textContent = new Date().toLocaleDateString([], { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' });
+                    window.applyQcMode = function () {};
                 })();
             </script>
             {% endif %}

@@ -1,244 +1,126 @@
-            <div class="voice-workspace voice-workspace-wrapper" id="voiceWorkspace">
-                <!-- Voice Header Card -->
-                <div class="voice-header-card">
-                    <div class="voice-header-left">
-                        <div class="agent-title-tag">
-                            <span class="voice-pulse-dot"></span>
-                            <span class="agent-mode-badge"
-                                style="background:rgba(6,182,212,0.12); border-color:rgba(6,182,212,0.35); color:#06b6d4;">
-                                <i class="fa-solid fa-microphone"></i> VOICE AGENT
-                            </span>
-                            <h2 class="voice-header-title">VOICE AGENT</h2>
-                        </div>
-                        <p class="voice-header-subtitle">Listen, understand, answer, and act.</p>
-                    </div>
-                    <div class="voice-header-right">
-                        <span class="voice-lifecycle-badge status-idle" id="voiceLifecycleBadge">
-                            <i class="fa-solid fa-microphone"></i>
-                            <span id="voiceLifecycleText">IDLE</span>
-                        </span>
-                    </div>
+<div class="voice-workspace voice-workspace-wrapper" id="voiceWorkspace">
+    <!-- Sleek Minimalist Top HUD Bar (Clean Single-Row Glass Strip) -->
+    <div class="voice-hud-bar" id="voiceControlBar">
+        <div class="voice-hud-left">
+            <button type="button" class="voice-mode-pill active" id="pillModeHandsFree"
+                onclick="toggleHandsFreeConversationalMode()" title="Toggle continuous Hands-Free mode">
+                <i class="fa-solid fa-headset" id="handsFreeIcon"></i>
+                <span id="handsFreeLabel">Hands-Free</span>
+            </button>
+            <button type="button" class="voice-speed-pill" id="voiceSpeedCycleBtn" onclick="cycleVoiceSpeed()"
+                title="Cycle speech speed (1.0x, 1.2x, 1.5x, 0.8x)">
+                <i class="fa-solid fa-gauge-high"></i> <span id="voiceSpeedLabel">1.0x</span>
+            </button>
+            <!-- Hidden inputs to preserve legacy state bindings -->
+            <button type="button" id="pillModePushToTalk" onclick="setVoiceInputMode('pushtotalk')"
+                style="display:none;"></button>
+            <input type="checkbox" id="voiceAutoListenToggle" style="display:none;">
+            <select id="voicePersonaSelect" style="display:none;">
+                <option value="">Default Browser Voice</option>
+            </select>
+            <button type="button" id="btnVoiceSfxToggle" onclick="toggleVoiceSfx()" style="display:none;"></button>
+            <span id="voiceSfxLabel" style="display:none;">Audio Cues: ON</span>
+        </div>
+        <div class="voice-hud-right">
+            <span class="voice-shortcut-pill" title="Press F2 or Ctrl+Space to toggle listening">
+                <kbd>F2</kbd> or <kbd>Ctrl+Space</kbd>
+            </span>
+            <button type="button" class="voice-hud-action-btn" onclick="clearVoiceWorkspace()"
+                title="Reset voice session">
+                <i class="fa-solid fa-arrows-rotate"></i>
+            </button>
+        </div>
+    </div>
+
+    <!-- Simba Neural Voice Core (Hero Stage) -->
+    <div class="voice-core-stage" id="voiceHeroStage">
+        <div class="voice-visualizer-container" id="voiceVisualizerContainer">
+            <!-- Real-time Web Audio API Canvas Visualizer -->
+            <canvas id="voiceSpectrumCanvas" class="voice-spectrum-canvas" width="280" height="280"
+                aria-hidden="true"></canvas>
+            <div class="voice-wave-ring ring-3" id="voiceRing3"></div>
+            <div class="voice-wave-ring ring-2" id="voiceRing2"></div>
+            <div class="voice-wave-ring ring-1" id="voiceRing1"></div>
+            <button type="button" class="voice-main-mic-btn" id="voiceMainMicBtn" onclick="toggleVoiceAgentListening()"
+                aria-label="Toggle Voice Listening">
+                <i class="fa-solid fa-microphone" id="voiceMicIcon"></i>
+                <div class="voice-speaking-bars" id="voiceSpeakingBars" style="display:none;">
+                    <span></span><span></span><span></span><span></span><span></span>
                 </div>
+            </button>
+        </div>
 
-                <!-- Voice Cockpit Settings & Control Bar -->
-                <div class="voice-control-bar" id="voiceControlBar">
-                    <!-- Mode Switcher -->
-                    <div class="voice-hud-group">
-                        <span class="voice-hud-label"><i class="fa-solid fa-sliders"></i> MODE</span>
-                        <div class="voice-mode-pills">
-                            <button type="button" class="voice-mode-pill active" id="pillModeHandsFree" onclick="setVoiceInputMode('handsfree')">
-                                <i class="fa-solid fa-headset"></i> Hands-Free
-                            </button>
-                            <button type="button" class="voice-mode-pill" id="pillModePushToTalk" onclick="setVoiceInputMode('pushtotalk')">
-                                <i class="fa-solid fa-microphone"></i> Push-to-Talk
-                            </button>
-                        </div>
-                    </div>
+        <div class="voice-hero-status" id="voiceHeroStatus">READY TO LISTEN</div>
+        <p class="voice-hero-subtext" id="voiceHeroSubtext">Tap the orb or press F2 to speak to SIMBA</p>
 
-                    <!-- Voice Persona Selector -->
-                    <div class="voice-hud-group">
-                        <label for="voicePersonaSelect" class="voice-hud-label"><i class="fa-solid fa-volume-high"></i> VOICE</label>
-                        <select id="voicePersonaSelect" class="voice-hud-select" onchange="onVoicePersonaChange(this.value)" aria-label="Select Voice Persona">
-                            <option value="">Default Browser Voice</option>
-                        </select>
-                    </div>
+        <!-- Hidden legacy action bridges -->
+        <button type="button" id="btnVoiceListen" onclick="toggleVoiceAgentListening()" style="display:none;"></button>
+        <button type="button" id="btnStopListening" onclick="stopVoiceListening()" style="display:none;"></button>
+        <button type="button" id="btnStopSpeaking" onclick="simbaStopSpeaking()" style="display:none;"></button>
+        <button type="button" id="btnHandsFreeToggle" onclick="toggleHandsFreeConversationalMode()"
+            style="display:none;"></button>
+        <span id="voiceLifecycleBadge" style="display:none;"><i class="fa-solid fa-microphone"></i><span
+                id="voiceLifecycleText">IDLE</span></span>
+        <span id="voiceTranscriptMode" style="display:none;">STANDBY</span>
+    </div>
 
-                    <!-- Speech Rate Pills -->
-                    <div class="voice-hud-group">
-                        <span class="voice-hud-label"><i class="fa-solid fa-gauge-high"></i> SPEED</span>
-                        <div class="voice-speed-pills">
-                            <button type="button" class="voice-speed-pill" data-rate="0.8" onclick="setVoiceSpeechRate(0.8)">0.8x</button>
-                            <button type="button" class="voice-speed-pill active" data-rate="1.0" onclick="setVoiceSpeechRate(1.0)">1.0x</button>
-                            <button type="button" class="voice-speed-pill" data-rate="1.2" onclick="setVoiceSpeechRate(1.2)">1.2x</button>
-                            <button type="button" class="voice-speed-pill" data-rate="1.5" onclick="setVoiceSpeechRate(1.5)">1.5x</button>
-                        </div>
-                    </div>
+    <!-- Live Spoken Conversation Surface -->
+    <div class="voice-live-surface">
+        <!-- Live Transcript Bubble -->
+        <div class="voice-transcript-bubble" id="voiceTranscriptCard">
+            <div class="transcript-bubble-icon"><i class="fa-solid fa-comment-dots"></i></div>
+            <div class="voice-transcript-text" id="voiceTranscriptText">
+                "Listening for your voice command..."
+            </div>
+        </div>
 
-                    <!-- SFX Audio Cues Toggle -->
-                    <div class="voice-hud-group">
-                        <button type="button" class="voice-sfx-toggle active" id="btnVoiceSfxToggle" onclick="toggleVoiceSfx()" title="Toggle Sci-Fi audio feedback chimes">
-                            <i class="fa-solid fa-bell"></i> <span id="voiceSfxLabel">Audio Cues: ON</span>
-                        </button>
-                    </div>
+        <!-- Simba Spoken Response Bubble -->
+        <div class="voice-response-bubble" id="voiceResponseCard" style="display:none;">
+            <div class="response-bubble-header">
+                <div class="response-bubble-title">
+                    <i class="fa-solid fa-robot"></i> <span>SIMBA RESPONSE</span>
                 </div>
+                <button type="button" class="btn-bubble-replay" id="voiceCardStopSpeaking" onclick="simbaStopSpeaking()"
+                    title="Stop audio">
+                    <i class="fa-solid fa-stop"></i> Stop Audio
+                </button>
+            </div>
+            <div class="voice-response-text" id="voiceResponseText"></div>
+            <div class="voice-task-progress" id="voiceTaskProgress" style="display:none;"></div>
+        </div>
+    </div>
 
-                <!-- Voice Workflow Pipeline Card (Part 22) -->
-                <div class="voice-pipeline-card" id="voicePipelineCard" aria-label="Voice processing pipeline">
-                    <div class="voice-pipeline-step" id="pipeStepListen">
-                        <i class="fa-solid fa-microphone pipeline-icon"></i>
-                        <span>LISTEN</span>
-                    </div>
-                    <span class="pipeline-arrow"><i class="fa-solid fa-chevron-right"></i></span>
-                    <div class="voice-pipeline-step" id="pipeStepTranscribe">
-                        <i class="fa-solid fa-font pipeline-icon"></i>
-                        <span>TRANSCRIBE</span>
-                    </div>
-                    <span class="pipeline-arrow"><i class="fa-solid fa-chevron-right"></i></span>
-                    <div class="voice-pipeline-step" id="pipeStepUnderstand">
-                        <i class="fa-solid fa-brain pipeline-icon"></i>
-                        <span>UNDERSTAND</span>
-                    </div>
-                    <span class="pipeline-arrow"><i class="fa-solid fa-chevron-right"></i></span>
-                    <div class="voice-pipeline-step" id="pipeStepAct">
-                        <i class="fa-solid fa-bolt pipeline-icon"></i>
-                        <span>ACT</span>
-                    </div>
-                    <span class="pipeline-arrow"><i class="fa-solid fa-chevron-right"></i></span>
-                    <div class="voice-pipeline-step" id="pipeStepSpeak">
-                        <i class="fa-solid fa-volume-high pipeline-icon"></i>
-                        <span>SPEAK</span>
-                    </div>
+    <!-- Recent Spoken History (Clean & Minimalist Feed) -->
+    <div class="voice-history-section" id="voiceConversationFeed">
+        {% if messages %}
+        <div class="voice-history-header">
+            <span><i class="fa-solid fa-clock-rotate-left"></i> SPOKEN TURNS</span>
+            <button type="button" class="btn-clear-feed" onclick="clearVoiceTurnHistory()" title="Clear history">
+                <i class="fa-solid fa-trash-can"></i> Clear
+            </button>
+        </div>
+        <div class="voice-feed-list" id="voiceFeedList">
+            {% for m in messages %}
+            <div class="voice-feed-card">
+                <div class="feed-user-query">
+                    <i class="fa-solid fa-microphone"></i>
+                    <span>{{ m.user_query }}</span>
                 </div>
-
-                <!-- Voice Hero Microphone Stage -->
-                <div class="voice-hero-stage" id="voiceHeroStage">
-                    <div class="voice-visualizer-container" id="voiceVisualizerContainer">
-                        <!-- Real-time Web Audio API Canvas Visualizer -->
-                        <canvas id="voiceSpectrumCanvas" class="voice-spectrum-canvas" width="300" height="300" aria-hidden="true"></canvas>
-                        <div class="voice-wave-ring ring-3" id="voiceRing3"></div>
-                        <div class="voice-wave-ring ring-2" id="voiceRing2"></div>
-                        <div class="voice-wave-ring ring-1" id="voiceRing1"></div>
-                        <button type="button" class="voice-main-mic-btn" id="voiceMainMicBtn"
-                            onclick="toggleVoiceAgentListening()" aria-label="Toggle Voice Listening">
-                            <i class="fa-solid fa-microphone" id="voiceMicIcon"></i>
-                            <div class="voice-speaking-bars" id="voiceSpeakingBars" style="display:none;">
-                                <span></span><span></span><span></span><span></span><span></span>
-                            </div>
-                        </button>
-                    </div>
-
-                    <!-- Real-Time Input VU-Meter -->
-                    <div class="voice-vu-meter-wrap" id="voiceVuMeterWrap">
-                        <div class="vu-meta">
-                            <span class="vu-label"><i class="fa-solid fa-microphone-lines"></i> INPUT SENSITIVITY</span>
-                            <span class="vu-db" id="voiceVuDb">-- dB</span>
-                        </div>
-                        <div class="voice-vu-bar">
-                            <div class="voice-vu-fill" id="voiceVuFill"></div>
-                            <div class="voice-vu-markers">
-                                <span></span><span></span><span></span><span></span><span></span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="voice-hero-status" id="voiceHeroStatus">READY TO LISTEN</div>
-                    <p class="voice-hero-subtext" id="voiceHeroSubtext">Tap the microphone to speak, or ask SIMBA to control your computer or answer questions.</p>
-                </div>
-
-                <!-- Voice Stage Controls -->
-                <div class="voice-stage-controls">
-                    <button type="button" class="btn-voice-action" id="btnVoiceListen"
-                        onclick="toggleVoiceAgentListening()">
-                        <i class="fa-solid fa-microphone"></i> <span>Microphone</span>
+                <div class="feed-simba-resp">
+                    <i class="fa-solid fa-robot"></i>
+                    <span class="feed-resp-content">{{ m.ai_response }}</span>
+                    <button type="button" class="btn-feed-action" onclick="simbaSpeak('{{ m.ai_response|escapejs }}')"
+                        title="Replay voice audio">
+                        <i class="fa-solid fa-volume-high"></i>
                     </button>
-                    <button type="button" class="btn-voice-action danger" id="btnStopListening"
-                        onclick="stopVoiceListening()" style="display:none;">
-                        <i class="fa-solid fa-microphone-slash"></i> <span>Stop Listening</span>
-                    </button>
-                    <button type="button" id="btnStopSpeaking" class="btn-voice-action danger"
-                        onclick="simbaStopSpeaking()" style="display:none;" title="Stop SIMBA from speaking">
-                        <i class="fa-solid fa-volume-xmark"></i> <span>Stop Audio</span>
-                    </button>
-                    <button type="button" class="btn-voice-action" onclick="clearVoiceWorkspace()"
-                        title="Clear transcription and response">
-                        <i class="fa-solid fa-arrows-rotate"></i> <span>Clear</span>
-                    </button>
-                    <button type="button" class="btn-voice-action btn-handsfree-toggle" id="btnHandsFreeToggle"
-                        onclick="toggleHandsFreeConversationalMode()" title="Toggle continuous Hands-Free conversational voice mode">
-                        <i class="fa-solid fa-headset" id="handsFreeIcon"></i> <span id="handsFreeLabel">Hands-Free</span>
-                    </button>
-                    <input type="checkbox" id="voiceAutoListenToggle" style="display:none;">
-                </div>
-
-                <!-- Voice Quick Suggestions / Examples -->
-                <div class="voice-quick-prompts">
-                    <span class="voice-quick-label">Try speaking:</span>
-                    <button type="button" class="voice-quick-chip" onclick="handleVoiceCommand('What is Python?')">
-                        <i class="fa-solid fa-comment-dots"></i> What is Python?
-                    </button>
-                    <button type="button" class="voice-quick-chip"
-                        onclick="handleVoiceCommand('Open YouTube and search Roblox')">
-                        <i class="fa-brands fa-youtube"></i> Open YouTube
-                    </button>
-                    <button type="button" class="voice-quick-chip"
-                        onclick="handleVoiceCommand('Open Notepad and write meeting notes')">
-                        <i class="fa-solid fa-desktop"></i> Control my PC
-                    </button>
-                    <button type="button" class="voice-quick-chip"
-                        onclick="handleVoiceCommand('Search web for latest AI news')">
-                        <i class="fa-solid fa-magnifying-glass"></i> Search the web
-                    </button>
-                    <button type="button" class="voice-quick-chip"
-                        onclick="handleVoiceCommand('Calculate 15% tip on 84.50')">
-                        <i class="fa-solid fa-calculator"></i> Calculate tip
-                    </button>
-                </div>
-
-                <!-- Voice Dual Cards (Live Transcript + Simba Spoken Response) -->
-                <div class="voice-cards-grid">
-                    <div class="voice-transcript-card" id="voiceTranscriptCard">
-                        <div class="voice-card-header">
-                            <span><i class="fa-solid fa-ear-listen"></i> LIVE TRANSCRIPT</span>
-                            <span class="voice-transcript-mode" id="voiceTranscriptMode">STANDBY</span>
-                        </div>
-                        <div class="voice-transcript-text" id="voiceTranscriptText">
-                            "Your voice request will appear here."
-                        </div>
-                    </div>
-
-                    <div class="voice-response-card" id="voiceResponseCard" style="display:none;">
-                        <div class="voice-card-header">
-                            <span><i class="fa-solid fa-robot"></i> SIMBA RESPONSE</span>
-                            <button type="button" class="btn-sm-stop-speak" id="voiceCardStopSpeaking" onclick="simbaStopSpeaking()" style="display:none;"><i
-                                    class="fa-solid fa-stop"></i> Stop Audio</button>
-                        </div>
-                        <div class="voice-response-text" id="voiceResponseText"></div>
-                        <div class="voice-task-progress" id="voiceTaskProgress" style="display:none;"></div>
-                    </div>
-                </div>
-
-                <!-- Spoken Conversation History Feed -->
-                <div class="voice-conversation-feed" id="voiceConversationFeed">
-                    <div class="voice-feed-header">
-                        <span><i class="fa-solid fa-comments"></i> SPOKEN CONVERSATION HISTORY</span>
-                        <button type="button" class="btn-clear-feed" onclick="clearVoiceTurnHistory()" title="Clear spoken history">
-                            <i class="fa-solid fa-trash-can"></i> Clear History
-                        </button>
-                    </div>
-                    <div class="voice-feed-list" id="voiceFeedList">
-                        {% if messages %}
-                        {% for m in messages %}
-                        <div class="voice-feed-card">
-                            <div class="feed-card-header">
-                                <div style="display:flex; align-items:center; gap:8px;">
-                                    <span class="feed-tag info"><i class="fa-regular fa-comment-dots"></i> QUERY</span>
-                                    <span class="feed-time">{{ m.timestamp|default:"" }}</span>
-                                </div>
-                                <div class="feed-card-actions">
-                                    <button type="button" class="btn-feed-action" onclick="simbaSpeak('{{ m.ai_response|escapejs }}')" title="Replay voice audio">
-                                        <i class="fa-solid fa-volume-high"></i>
-                                    </button>
-                                    <button type="button" class="btn-feed-action" onclick="copyVoiceResponseText(this)" title="Copy text">
-                                        <i class="fa-regular fa-copy"></i>
-                                    </button>
-                                </div>
-                            </div>
-                            <div class="feed-user-query">
-                                <i class="fa-solid fa-microphone"></i>
-                                <span>{{ m.user_query }}</span>
-                            </div>
-                            <div class="feed-simba-resp">
-                                <i class="fa-solid fa-robot"></i>
-                                <span class="feed-resp-content">{{ m.ai_response }}</span>
-                            </div>
-                        </div>
-                        {% endfor %}
-                        {% else %}
-                        <div class="voice-feed-empty" id="voiceFeedEmpty">
-                            <i class="fa-solid fa-headset" style="font-size:24px; opacity:0.3; margin-bottom:8px;"></i>
-                            <div>Spoken conversation turns will be recorded here with instant audio replay.</div>
-                        </div>
-                        {% endif %}
-                    </div>
                 </div>
             </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="voice-feed-list" id="voiceFeedList">
+            <div class="voice-feed-empty" id="voiceFeedEmpty" style="display:none;"></div>
+        </div>
+        {% endif %}
+    </div>
+</div>

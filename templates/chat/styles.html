@@ -415,40 +415,6 @@
             --shadow-glow: 0 0 0 1px rgba(176, 132, 245, 0.12), 0 8px 24px rgba(0, 0, 0, 0.5);
         }
 
-        html[data-theme="matrix-green"] {
-            --accent: #39ff88;
-            --accent-rgb: 57, 255, 136;
-            --accent-soft: rgba(57, 255, 136, 0.55);
-            --accent-dim: rgba(57, 255, 136, 0.08);
-            --shadow-glow: 0 0 0 1px rgba(57, 255, 136, 0.12), 0 8px 24px rgba(0, 0, 0, 0.5);
-        }
-
-        html[data-theme="light"] {
-            --bg: #f4f5f7;
-            --sidebar: #ffffff;
-            --accent: #0091a8;
-            --accent-rgb: 0, 145, 168;
-            --bg-rgb: 244, 245, 247;
-            --accent-soft: rgba(0, 145, 168, 0.6);
-            --accent-dim: rgba(0, 145, 168, 0.08);
-            --border: #dfe3e8;
-            --border-soft: rgba(0, 0, 0, 0.08);
-            --user-bubble: #eef1f5;
-            --card: rgba(0, 0, 0, 0.02);
-            --surface: #ffffff;
-            --composer-bg: rgba(255, 255, 255, 0.95);
-            --workspace-bg: #f8f9fb;
-            --grid-line-1: rgba(0, 0, 0, 0.035);
-            --grid-line-2: rgba(0, 0, 0, 0.03);
-            --ring-track: rgba(0, 0, 0, 0.1);
-            --text: #1c1f26;
-            --text-dim: #5b6472;
-            --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.08);
-            --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.08);
-            --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.12);
-            --shadow-glow: 0 0 0 1px rgba(0, 145, 168, 0.15), 0 8px 24px rgba(0, 0, 0, 0.1);
-        }
-
         html[data-theme="nord"] {
             --bg: #242933;
             --sidebar: #2e3440;
@@ -468,61 +434,65 @@
             --shadow-glow: 0 0 0 1px rgba(136, 192, 208, 0.12), 0 8px 24px rgba(0, 0, 0, 0.5);
         }
 
-        html[data-theme="synthwave"] {
-            --bg: #170b28;
-            --sidebar: #1f1033;
-            --accent: #ff2e97;
-            --accent-rgb: 255, 46, 151;
-            --bg-rgb: 23, 11, 40;
-            --border: #35204f;
-            --user-bubble: #241442;
+        /* --- Official Flagship AI Brand Themes (Original Specs) --- */
+        html[data-theme="chatgpt"] {
+            --bg: #212121;
+            --sidebar: #171717;
+            --accent: #10a37f;
+            --accent-rgb: 16, 163, 127;
+            --bg-rgb: 33, 33, 33;
+            --border: #383838;
+            --border-soft: rgba(255, 255, 255, 0.08);
+            --user-bubble: #2f2f2f;
             --card: rgba(255, 255, 255, 0.03);
-            --surface: #1c0f38;
-            --composer-bg: rgba(28, 15, 56, 0.95);
-            --workspace-bg: #150a26;
-            --grid-line-1: rgba(255, 46, 151, 0.1);
-            --grid-line-2: rgba(0, 229, 255, 0.06);
-            --text: #f5e9ff;
-            --text-dim: #b79fd4;
-            --shadow-glow: 0 0 0 1px rgba(255, 46, 151, 0.15), 0 8px 24px rgba(0, 0, 0, 0.5);
+            --surface: #262626;
+            --composer-bg: rgba(33, 33, 33, 0.98);
+            --workspace-bg: #1a1a1a;
+            --grid-line-1: rgba(16, 163, 127, 0.05);
+            --grid-line-2: rgba(255, 255, 255, 0.02);
+            --text: #ececec;
+            --text-dim: #b4b4b4;
+            --shadow-glow: 0 0 0 1px rgba(16, 163, 127, 0.2), 0 8px 24px rgba(0, 0, 0, 0.45);
         }
 
-        html[data-theme="purple-neon"] {
-            --bg: #140a24;
-            --sidebar: #1c1035;
-            --accent: #a855f7;
-            --accent-rgb: 168, 85, 247;
-            --bg-rgb: 20, 10, 36;
-            --border: #2f1c4a;
-            --user-bubble: #221238;
-            --card: rgba(255, 255, 255, 0.03);
-            --surface: #190e2e;
-            --composer-bg: rgba(25, 14, 46, 0.95);
-            --workspace-bg: #120823;
-            --grid-line-1: rgba(168, 85, 247, 0.09);
-            --grid-line-2: rgba(168, 85, 247, 0.05);
-            --text: #f0e6ff;
-            --text-dim: #a793c4;
-            --shadow-glow: 0 0 0 1px rgba(168, 85, 247, 0.14), 0 8px 24px rgba(0, 0, 0, 0.5);
+        html[data-theme="claude"] {
+            --bg: #262422;
+            --sidebar: #1e1d1b;
+            --accent: #d97757;
+            --accent-rgb: 217, 119, 87;
+            --bg-rgb: 38, 36, 34;
+            --border: #3d3934;
+            --border-soft: rgba(217, 119, 87, 0.12);
+            --user-bubble: #35322e;
+            --card: rgba(255, 255, 255, 0.025);
+            --surface: #2d2a27;
+            --composer-bg: rgba(38, 36, 34, 0.98);
+            --workspace-bg: #201e1c;
+            --grid-line-1: rgba(217, 119, 87, 0.06);
+            --grid-line-2: rgba(251, 251, 249, 0.02);
+            --text: #faf8f5;
+            --text-dim: #b4aea4;
+            --shadow-glow: 0 0 0 1px rgba(217, 119, 87, 0.22), 0 8px 24px rgba(0, 0, 0, 0.45);
         }
 
-        html[data-theme="ocean"] {
-            --bg: #071a24;
-            --sidebar: #0d2635;
-            --accent: #22d3ee;
-            --accent-rgb: 34, 211, 238;
-            --bg-rgb: 7, 26, 36;
-            --border: #123244;
-            --user-bubble: #0f2b3a;
-            --card: rgba(255, 255, 255, 0.02);
-            --surface: #0a212e;
-            --composer-bg: rgba(10, 33, 46, 0.95);
-            --workspace-bg: #061621;
-            --grid-line-1: rgba(34, 211, 238, 0.08);
-            --grid-line-2: rgba(34, 211, 238, 0.05);
-            --text: #e0f7fa;
-            --text-dim: #8fb8c4;
-            --shadow-glow: 0 0 0 1px rgba(34, 211, 238, 0.12), 0 8px 24px rgba(0, 0, 0, 0.5);
+        html[data-theme="gemini"] {
+            --bg: #131314;
+            --sidebar: #1e1f20;
+            --accent: #4d88ff;
+            --accent-rgb: 77, 136, 255;
+            --bg-rgb: 19, 19, 20;
+            --border: #3c4043;
+            --border-soft: rgba(77, 136, 255, 0.12);
+            --user-bubble: #282a2c;
+            --card: rgba(255, 255, 255, 0.03);
+            --surface: #222426;
+            --composer-bg: rgba(19, 19, 20, 0.98);
+            --workspace-bg: #0e0e0f;
+            --grid-line-1: rgba(77, 136, 255, 0.06);
+            --grid-line-2: rgba(155, 114, 203, 0.04);
+            --text: #e3e3e3;
+            --text-dim: #c4c7c5;
+            --shadow-glow: 0 0 0 1px rgba(77, 136, 255, 0.22), 0 8px 24px rgba(0, 0, 0, 0.5);
         }
 
         html[data-theme="minimal-dark"] {
@@ -565,24 +535,65 @@
             --shadow-glow: 0 0 0 1px rgba(240, 168, 104, 0.12), 0 8px 24px rgba(0, 0, 0, 0.5);
         }
 
-        /* --- Part 5 (Settings redesign task): expanded theme set --- */
-        html[data-theme="cyber-orange"] {
-            --bg: #120a05;
-            --sidebar: #1a0f08;
-            --accent: #ff9d3d;
-            --accent-rgb: 255, 157, 61;
-            --bg-rgb: 18, 10, 5;
-            --border: #2e1c0f;
-            --user-bubble: #211408;
+        /* --- Executive Luxury Themes --- */
+        html[data-theme="monaco-grand"] {
+            --bg: #100d0a;
+            --sidebar: #18140f;
+            --accent: #e5c07b;
+            --accent-rgb: 229, 192, 123;
+            --bg-rgb: 16, 13, 10;
+            --border: #33291c;
+            --border-soft: rgba(229, 192, 123, 0.08);
+            --user-bubble: #241c14;
             --card: rgba(255, 255, 255, 0.025);
-            --surface: #170e07;
-            --composer-bg: rgba(23, 14, 7, 0.95);
-            --workspace-bg: #0f0904;
-            --grid-line-1: rgba(255, 157, 61, 0.09);
-            --grid-line-2: rgba(255, 157, 61, 0.05);
-            --text: #ffe9d1;
-            --text-dim: #b89a7d;
-            --shadow-glow: 0 0 0 1px rgba(255, 157, 61, 0.14), 0 8px 24px rgba(0, 0, 0, 0.5);
+            --surface: #1e1711;
+            --composer-bg: rgba(24, 20, 15, 0.96);
+            --workspace-bg: #0c0a07;
+            --grid-line-1: rgba(229, 192, 123, 0.08);
+            --grid-line-2: rgba(229, 192, 123, 0.04);
+            --text: #fbf5ea;
+            --text-dim: #b3a48e;
+            --shadow-glow: 0 0 0 1px rgba(229, 192, 123, 0.16), 0 8px 24px rgba(0, 0, 0, 0.5);
+        }
+
+        html[data-theme="porsche-chalk"] {
+            --bg: #0e1014;
+            --sidebar: #14171d;
+            --accent: #94a3b8;
+            --accent-rgb: 148, 163, 184;
+            --bg-rgb: 14, 16, 20;
+            --border: #222733;
+            --border-soft: rgba(148, 163, 184, 0.08);
+            --user-bubble: #191e28;
+            --card: rgba(255, 255, 255, 0.02);
+            --surface: #171b22;
+            --composer-bg: rgba(20, 23, 29, 0.96);
+            --workspace-bg: #0b0c0f;
+            --grid-line-1: rgba(148, 163, 184, 0.06);
+            --grid-line-2: rgba(148, 163, 184, 0.03);
+            --text: #f1f5f9;
+            --text-dim: #94a3b8;
+            --shadow-glow: 0 0 0 1px rgba(148, 163, 184, 0.14), 0 8px 24px rgba(0, 0, 0, 0.5);
+        }
+
+        html[data-theme="carbon-stealth"] {
+            --bg: #08090b;
+            --sidebar: #0f1013;
+            --accent: #e2e8f0;
+            --accent-rgb: 226, 232, 240;
+            --bg-rgb: 8, 9, 11;
+            --border: #1c1e24;
+            --border-soft: rgba(255, 255, 255, 0.05);
+            --user-bubble: #16171c;
+            --card: rgba(255, 255, 255, 0.02);
+            --surface: #131417;
+            --composer-bg: rgba(15, 16, 19, 0.96);
+            --workspace-bg: #060708;
+            --grid-line-1: rgba(255, 255, 255, 0.04);
+            --grid-line-2: rgba(255, 255, 255, 0.02);
+            --text: #f8fafc;
+            --text-dim: #858994;
+            --shadow-glow: 0 0 0 1px rgba(226, 232, 240, 0.12), 0 8px 24px rgba(0, 0, 0, 0.6);
         }
 
         html[data-theme="neon-green"] {
@@ -604,44 +615,6 @@
             --shadow-glow: 0 0 0 1px rgba(57, 255, 20, 0.14), 0 8px 24px rgba(0, 0, 0, 0.5);
         }
 
-        html[data-theme="midnight-blue"] {
-            --bg: #060b18;
-            --sidebar: #0a1226;
-            --accent: #3b82f6;
-            --accent-rgb: 59, 130, 246;
-            --bg-rgb: 6, 11, 24;
-            --border: #16224a;
-            --user-bubble: #0e1a38;
-            --card: rgba(255, 255, 255, 0.02);
-            --surface: #0a1530;
-            --composer-bg: rgba(10, 21, 48, 0.95);
-            --workspace-bg: #050a16;
-            --grid-line-1: rgba(59, 130, 246, 0.08);
-            --grid-line-2: rgba(59, 130, 246, 0.05);
-            --text: #e3ecff;
-            --text-dim: #8ba0c9;
-            --shadow-glow: 0 0 0 1px rgba(59, 130, 246, 0.14), 0 8px 24px rgba(0, 0, 0, 0.5);
-        }
-
-        html[data-theme="purple-matrix"] {
-            --bg: #0b0714;
-            --sidebar: #120b20;
-            --accent: #9d4edd;
-            --accent-rgb: 157, 78, 221;
-            --bg-rgb: 11, 7, 20;
-            --border: #241238;
-            --user-bubble: #180f2a;
-            --card: rgba(255, 255, 255, 0.025);
-            --surface: #0f0a1c;
-            --composer-bg: rgba(15, 10, 28, 0.95);
-            --workspace-bg: #090614;
-            --grid-line-1: rgba(157, 78, 221, 0.1);
-            --grid-line-2: rgba(157, 78, 221, 0.06);
-            --text: #ede4ff;
-            --text-dim: #a695c4;
-            --shadow-glow: 0 0 0 1px rgba(157, 78, 221, 0.15), 0 8px 24px rgba(0, 0, 0, 0.5);
-        }
-
         html[data-theme="crimson-red"] {
             --bg: #140505;
             --sidebar: #1e0808;
@@ -659,32 +632,6 @@
             --text: #ffe4e4;
             --text-dim: #c48a8a;
             --shadow-glow: 0 0 0 1px rgba(239, 68, 68, 0.14), 0 8px 24px rgba(0, 0, 0, 0.5);
-        }
-
-        html[data-theme="arctic-white"] {
-            --bg: #f7fafc;
-            --sidebar: #ffffff;
-            --accent: #0ea5e9;
-            --accent-rgb: 14, 165, 233;
-            --bg-rgb: 247, 250, 252;
-            --accent-soft: rgba(14, 165, 233, 0.55);
-            --accent-dim: rgba(14, 165, 233, 0.08);
-            --border: #dce6ee;
-            --border-soft: rgba(14, 40, 60, 0.06);
-            --user-bubble: #eef6fb;
-            --card: rgba(14, 60, 90, 0.02);
-            --surface: #ffffff;
-            --composer-bg: rgba(255, 255, 255, 0.95);
-            --workspace-bg: #eef4f9;
-            --grid-line-1: rgba(14, 165, 233, 0.05);
-            --grid-line-2: rgba(14, 165, 233, 0.03);
-            --ring-track: rgba(14, 40, 60, 0.08);
-            --text: #16232e;
-            --text-dim: #587085;
-            --shadow-sm: 0 1px 2px rgba(20, 50, 70, 0.06);
-            --shadow-md: 0 4px 16px rgba(20, 50, 70, 0.08);
-            --shadow-lg: 0 12px 32px rgba(20, 50, 70, 0.12);
-            --shadow-glow: 0 0 0 1px rgba(14, 165, 233, 0.15), 0 8px 24px rgba(20, 50, 70, 0.1);
         }
 
         html[data-theme="oled-black"] {
@@ -726,24 +673,7 @@
             --shadow-glow: 0 0 0 1px rgba(16, 185, 129, 0.14), 0 8px 24px rgba(0, 0, 0, 0.5);
         }
 
-        html[data-theme="royal-gold"] {
-            --bg: #120e05;
-            --sidebar: #1b1508;
-            --accent: #d4af37;
-            --accent-rgb: 212, 175, 55;
-            --bg-rgb: 18, 14, 5;
-            --border: #372c11;
-            --user-bubble: #211a0a;
-            --card: rgba(255, 255, 255, 0.025);
-            --surface: #171207;
-            --composer-bg: rgba(23, 18, 7, 0.95);
-            --workspace-bg: #0f0b04;
-            --grid-line-1: rgba(212, 175, 55, 0.09);
-            --grid-line-2: rgba(212, 175, 55, 0.05);
-            --text: #fdf3d9;
-            --text-dim: #b8a878;
-            --shadow-glow: 0 0 0 1px rgba(212, 175, 55, 0.15), 0 8px 24px rgba(0, 0, 0, 0.5);
-        }
+
 
         /* ================= APPEARANCE CONTROLS (Part 6) =================
            These read data-accent/data-density/data-radius/data-animation/data-glass
@@ -815,6 +745,48 @@
             --accent-soft: rgba(212, 175, 55, 0.55);
             --accent-dim: rgba(212, 175, 55, 0.08);
             --shadow-glow: 0 0 0 1px rgba(212, 175, 55, 0.12), 0 8px 24px rgba(0, 0, 0, 0.5);
+        }
+
+        html[data-accent="mint"] {
+            --accent: #10a37f;
+            --accent-rgb: 16, 163, 127;
+            --accent-soft: rgba(16, 163, 127, 0.55);
+            --accent-dim: rgba(16, 163, 127, 0.08);
+            --shadow-glow: 0 0 0 1px rgba(16, 163, 127, 0.14), 0 8px 24px rgba(0, 0, 0, 0.5);
+        }
+
+        html[data-accent="terracotta"] {
+            --accent: #d97757;
+            --accent-rgb: 217, 119, 87;
+            --accent-soft: rgba(217, 119, 87, 0.55);
+            --accent-dim: rgba(217, 119, 87, 0.08);
+            --shadow-glow: 0 0 0 1px rgba(217, 119, 87, 0.14), 0 8px 24px rgba(0, 0, 0, 0.5);
+        }
+
+        html[data-accent="celestial"] {
+            --accent: #4e8cff;
+            --accent-rgb: 78, 140, 255;
+            --accent-soft: rgba(78, 140, 255, 0.55);
+            --accent-dim: rgba(78, 140, 255, 0.08);
+            --shadow-glow: 0 0 0 1px rgba(78, 140, 255, 0.14), 0 8px 24px rgba(0, 0, 0, 0.5);
+        }
+
+        html[data-accent="emerald"] {
+            --accent: #10b981;
+            --accent-rgb: 16, 185, 129;
+            --accent-soft: rgba(16, 185, 129, 0.55);
+            --accent-dim: rgba(16, 185, 129, 0.08);
+            --shadow-glow: 0 0 0 1px rgba(16, 185, 129, 0.14), 0 8px 24px rgba(0, 0, 0, 0.5);
+        }
+
+
+
+        html[data-accent="platinum"] {
+            --accent: #e2e8f0;
+            --accent-rgb: 226, 232, 240;
+            --accent-soft: rgba(226, 232, 240, 0.55);
+            --accent-dim: rgba(226, 232, 240, 0.08);
+            --shadow-glow: 0 0 0 1px rgba(226, 232, 240, 0.14), 0 8px 24px rgba(0, 0, 0, 0.5);
         }
 
         /* Density: rescales the existing --space-* scale that layout/spacing
@@ -5039,475 +5011,384 @@
            fixed-column grid), and hovering one switches the core's "mode"
            (glow color/icon/status text/orbit speed) via chat.html's small
            inline script further down - see .qc-chip[data-mode] usage. */
+        /* =========================================================================
+           SIMBA >_< INTELLIGENCE CLEAN WORKSPACE & ANIMATED EMBLEM
+           ========================================================================= */
         .welcome-container {
             position: relative;
             width: 100%;
-            height: 100%;
+            margin: auto 0;
             display: flex;
             flex-direction: column;
+            justify-content: center;
             align-items: center;
-            isolation: isolate;
-            overflow: hidden;
-            animation: qcFadeIn 0.8s ease both;
+            padding: clamp(16px, 3vh, 36px) 0;
+            box-sizing: border-box;
+            animation: simbaFadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
         }
 
-        /* Flexbox safety net: a flex child's default min-width is "auto", not
-           0 - it refuses to shrink below its own content's intrinsic width
-           even when the container is narrower, so unbreakable text would
-           otherwise overflow past the viewport edge instead of wrapping. */
         .welcome-container * {
             min-width: 0;
         }
 
-        /* ---- Background field: radial lighting + soft grid + particles ---- */
-        .qc-field {
+        /* Ambient Subtle Atmospheric Glow behind logo */
+        .simba-ambient-glow {
             position: absolute;
-            inset: 0;
-            z-index: -3;
+            top: 45%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: min(850px, 90vw);
+            height: min(460px, 55vh);
+            background: radial-gradient(circle at 50% 38%, rgba(var(--accent-rgb), 0.14) 0%, rgba(var(--accent-rgb), 0.03) 50%, transparent 70%);
+            filter: blur(75px);
             pointer-events: none;
-            overflow: hidden;
+            z-index: 0;
+            animation: simbaAurora 8s ease-in-out infinite alternate;
         }
 
-        .qc-radial {
-            position: absolute;
-            left: 50%;
-            border-radius: 50%;
-            filter: blur(20px);
-            transform: translateX(-50%);
+        @keyframes simbaAurora {
+            0% { transform: translate(-50%, -50%) scale(0.94); opacity: 0.7; }
+            50% { transform: translate(-50%, -48%) scale(1.05); opacity: 1; }
+            100% { transform: translate(-50%, -52%) scale(0.97); opacity: 0.75; }
         }
 
-        .qc-radial-1 {
-            width: min(70vw, 60dvh, 640px);
-            height: min(70vw, 60dvh, 640px);
-            top: 8%;
-            /* Stays accent-colored rather than mode-colored on purpose:
-               background-image gradients can't be smoothly transitioned
-               between colors (only background-color/border-color/box-shadow
-               etc. reliably interpolate), and the core/rings/particles
-               already carry the full mode-color signal, so this soft
-               ambient glow doesn't need to re-color too. */
-            background: radial-gradient(closest-side, rgba(var(--accent-rgb), 0.14), transparent 70%);
-            animation: qcRadialPulse 10s ease-in-out infinite;
-        }
-
-        .qc-radial-2 {
-            width: min(55vw, 45dvh, 480px);
-            height: min(55vw, 45dvh, 480px);
-            bottom: -8%;
-            background: radial-gradient(closest-side, rgba(var(--accent-rgb), 0.08), transparent 70%);
-            animation: qcRadialPulse 12s ease-in-out infinite reverse;
-        }
-
-        .qc-grid {
-            position: absolute;
-            inset: 0;
-            background-image:
-                linear-gradient(rgba(var(--accent-rgb), 0.05) 1px, transparent 1px),
-                linear-gradient(90deg, rgba(var(--accent-rgb), 0.05) 1px, transparent 1px);
-            background-size: 34px 34px;
-            -webkit-mask-image: radial-gradient(ellipse at center, black 0%, transparent 75%);
-            mask-image: radial-gradient(ellipse at center, black 0%, transparent 75%);
-            opacity: 0.6;
-        }
-
-        .qc-particles span {
-            position: absolute;
-            width: 3px;
-            height: 3px;
-            border-radius: 50%;
-            background: rgb(var(--mode-rgb, var(--accent-rgb)));
-            opacity: 0;
-            box-shadow: 0 0 6px 1px rgba(var(--mode-rgb, var(--accent-rgb)), 0.8);
-            animation: qcParticleFloat 14s ease-in-out infinite;
-            /* Color/glow ease in on a slight delay after the core's own glow
-               starts, so the cascade reads as "core changes first, particles
-               follow" - never an instant recolor, and never stopped/paused,
-               just a continuously-flowing color shift (per "particles should
-               never teleport... interpolate naturally"). */
-            transition: background-color 420ms cubic-bezier(.4, 0, .2, 1) 110ms,
-                box-shadow 420ms cubic-bezier(.4, 0, .2, 1) 110ms;
-        }
-
-        .qc-particles span:nth-child(1) {
-            left: 8%;
-            top: 75%;
-            animation-delay: 0s;
-        }
-
-        .qc-particles span:nth-child(2) {
-            left: 18%;
-            top: 40%;
-            animation-delay: 1.2s;
-        }
-
-        .qc-particles span:nth-child(3) {
-            left: 30%;
-            top: 85%;
-            animation-delay: 2.4s;
-        }
-
-        .qc-particles span:nth-child(4) {
-            left: 42%;
-            top: 20%;
-            animation-delay: 3.6s;
-        }
-
-        .qc-particles span:nth-child(5) {
-            left: 58%;
-            top: 88%;
-            animation-delay: 4.8s;
-        }
-
-        .qc-particles span:nth-child(6) {
-            left: 68%;
-            top: 25%;
-            animation-delay: 6s;
-        }
-
-        .qc-particles span:nth-child(7) {
-            left: 78%;
-            top: 70%;
-            animation-delay: 7.2s;
-        }
-
-        .qc-particles span:nth-child(8) {
-            left: 88%;
-            top: 35%;
-            animation-delay: 8.4s;
-        }
-
-        .qc-particles span:nth-child(9) {
-            left: 94%;
-            top: 60%;
-            animation-delay: 9.6s;
-        }
-
-        .qc-particles span:nth-child(10) {
-            left: 50%;
-            top: 10%;
-            animation-delay: 10.8s;
-        }
-
-        /* ---- Minimal top status bar ---- */
-        .qc-topbar {
-            flex-shrink: 0;
-            display: flex;
-            flex-wrap: wrap;
-            justify-content: center;
-            align-items: center;
-            gap: clamp(4px, 1vw, 10px) clamp(6px, 1.2vw, 10px);
-            width: 100%;
-            max-width: 100%;
-            padding: clamp(0.5rem, 1.5dvh, 0.9rem) clamp(0.75rem, 4vw, 2rem) 0;
-            font-family: 'JetBrains Mono', monospace;
-            font-size: clamp(8px, 0.7vw + 5.5px, 11px);
-            letter-spacing: 0.5px;
-            text-transform: uppercase;
-            color: var(--text-dim);
-        }
-
-        .qc-topbar-item {
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-            max-width: 100%;
-            overflow-wrap: break-word;
-        }
-
-        .qc-topbar-sep {
-            opacity: 0.4;
-            flex-shrink: 0;
-        }
-
-        .qc-live-dot {
-            width: 6px;
-            height: 6px;
-            border-radius: 50%;
-            background: #39ff88;
-            box-shadow: 0 0 6px 1px rgba(57, 255, 136, 0.8);
-            animation: qcDotBlink 2.4s ease-in-out infinite;
-        }
-
-        /* ---- Main content: compact, elegant layout with no wasted vertical space ---- */
-        .qc-main {
+        /* Central Shell */
+        .simba-clean-shell {
             position: relative;
-            flex: 1;
-            min-height: 0;
+            z-index: 1;
             width: 100%;
             max-width: 860px;
-            margin: auto auto 10px auto;
+            margin: auto;
             display: flex;
             flex-direction: column;
             align-items: center;
-            justify-content: flex-end;
+            justify-content: center;
+            gap: clamp(16px, 2.6vh, 26px);
+            box-sizing: border-box;
             text-align: center;
-            gap: clamp(8px, 1.3dvh, 14px);
-            padding: clamp(0.4rem, 1.2dvh, 0.8rem) clamp(1rem, 3vw, 1.5rem) clamp(0.5rem, 1.4dvh, 1rem);
         }
 
-        .qc-main>* {
-            max-width: 100%;
-        }
-
-        /* ---- The Quantum Core: sleek, modern HUD proportions ---- */
-        .qc-core-wrap {
-            perspective: 700px;
-        }
-
-        .qc-core {
+        /* -------------------------------------------------------------
+           CLEAN AESTHETIC SIMBA >_< ANIMATED EMBLEM
+           ------------------------------------------------------------- */
+        .simba-emblem-stage {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 14px;
             position: relative;
-            /* width: clamp(64px, 9dvh, 84px); */
+            z-index: 2;
+        }
+
+        .simba-core-emblem {
+            position: relative;
             width: 86px;
             height: 86px;
-            aspect-ratio: 1;
             display: grid;
             place-items: center;
-            transition: transform 0.2s ease-out;
-            transform-style: preserve-3d;
-        }
-
-        /* Rotation for these four is driven entirely by chat.html's
-           requestAnimationFrame loop (inline `transform: rotate()`, eased
-           toward each mode's target speed every frame) rather than a CSS
-           @keyframes animation - animation-duration cannot be smoothly
-           interpolated by the browser (it snaps at the next iteration
-           instead of easing), so a real per-frame speed ramp is the only
-           way to satisfy "rings should never stop instantly." Only the
-           border COLOR is a CSS transition here. */
-        .qc-core-ring {
-            position: absolute;
-            inset: 0;
-            border-radius: 50%;
-            border: 1px solid rgba(var(--mode-rgb, var(--accent-rgb)), 0.25);
-            transition: border-color 380ms cubic-bezier(.4, 0, .2, 1) 70ms;
-        }
-
-        .qc-ring-outer {
-            border-style: dashed;
-            border-color: rgba(var(--mode-rgb, var(--accent-rgb)), 0.3);
-        }
-
-        .qc-ring-mid {
-            inset: 12%;
-            border-top-color: rgb(var(--mode-rgb, var(--accent-rgb)));
-            border-right-color: rgb(var(--mode-rgb, var(--accent-rgb)));
-            opacity: 0.85;
-        }
-
-        .qc-ring-inner {
-            inset: 24%;
-            animation: qcRingPulse 3.2s ease-in-out infinite;
-        }
-
-        .qc-core-orbit {
-            position: absolute;
-            inset: -6%;
-            border-radius: 50%;
-        }
-
-        .qc-orbit-reverse {
-            inset: 4%;
-        }
-
-        .qc-orbit-node {
-            position: absolute;
-            top: -3px;
-            left: 50%;
-            width: 6px;
-            height: 6px;
-            margin-left: -3px;
-            border-radius: 50%;
-            background: rgb(var(--mode-rgb, var(--accent-rgb)));
-            box-shadow: 0 0 8px 2px rgba(var(--mode-rgb, var(--accent-rgb)), 0.8);
-            transition: background-color 380ms cubic-bezier(.4, 0, .2, 1) 100ms,
-                box-shadow 380ms cubic-bezier(.4, 0, .2, 1) 100ms;
-        }
-
-        .qc-core-center {
-            position: relative;
-            width: 56%;
-            height: 56%;
-            display: grid;
-            place-items: center;
-            border-radius: 50%;
-            background: rgba(var(--mode-rgb, var(--accent-rgb)), 0.14);
-            border: 1px solid rgba(var(--mode-rgb, var(--accent-rgb)), 0.4);
-            backdrop-filter: blur(var(--glass-blur, 18px)) saturate(var(--glass-saturate, 160%));
-            -webkit-backdrop-filter: blur(var(--glass-blur, 18px)) saturate(var(--glass-saturate, 160%));
-            box-shadow: var(--shadow-glow), 0 0 40px rgba(var(--mode-rgb, var(--accent-rgb)), 0.25);
-            animation: qcCorePulse 3.6s ease-in-out infinite;
-            /* No delay - the core's own glow is the FIRST thing to change in
-               the cascade ("glow gradually changes" is step one). */
-            transition: background-color 420ms cubic-bezier(.4, 0, .2, 1),
-                border-color 420ms cubic-bezier(.4, 0, .2, 1),
-                box-shadow 420ms cubic-bezier(.4, 0, .2, 1);
-        }
-
-        /* The SIMBA_INTEL brand glyph - the same ">_<" mark used in the
-           sidebar (see .brand .text-wrapper > div). Always centered, never
-           rotated (only the rings around it spin); its color/glow simply
-           follows the active mode like everything else. */
-        .qc-core-logo {
-            font-family: 'JetBrains Mono', monospace;
-            font-weight: 700;
-            font-size: clamp(1.1rem, 2dvh, 1.45rem);
-            line-height: 1;
-            letter-spacing: 0.5px;
-            color: rgb(var(--mode-rgb, var(--accent-rgb)));
-            text-shadow: 0 0 12px rgba(var(--mode-rgb, var(--accent-rgb)), 0.7),
-                0 0 26px rgba(var(--mode-rgb, var(--accent-rgb)), 0.35);
-            transition: color 380ms cubic-bezier(.4, 0, .2, 1) 40ms,
-                text-shadow 380ms cubic-bezier(.4, 0, .2, 1) 40ms;
+            cursor: pointer;
             user-select: none;
+            animation: simbaEmblemFloat 4s ease-in-out infinite alternate;
+            transition: transform 300ms cubic-bezier(0.16, 1, 0.3, 1);
         }
 
-        .qc-core-status {
-            margin: 0;
-            min-height: 1.2em;
-            font-family: 'JetBrains Mono', monospace;
-            font-size: clamp(9px, 0.7vw + 6px, 11px);
-            letter-spacing: 1.5px;
-            text-transform: uppercase;
-            color: rgb(var(--mode-rgb, var(--accent-rgb)));
-            opacity: 0.85;
-            transition: color 380ms cubic-bezier(.4, 0, .2, 1) 40ms, opacity 200ms ease;
+        .simba-core-emblem:hover {
+            transform: translateY(-4px) scale(1.06);
         }
 
-        /* ---- Title / subtitle ---- */
-        .qc-title {
-            margin: 0;
-            max-width: 100%;
-            font-family: 'JetBrains Mono', monospace;
-            font-size: clamp(1.45rem, 2.6dvh, 2.05rem);
-            letter-spacing: clamp(1.5px, 0.3vw, 3px);
-            font-weight: 700;
-            overflow-wrap: anywhere;
-            background: linear-gradient(135deg, var(--text) 0%, var(--accent) 60%, var(--text) 100%);
-            -webkit-background-clip: text;
-            background-clip: text;
-            color: transparent;
+        @keyframes simbaEmblemFloat {
+            0% {
+                transform: translateY(0px);
+            }
+            100% {
+                transform: translateY(-7px);
+            }
         }
 
-        .qc-subtitle {
-            margin: 0;
-            max-width: min(92%, 520px);
-            font-family: 'Outfit', sans-serif;
-            font-size: clamp(12px, 1.3dvh, 13.5px);
-            line-height: 1.45;
-            color: var(--text-dim);
-            overflow-wrap: break-word;
+        /* Ethereal Conic Rotating Halo behind squircle */
+        .simba-emblem-halo {
+            position: absolute;
+            inset: -12px;
+            border-radius: 32px;
+            background: conic-gradient(
+                from 0deg,
+                rgba(var(--accent-rgb), 0.45) 0deg,
+                rgba(168, 85, 247, 0.5) 120deg,
+                rgba(56, 189, 248, 0.4) 240deg,
+                rgba(var(--accent-rgb), 0.45) 360deg
+            );
+            filter: blur(16px);
+            opacity: 0.75;
+            animation: simbaHaloRotate 6s linear infinite;
+            pointer-events: none;
+            transition: opacity 300ms ease, filter 300ms ease;
         }
 
-        /* ---- Quick Actions Category Bar ---- */
-        .qc-category-bar {
-            display: flex;
+        .simba-core-emblem:hover .simba-emblem-halo {
+            opacity: 1;
+            filter: blur(22px);
+            animation-duration: 3s;
+        }
+
+        @keyframes simbaHaloRotate {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        /* Subtle Dynamic Pulse Ring */
+        .simba-energy-ring {
+            position: absolute;
+            inset: -4px;
+            border-radius: 28px;
+            border: 1.5px solid rgba(var(--accent-rgb), 0.4);
+            animation: simbaRingPulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+            pointer-events: none;
+        }
+
+        @keyframes simbaRingPulse {
+            0%, 100% {
+                opacity: 0.3;
+                transform: scale(0.98);
+            }
+            50% {
+                opacity: 0.85;
+                transform: scale(1.03);
+                border-color: rgba(var(--accent-rgb), 0.75);
+                box-shadow: 0 0 16px rgba(var(--accent-rgb), 0.3);
+            }
+        }
+
+        /* Frosted Obsidian Glass Squircle Vessel */
+        .simba-emblem-glass {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            border-radius: 24px;
+            background: linear-gradient(145deg, rgba(20, 25, 34, 0.88) 0%, rgba(10, 13, 18, 0.96) 100%);
+            border: 1.5px solid rgba(var(--accent-rgb), 0.32);
+            box-shadow:
+                0 10px 30px rgba(0, 0, 0, 0.55),
+                inset 0 1px 0 rgba(255, 255, 255, 0.16),
+                inset 0 0 18px rgba(var(--accent-rgb), 0.1);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            display: grid;
+            place-items: center;
+            overflow: hidden;
+            transition: border-color 260ms ease, box-shadow 260ms ease;
+        }
+
+        .simba-core-emblem:hover .simba-emblem-glass {
+            border-color: rgba(var(--accent-rgb), 0.7);
+            box-shadow:
+                0 14px 36px rgba(0, 0, 0, 0.65),
+                inset 0 1px 0 rgba(255, 255, 255, 0.25),
+                inset 0 0 24px rgba(var(--accent-rgb), 0.25);
+        }
+
+        /* Diagonal Glass Sheen Sweep */
+        .simba-emblem-sheen {
+            position: absolute;
+            inset: -100%;
+            background: linear-gradient(
+                115deg,
+                transparent 40%,
+                rgba(255, 255, 255, 0.12) 48%,
+                rgba(var(--accent-rgb), 0.2) 52%,
+                transparent 60%
+            );
+            animation: simbaSheenGlide 5s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+            pointer-events: none;
+        }
+
+        @keyframes simbaSheenGlide {
+            0% { transform: translateX(-60%) translateY(-60%); }
+            40%, 100% { transform: translateX(60%) translateY(60%); }
+        }
+
+        /* Alive Mascot >_< Face */
+        .simba-emblem-face {
+            position: relative;
+            z-index: 3;
+            display: inline-flex;
             align-items: center;
             justify-content: center;
-            flex-wrap: wrap;
-            gap: 6px;
-            margin-top: 2px;
-            margin-bottom: 2px;
+            font-family: 'JetBrains Mono', 'Fira Code', monospace;
+            font-size: 27px;
+            font-weight: 800;
+            letter-spacing: -1.5px;
+            user-select: none;
+            color: #ffffff;
+            text-shadow:
+                0 0 12px rgba(var(--accent-rgb), 0.7),
+                0 0 28px rgba(var(--accent-rgb), 0.4);
+            transition: text-shadow 250ms ease;
         }
 
-        .qc-cat-btn {
-            background: transparent;
-            border: 1px solid transparent;
-            color: var(--text-dim);
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 10.5px;
-            letter-spacing: 0.5px;
-            text-transform: uppercase;
-            padding: 3px 10px;
-            border-radius: 999px;
-            cursor: pointer;
-            transition: all 0.2s ease;
+        .simba-core-emblem:hover .simba-emblem-face {
+            text-shadow:
+                0 0 16px rgba(var(--accent-rgb), 0.9),
+                0 0 36px rgba(var(--accent-rgb), 0.6),
+                0 0 50px rgba(var(--accent-rgb), 0.4);
         }
 
-        .qc-cat-btn:hover {
-            color: var(--text);
-            border-color: rgba(255, 255, 255, 0.1);
-            background: rgba(255, 255, 255, 0.03);
+        /* Expressive Eye & Mouth Animations */
+        .simba-eye {
+            display: inline-block;
+            transform-origin: center;
+            animation: simbaEyeBlink 4.5s ease-in-out infinite;
         }
 
-        .qc-cat-btn.active {
-            color: var(--accent);
-            border-color: rgba(var(--accent-rgb), 0.35);
-            background: rgba(var(--accent-rgb), 0.1);
+        .simba-eye.left {
+            margin-right: 1px;
         }
 
-        /* ---- Command chips: professional task shortcuts with clean iconography ---- */
-        .qc-commands {
-            display: flex;
-            flex-wrap: wrap;
-            justify-content: center;
+        .simba-eye.right {
+            margin-left: 1px;
+        }
+
+        .simba-mouth {
+            display: inline-block;
+            transform-origin: center;
+            color: rgb(var(--accent-rgb));
+            animation: simbaMouthPulse 3s ease-in-out infinite alternate;
+        }
+
+        @keyframes simbaEyeBlink {
+            0%, 45%, 55%, 100% {
+                transform: scale(1);
+            }
+            48%, 52% {
+                transform: scale(1.15, 0.1);
+            }
+        }
+
+        @keyframes simbaMouthPulse {
+            0% {
+                opacity: 0.85;
+                transform: scale(0.96);
+            }
+            100% {
+                opacity: 1;
+                transform: scale(1.08);
+                text-shadow: 0 0 10px rgb(var(--accent-rgb));
+            }
+        }
+
+        /* System Identity Badge */
+        .simba-system-badge {
+            display: inline-flex;
             align-items: center;
             gap: 8px;
-            max-width: min(100%, 820px);
+            padding: 5px 15px;
+            border-radius: 999px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 11px;
+            font-weight: 600;
+            letter-spacing: 1.2px;
+            color: rgb(var(--accent-rgb));
+            background: rgba(var(--accent-rgb), 0.08);
+            border: 1px solid rgba(var(--accent-rgb), 0.22);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+            transition: all 200ms ease;
+        }
+
+        .simba-system-badge:hover {
+            border-color: rgba(var(--accent-rgb), 0.45);
+            background: rgba(var(--accent-rgb), 0.12);
+            box-shadow: 0 4px 20px rgba(var(--accent-rgb), 0.15);
+        }
+
+        .simba-status-pulse {
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: #10b981;
+            box-shadow: 0 0 8px #10b981;
+            animation: simbaStatusPulse 2s ease-in-out infinite;
+        }
+
+        @keyframes simbaStatusPulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.45; transform: scale(0.85); }
+        }
+
+        /* -------------------------------------------------------------
+           HEADER: Human Greeting & Subtitle
+           ------------------------------------------------------------- */
+        .simba-clean-header {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+            margin: 0;
+        }
+
+        .simba-clean-title {
+            margin: 0;
+            font-family: 'Plus Jakarta Sans', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            font-size: clamp(2.1rem, 3.2vw, 2.85rem);
+            font-weight: 600;
+            letter-spacing: -0.03em;
+            line-height: 1.15;
+            color: var(--text);
+        }
+
+        .simba-clean-user {
+            color: var(--text);
+            background: linear-gradient(135deg, var(--text) 25%, rgb(var(--accent-rgb)) 100%);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .simba-clean-subtitle {
+            margin: 0;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            font-size: clamp(14px, 1.1vw, 16px);
+            font-weight: 400;
+            color: var(--text-dim);
+            line-height: 1.5;
+            max-width: 540px;
+        }
+
+        /* Shortcut Guidance Hint */
+        .simba-clean-hint {
+            font-family: 'Inter', sans-serif;
+            font-size: 12px;
+            color: var(--text-dim);
+            opacity: 0.75;
+            display: inline-flex;
+            align-items: center;
+            gap: 9px;
             margin-top: 4px;
         }
 
-        .qc-chip {
-            appearance: none;
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            max-width: 100%;
-            min-height: 36px;
-            padding: 6px 14px;
-            border-radius: 999px;
+        .simba-clean-hint kbd {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 10px;
+            padding: 2px 6px;
+            border-radius: 4px;
+            background: rgba(255, 255, 255, 0.06);
             border: 1px solid var(--border);
-            background: color-mix(in srgb, var(--card) 65%, transparent);
-            backdrop-filter: blur(var(--glass-blur, 16px));
-            -webkit-backdrop-filter: blur(var(--glass-blur, 16px));
-            color: var(--text-dim);
-            font-family: 'Outfit', sans-serif;
-            font-weight: 500;
-            font-size: 12.5px;
-            letter-spacing: 0.2px;
-            white-space: nowrap;
-            cursor: pointer;
-            transition: transform 220ms cubic-bezier(.4, 0, .2, 1),
-                border-color 220ms cubic-bezier(.4, 0, .2, 1),
-                background-color 220ms cubic-bezier(.4, 0, .2, 1),
-                box-shadow 220ms cubic-bezier(.4, 0, .2, 1),
-                color 220ms cubic-bezier(.4, 0, .2, 1);
-        }
-
-        .qc-chip-icon {
-            font-size: 13px;
-            line-height: 1;
-            width: 16px;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            color: var(--accent);
-            opacity: 0.85;
-            transition: transform 200ms ease, opacity 200ms ease, color 200ms ease;
-        }
-
-        .qc-chip:hover,
-        .qc-chip:focus-visible {
-            border-color: var(--accent);
-            background: var(--accent-dim);
             color: var(--text);
-            transform: translateY(-2px);
-            box-shadow: 0 4px 16px rgba(var(--accent-rgb), 0.18);
         }
 
-        .qc-chip:hover .qc-chip-icon,
-        .qc-chip:focus-visible .qc-chip-icon {
-            opacity: 1;
-            transform: scale(1.1);
+        .simba-clean-sep {
+            opacity: 0.4;
         }
 
-        .qc-chip:focus-visible {
-            outline: 2px solid var(--accent);
-            outline-offset: 2px;
-        }
-
-        .qc-chip:active {
-            transform: translateY(0);
-            transition-duration: 80ms;
+        @keyframes simbaFadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px) scale(0.99);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
         }
 
         /* ---- Composer Active Task Context Banner ---- */
@@ -5565,57 +5446,26 @@
             border-style: solid;
         }
 
-        @media (max-width: 768px) {
-            .qc-topbar {
-                padding: 0.3rem 0.75rem 0;
-                font-size: 8.5px;
+        @media (max-width: 900px) {
+            .welcome-container {
+                padding: 16px 12px 24px;
             }
 
-            .qc-main {
-                margin: auto auto 4px auto;
-                padding: 0.25rem 0.5rem;
-                gap: 7px;
+            .simba-core-emblem {
+                width: 74px;
+                height: 74px;
             }
 
-            .qc-core {
-                width: clamp(54px, 7dvh, 66px);
+            .simba-emblem-glass {
+                border-radius: 20px;
             }
 
-            .qc-title {
-                font-size: clamp(1.15rem, 4.2vw, 1.45rem);
-                letter-spacing: 1.2px;
+            .simba-emblem-face {
+                font-size: 23px;
             }
 
-            .qc-subtitle {
-                font-size: 11px;
-                line-height: 1.35;
-                max-width: 310px;
-            }
-
-            .qc-category-bar {
-                gap: 4px;
-            }
-
-            .qc-cat-btn {
-                font-size: 9.5px;
-                padding: 2px 8px;
-            }
-
-            .qc-commands {
-                gap: 6px;
-                max-width: 100%;
-            }
-
-            .qc-chip {
-                min-height: 31px;
-                padding: 4px 10px;
-                font-size: 11px;
-                gap: 6px;
-            }
-
-            .qc-chip-icon {
-                font-size: 11.5px;
-                width: 14px;
+            .simba-clean-title {
+                font-size: clamp(1.6rem, 5vw, 2.1rem);
             }
 
             .composer-task-context {
@@ -5624,110 +5474,16 @@
             }
         }
 
-        @keyframes qcFadeIn {
-            from {
-                opacity: 0;
-                transform: translateY(10px);
-            }
-
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-
-        @keyframes qcRadialPulse {
-
-            0%,
-            100% {
-                opacity: 0.7;
-            }
-
-            50% {
-                opacity: 1;
-            }
-        }
-
-        @keyframes qcParticleFloat {
-            0% {
-                transform: translate(0, 0);
-                opacity: 0;
-            }
-
-            10% {
-                opacity: 0.9;
-            }
-
-            50% {
-                transform: translate(8px, -34px);
-                opacity: 0.5;
-            }
-
-            90% {
-                opacity: 0.9;
-            }
-
-            100% {
-                transform: translate(-6px, -68px);
-                opacity: 0;
-            }
-        }
-
-        @keyframes qcRingPulse {
-
-            0%,
-            100% {
-                transform: scale(1);
-                opacity: 0.5;
-            }
-
-            50% {
-                transform: scale(1.06);
-                opacity: 0.9;
-            }
-        }
-
-        /* --pulse-scale (set inline by JS per mode, defaults to 1) rescales
-           the glow's spread - timing stays constant, only amplitude shifts,
-           which is what keeps this feeling like "intensity changes" rather
-           than a jarring re-timed pulse. */
-        @keyframes qcCorePulse {
-
-            0%,
-            100% {
-                box-shadow: var(--shadow-glow), 0 0 calc(30px * var(--pulse-scale, 1)) rgba(var(--mode-rgb, var(--accent-rgb)), 0.2);
-            }
-
-            50% {
-                box-shadow: var(--shadow-glow), 0 0 calc(55px * var(--pulse-scale, 1)) rgba(var(--mode-rgb, var(--accent-rgb)), 0.4);
-            }
-        }
-
-        @keyframes qcDotBlink {
-
-            0%,
-            100% {
-                opacity: 1;
-            }
-
-            50% {
-                opacity: 0.35;
-            }
-        }
-
         @media (prefers-reduced-motion: reduce) {
-
             .welcome-container,
-            .qc-radial,
-            .qc-particles span,
-            .qc-core-ring,
-            .qc-core-orbit,
-            .qc-core-center,
-            .qc-live-dot {
+            .simba-ambient-glow,
+            .simba-core-emblem,
+            .simba-emblem-halo,
+            .simba-energy-ring,
+            .simba-emblem-sheen,
+            .simba-eye,
+            .simba-mouth {
                 animation: none !important;
-            }
-
-            .qc-core {
                 transition: none !important;
             }
         }
@@ -8310,94 +8066,6 @@
             transform: scale(0.98);
         }
 
-        /* ==========================================================================
-           PART 4 & 5: AGENT STATUS CARDS & SEMANTIC COLORS
-           ========================================================================== */
-        .agent-section {
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-        }
-
-        .agent-section-label {
-            font-size: 11px;
-            font-weight: 700;
-            font-family: var(--agent-font-mono);
-            letter-spacing: 0.8px;
-            color: var(--agent-text-muted);
-            text-transform: uppercase;
-            display: flex;
-            align-items: center;
-            gap: 7px;
-        }
-
-        .agent-status-grid {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 12px;
-        }
-
-        .agent-status-card {
-            background: var(--agent-surface-card);
-            border: 1px solid var(--agent-border);
-            border-radius: var(--agent-radius-md);
-            padding: 14px 16px;
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-            transition: border-color 0.15s ease, transform 0.15s ease;
-            box-shadow: var(--agent-shadow-xs);
-        }
-
-        .agent-status-card:hover {
-            border-color: var(--agent-border-hover);
-        }
-
-        .agent-card-top {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 8px;
-        }
-
-        .agent-card-meta {
-            font-size: 10.5px;
-            font-weight: 700;
-            font-family: var(--agent-font-mono);
-            color: var(--agent-text-subtle);
-            letter-spacing: 0.6px;
-            text-transform: uppercase;
-        }
-
-        .agent-card-desc {
-            font-size: 11.5px;
-            color: var(--agent-text-muted);
-            line-height: 1.4;
-            flex-grow: 1;
-        }
-
-        .agent-card-action-btn {
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-            background: rgba(255, 255, 255, 0.04);
-            border: 1px solid var(--agent-border) !important;
-            color: var(--agent-text) !important;
-            padding: 4px 10px;
-            border-radius: var(--agent-radius-xs);
-            font-size: 10.5px;
-            font-family: var(--agent-font-mono);
-            cursor: pointer;
-            transition: all 0.15s ease;
-            margin-top: 4px;
-        }
-
-        .agent-card-action-btn:hover {
-            background: rgba(255, 255, 255, 0.08);
-            color: #ffffff !important;
-            border-color: var(--agent-border-hover) !important;
-        }
-
         /* --- Semantic Lifecycle Badges --- */
         .agent-lifecycle-badge {
             display: inline-flex;
@@ -10174,14 +9842,7 @@
             }
         }
 
-        .voice-hero-status {
-            font-family: var(--agent-font-sans);
-            font-size: 14px;
-            font-weight: 700;
-            color: #ffffff;
-            letter-spacing: 0.5px;
-            text-transform: uppercase;
-        }
+
 
         .voice-hero-subtext {
             font-size: 12px;
@@ -11002,163 +10663,7 @@
             background: rgba(16, 185, 129, 0.32);
         }
 
-        /* --- Agent Mission Command Console --- */
-        .agent-mission-console {
-            width: 100%;
-            background: linear-gradient(180deg, rgba(14, 20, 32, 0.98), rgba(9, 12, 20, 0.98));
-            border: 1px solid var(--agent-border-strong);
-            border-radius: var(--agent-radius-md);
-            padding: 16px 18px;
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-            box-shadow: 0 4px 24px rgba(0, 0, 0, 0.45);
-            box-sizing: border-box;
-            position: relative;
-            overflow: hidden;
-        }
 
-        .agent-mission-console::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            height: 2px;
-            background: linear-gradient(90deg, transparent, var(--agent-accent), transparent);
-        }
-
-        .console-top-bar {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            flex-wrap: wrap;
-            gap: 10px;
-        }
-
-        .console-title {
-            font-family: var(--agent-font-mono);
-            font-size: 12px;
-            font-weight: 700;
-            color: #ffffff;
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            letter-spacing: 0.5px;
-        }
-
-        .console-meta-pills {
-            display: flex;
-            gap: 8px;
-            flex-wrap: wrap;
-        }
-
-        .console-pill {
-            font-size: 10.5px;
-            font-family: var(--agent-font-mono);
-            color: var(--agent-text-subtle);
-            background: rgba(255, 255, 255, 0.04);
-            border: 1px solid var(--agent-border);
-            padding: 3px 8px;
-            border-radius: var(--agent-radius-xs);
-            display: inline-flex;
-            align-items: center;
-            gap: 5px;
-        }
-
-        .console-input-wrap {
-            display: flex;
-            gap: 10px;
-            align-items: stretch;
-        }
-
-        @media (max-width: 640px) {
-            .console-input-wrap {
-                flex-direction: column;
-            }
-        }
-
-        .agent-console-textarea {
-            flex: 1;
-            background: #070a12;
-            border: 1px solid var(--agent-border-strong);
-            border-radius: var(--agent-radius-sm);
-            padding: 10px 14px;
-            color: #ffffff;
-            font-size: 13.5px;
-            font-family: inherit;
-            resize: none;
-            min-height: 52px;
-            line-height: 1.45;
-            outline: none;
-            transition: all 0.2s ease;
-            box-sizing: border-box;
-        }
-
-        .agent-console-textarea:focus {
-            border-color: var(--agent-accent);
-            box-shadow: 0 0 16px rgba(6, 182, 212, 0.3);
-        }
-
-        .btn-engage-agent {
-            background: linear-gradient(135deg, #06b6d4, #0891b2);
-            border: none;
-            color: #000000;
-            font-family: var(--agent-font-mono);
-            font-weight: 700;
-            font-size: 12.5px;
-            padding: 0 22px;
-            border-radius: var(--agent-radius-sm);
-            cursor: pointer;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
-            box-shadow: 0 0 18px rgba(6, 182, 212, 0.35);
-            transition: all 0.2s ease;
-            white-space: nowrap;
-            min-height: 52px;
-        }
-
-        .btn-engage-agent:hover {
-            transform: translateY(-1px);
-            box-shadow: 0 0 28px rgba(6, 182, 212, 0.6);
-            filter: brightness(1.1);
-        }
-
-        .console-shortcuts-row {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            flex-wrap: wrap;
-        }
-
-        .shortcuts-label {
-            font-size: 10.5px;
-            font-family: var(--agent-font-mono);
-            color: var(--agent-text-subtle);
-        }
-
-        .console-preset-chip {
-            background: rgba(255, 255, 255, 0.04);
-            border: 1px solid var(--agent-border);
-            color: var(--agent-text-muted);
-            font-size: 11px;
-            padding: 4px 10px;
-            border-radius: var(--agent-radius-full);
-            cursor: pointer;
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-            transition: all 0.15s ease;
-        }
-
-        .console-preset-chip:hover {
-            background: rgba(6, 182, 212, 0.12);
-            border-color: rgba(6, 182, 212, 0.4);
-            color: #ffffff;
-            transform: translateY(-1px);
-        }
 
         /* --- Terminal STDOUT Box --- */
         .agent-terminal-box {
@@ -11654,25 +11159,937 @@
             }
         }
 
-/* Voice Mode Clean Cockpit - Hide bottom text composer and chat blocks */
+/* Voice Mode Clean Cockpit - Seamless Native Integration */
 body[data-session-type="voice"] #input-wrapper,
 body[data-session-type="voice"] #btnJumpToLatest,
 .voice-workspace-active #input-wrapper {
     display: none !important;
 }
 
-/* Ensure voice cards have smooth transitions */
-.voice-feed-card {
-    background: rgba(15, 23, 42, 0.65);
-    border: 1px solid rgba(6, 182, 212, 0.2);
-    border-radius: 10px;
-    padding: 12px 14px;
-    margin-bottom: 10px;
-    transition: border-color 0.2s, background 0.2s;
+.voice-workspace-wrapper {
+    position: relative;
+    max-width: 800px !important;
+    gap: 20px !important;
+    padding: 20px 20px 48px !important;
+    width: 100% !important;
+    margin: 0 auto !important;
+    box-sizing: border-box !important;
 }
+
+.voice-ambient-glow {
+    position: absolute;
+    top: 140px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 480px;
+    height: 380px;
+    background: radial-gradient(circle, rgba(var(--accent-rgb), 0.1) 0%, rgba(var(--accent-rgb), 0.02) 50%, transparent 75%);
+    pointer-events: none;
+    z-index: 0;
+    filter: blur(45px);
+}
+
+/* Minimalist Top HUD Bar */
+.voice-hud-bar {
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: rgba(12, 16, 26, 0.75);
+    border: 1px solid rgba(var(--accent-rgb), 0.2);
+    border-radius: 24px;
+    padding: 8px 16px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.35);
+    backdrop-filter: blur(14px);
+    box-sizing: border-box;
+}
+
+.voice-hud-left,
+.voice-hud-right {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.voice-mode-pill {
+    background: rgba(var(--accent-rgb), 0.12);
+    color: var(--accent);
+    border: 1px solid rgba(var(--accent-rgb), 0.35);
+    border-radius: 20px;
+    padding: 6px 14px;
+    font-size: 12.5px;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    transition: all 0.2s ease;
+}
+
+.voice-mode-pill:hover,
+.voice-mode-pill.active {
+    background: var(--accent);
+    color: #0b0e14;
+    box-shadow: 0 0 14px rgba(var(--accent-rgb), 0.3);
+}
+
+.voice-speed-pill {
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--text-dim);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 16px;
+    padding: 5px 12px;
+    font-size: 12px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-family: 'JetBrains Mono', monospace;
+    transition: all 0.2s ease;
+}
+
+.voice-speed-pill:hover {
+    color: var(--text);
+    border-color: rgba(var(--accent-rgb), 0.4);
+}
+
+.voice-shortcut-pill {
+    font-size: 11px;
+    color: var(--text-dim);
+    font-family: 'JetBrains Mono', monospace;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    background: rgba(255, 255, 255, 0.03);
+    padding: 4px 10px;
+    border-radius: 14px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.voice-shortcut-pill kbd {
+    background: rgba(var(--accent-rgb), 0.15);
+    color: var(--accent);
+    padding: 2px 6px;
+    border-radius: 4px;
+    border: 1px solid rgba(var(--accent-rgb), 0.3);
+    font-size: 10px;
+}
+
+.voice-hud-action-btn {
+    background: transparent;
+    color: var(--text-dim);
+    border: none;
+    font-size: 14px;
+    cursor: pointer;
+    padding: 6px 8px;
+    border-radius: 8px;
+    transition: all 0.2s ease;
+}
+
+.voice-hud-action-btn:hover {
+    color: var(--accent);
+    background: rgba(var(--accent-rgb), 0.1);
+}
+
+/* Simba Neural Voice Core (Stage) */
+.voice-core-stage {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    height: 345px;   
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 28px 20px 24px;
+    background: radial-gradient(circle at center, rgba(var(--accent-rgb), 0.09) 0%, rgba(10, 14, 24, 0.65) 75%);
+    border: 1px solid rgba(var(--accent-rgb), 0.22);
+    border-radius: 24px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.45), inset 0 0 40px rgba(var(--accent-rgb), 0.04);
+    backdrop-filter: blur(14px);
+    box-sizing: border-box;
+}
+
+.voice-visualizer-container {
+    position: relative;
+    width: 146px;
+    height: 146px;
+    display: grid;
+    place-items: center;
+    margin-bottom: 18px;
+}
+
+.voice-main-mic-btn {
+    width: 92px;
+    height: 92px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, rgba(var(--accent-rgb), 0.3), rgba(var(--accent-rgb), 0.08));
+    border: 2px solid var(--accent) !important;
+    color: var(--accent) !important;
+    font-size: 32px;
+    display: grid;
+    place-items: center;
+    cursor: pointer;
+    box-shadow: 0 0 24px rgba(var(--accent-rgb), 0.35);
+    transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    z-index: 5;
+}
+
+.voice-main-mic-btn:hover {
+    transform: scale(1.06);
+    box-shadow: 0 0 35px rgba(var(--accent-rgb), 0.55);
+}
+
+.voice-main-mic-btn.active {
+    background: var(--accent) !important;
+    color: #0b0e14 !important;
+    box-shadow: 0 0 45px var(--accent) !important;
+    animation: voiceOrbPulse 1.8s infinite alternate ease-in-out;
+}
+
+@keyframes voiceOrbPulse {
+    0% { transform: scale(1); box-shadow: 0 0 30px var(--accent); }
+    100% { transform: scale(1.08); box-shadow: 0 0 55px var(--accent); }
+}
+
+.voice-wave-ring {
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    border: 1.5px solid rgba(var(--accent-rgb), 0.22);
+    pointer-events: none;
+    transition: all 0.4s ease;
+}
+
+.voice-visualizer-container.active .voice-wave-ring.ring-1 {
+    transform: scale(1.22);
+    opacity: 0.8;
+    border-color: rgba(var(--accent-rgb), 0.45);
+}
+.voice-visualizer-container.active .voice-wave-ring.ring-2 {
+    transform: scale(1.48);
+    opacity: 0.5;
+    border-color: rgba(var(--accent-rgb), 0.35);
+}
+.voice-visualizer-container.active .voice-wave-ring.ring-3 {
+    transform: scale(1.75);
+    opacity: 0.25;
+    border-color: rgba(var(--accent-rgb), 0.2);
+}
+
+.voice-hero-status {
+    font-size: 19px;
+    font-weight: 700;
+    font-family: 'Outfit', sans-serif;
+    letter-spacing: 0.06em;
+    color: var(--text, #fff);
+    margin-top: 30px;
+    margin-bottom: 6px;
+    text-transform: uppercase;
+}
+
+.voice-hero-subtext {
+    font-size: 13.5px;
+    color: var(--text-dim, #94a3b8);
+    text-align: center;
+    margin: 0;
+}
+
+/* Live Spoken Surface */
+.voice-live-surface {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.voice-transcript-bubble {
+    width: 100%;
+    background: rgba(14, 18, 28, 0.7);
+    border: 1px solid rgba(var(--accent-rgb), 0.22);
+    border-radius: 16px;
+    padding: 14px 18px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    backdrop-filter: blur(10px);
+    box-sizing: border-box;
+}
+
+.transcript-bubble-icon {
+    color: var(--accent);
+    font-size: 16px;
+}
+
+.voice-transcript-text {
+    font-size: 14px;
+    color: var(--text);
+    font-family: 'Outfit', sans-serif;
+    line-height: 1.4;
+}
+
+.voice-response-bubble {
+    width: 100%;
+    background: rgba(16, 22, 34, 0.85);
+    border: 1px solid rgba(var(--accent-rgb), 0.35);
+    border-radius: 16px;
+    padding: 16px 20px;
+    backdrop-filter: blur(14px);
+    box-sizing: border-box;
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.4);
+}
+
+.response-bubble-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    padding-bottom: 8px;
+}
+
+.response-bubble-title {
+    font-size: 12px;
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 600;
+    color: var(--accent);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.btn-bubble-replay {
+    background: rgba(239, 68, 68, 0.12);
+    color: #ef4444;
+    border: 1px solid rgba(239, 68, 68, 0.3);
+    border-radius: 12px;
+    padding: 3px 10px;
+    font-size: 11px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.voice-response-text {
+    font-size: 14px;
+    color: var(--text);
+    line-height: 1.6;
+}
+
+/* History Section */
+.voice-history-section {
+    width: 100%;
+}
+
+.voice-history-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 11.5px;
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--text-dim);
+    margin-bottom: 10px;
+    padding: 0 4px;
+}
+
+.voice-feed-card {
+    background: rgba(14, 18, 28, 0.65);
+    border: 1px solid rgba(var(--accent-rgb), 0.15);
+    border-radius: 12px;
+    padding: 12px 16px;
+    margin-bottom: 10px;
+    transition: all 0.2s ease;
+}
+
 .voice-feed-card:hover {
-    border-color: rgba(6, 182, 212, 0.45);
-    background: rgba(15, 23, 42, 0.85);
+    border-color: rgba(var(--accent-rgb), 0.35);
+    background: rgba(14, 18, 28, 0.85);
+}
+
+.feed-user-query {
+    font-size: 13.5px;
+    color: var(--text);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 8px;
+}
+
+.feed-user-query i {
+    color: var(--accent);
+    font-size: 12px;
+}
+
+.feed-simba-resp {
+    font-size: 13px;
+    color: var(--text-dim);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+}
+
+.feed-simba-resp i {
+    color: var(--accent);
+}
+
+.btn-feed-action {
+    background: transparent;
+    border: none;
+    color: var(--text-dim);
+    cursor: pointer;
+    font-size: 13px;
+    padding: 4px;
+}
+
+.btn-feed-action:hover {
+    color: var(--accent);
+}
+
+
+
+/* ==========================================================================
+   EXECUTIVE AUTONOMOUS AGENT WORKSPACE (DECLUTTERED & POLISHED)
+   ========================================================================== */
+.agent-workspace-wrapper {
+    max-width: 1040px;
+    width: 100%;
+    margin: 0 auto;
+    padding: 16px 20px 48px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    box-sizing: border-box;
+}
+
+/* Executive Header */
+.agent-header-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+    margin-bottom: 2px;
+}
+
+.agent-header-left {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.agent-title-tag {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.agent-pulse-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: #10b981;
+    box-shadow: 0 0 8px #10b981;
+    animation: agentPulseDot 2s infinite ease-in-out;
+}
+
+@keyframes agentPulseDot {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.45; transform: scale(0.85); }
+}
+
+.agent-mode-badge {
+    font-size: 10px;
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 700;
+    color: var(--accent);
+    background: rgba(var(--accent-rgb), 0.12);
+    border: 1px solid rgba(var(--accent-rgb), 0.3);
+    border-radius: 4px;
+    padding: 2px 7px;
+    letter-spacing: 0.5px;
+}
+
+.agent-header-title {
+    font-size: 18px;
+    font-weight: 700;
+    font-family: 'Outfit', sans-serif;
+    color: var(--text, #fff);
+    margin: 0;
+    letter-spacing: 0.04em;
+}
+
+.agent-header-subtitle {
+    font-size: 12px;
+    color: var(--text-dim, #94a3b8);
+    margin: 0;
+}
+
+.agent-header-right {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.agent-system-strip {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    background: rgba(14, 18, 28, 0.7);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 8px;
+    padding: 5px 12px;
+}
+
+.system-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--text-dim, #94a3b8);
+}
+
+.system-chip strong {
+    color: var(--text, #fff);
+    font-weight: 600;
+}
+
+.system-chip.desktop-chip {
+    cursor: pointer;
+    padding: 2px 6px;
+    border-radius: 4px;
+    transition: background 0.15s;
+}
+
+.system-chip.desktop-chip:hover {
+    background: rgba(255, 255, 255, 0.06);
+}
+
+.status-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    display: inline-block;
+}
+
+.status-dot.dot-online {
+    background: #10b981;
+    box-shadow: 0 0 6px rgba(16, 185, 129, 0.7);
+}
+
+.status-dot.dot-offline {
+    background: #ef4444;
+    box-shadow: 0 0 6px rgba(239, 68, 68, 0.6);
+}
+
+.agent-context-dropdown-wrap {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--text-dim, #94a3b8);
+}
+
+.agent-context-dropdown-wrap select {
+    background: rgba(14, 18, 28, 0.85);
+    color: var(--text, #fff);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 6px;
+    padding: 4px 8px;
+    font-size: 11px;
+    max-width: 175px;
+    font-family: inherit;
+    cursor: pointer;
+    outline: none;
+}
+
+.agent-context-dropdown-wrap select:focus {
+    border-color: var(--accent);
+}
+
+.btn-agent-header-action {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 7px;
+    color: var(--text, #fff);
+    font-size: 11.5px;
+    font-weight: 500;
+    font-family: 'Outfit', sans-serif;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.btn-agent-header-action:hover {
+    background: rgba(var(--accent-rgb), 0.1);
+    border-color: rgba(var(--accent-rgb), 0.3);
+    color: var(--accent);
+}
+
+/* Slim Executive Desktop Bridge Notification Banner */
+.agent-bridge-banner {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    background: rgba(245, 158, 11, 0.05);
+    border: 1px solid rgba(245, 158, 11, 0.22);
+    border-radius: 12px;
+    padding: 10px 14px;
+    backdrop-filter: blur(8px);
+    transition: all 0.2s ease;
+}
+
+.agent-bridge-banner.online {
+    background: rgba(16, 185, 129, 0.05) !important;
+    border-color: rgba(16, 185, 129, 0.22) !important;
+    padding: 10px 14px !important;
+}
+
+.bridge-banner-top-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.bridge-banner-left {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.bridge-beacon-wrap {
+    width: 30px;
+    height: 30px;
+    border-radius: 8px;
+    background: rgba(245, 158, 11, 0.12);
+    color: #f59e0b;
+    display: grid;
+    place-items: center;
+    font-size: 13px;
+    flex-shrink: 0;
+}
+
+.agent-bridge-banner.online .bridge-beacon-wrap {
+    background: rgba(16, 185, 129, 0.12);
+    color: #10b981;
+}
+
+.bridge-banner-title {
+    font-size: 11.5px;
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 700;
+    color: #f59e0b;
+    letter-spacing: 0.4px;
+}
+
+.agent-bridge-banner.online .bridge-banner-title {
+    color: #10b981;
+}
+
+.bridge-banner-sub {
+    font-size: 11px;
+    color: var(--text-dim, #94a3b8);
+    margin-top: 1px;
+}
+
+.btn-ping-bridge {
+    background: rgba(245, 158, 11, 0.12);
+    color: #f59e0b;
+    border: 1px solid rgba(245, 158, 11, 0.25);
+    border-radius: 7px;
+    padding: 4px 10px;
+    font-size: 11px;
+    font-family: 'JetBrains Mono', monospace;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    transition: all 0.15s ease;
+}
+
+.btn-ping-bridge:hover {
+    background: rgba(245, 158, 11, 0.2);
+}
+
+.btn-ping-bridge.online {
+    background: rgba(16, 185, 129, 0.12);
+    color: #10b981;
+    border-color: rgba(16, 185, 129, 0.25);
+}
+
+.btn-ping-bridge.online:hover {
+    background: rgba(16, 185, 129, 0.2);
+}
+
+.bridge-command-ribbon {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: rgba(0, 0, 0, 0.4);
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    border-radius: 8px;
+    padding: 6px 12px;
+    gap: 12px;
+}
+
+.bridge-cmd-code-wrap {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    overflow-x: auto;
+    font-size: 11.5px;
+    font-family: 'JetBrains Mono', monospace;
+    color: #ffffff;
+}
+
+.bridge-cmd-code-wrap code {
+    background: transparent;
+    color: #f1f5f9;
+    padding: 0;
+    border: none;
+    font-size: inherit;
+}
+
+.btn-copy-bridge-cmd {
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 6px;
+    color: var(--text, #fff);
+    padding: 4px 10px;
+    font-size: 11px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    white-space: nowrap;
+    font-family: 'JetBrains Mono', monospace;
+    transition: all 0.15s ease;
+}
+
+.btn-copy-bridge-cmd:hover {
+    background: rgba(255, 255, 255, 0.14);
+    color: #fff;
+}
+
+/* Full-width container override for empty card */
+.agent-empty-task-card {
+    padding: 0 !important;
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: stretch !important;
+    text-align: left !important;
+    width: 100% !important;
+}
+
+/* Unified Automation Mission Board */
+.agent-mission-board {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    text-align: left;
+}
+
+.mission-board-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+    padding-bottom: 12px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.mission-board-title-group {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.mission-title {
+    font-size: 13.5px;
+    font-family: 'Outfit', sans-serif;
+    font-weight: 700;
+    color: var(--text, #fff);
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    letter-spacing: 0.04em;
+}
+
+.mission-desc {
+    font-size: 12px;
+    color: var(--text-dim, #94a3b8);
+    margin: 0;
+}
+
+.mission-meta-pills {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.mission-pill {
+    font-size: 10.5px;
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--text-dim, #94a3b8);
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    border-radius: 6px;
+    padding: 3px 8px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+/* 6-Card Executive Mission Grid */
+.agent-missions-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.agent-mission-card {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    background: rgba(13, 17, 26, 0.65);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 13px;
+    padding: 14px 16px;
+    text-align: left;
+    cursor: pointer;
+    transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+    backdrop-filter: blur(8px);
+    min-height: 116px;
+    box-sizing: border-box;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+    outline: none;
+}
+
+.agent-mission-card:hover {
+    border-color: rgba(var(--accent-rgb), 0.45);
+    background: rgba(18, 24, 38, 0.88);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35), 0 0 16px rgba(var(--accent-rgb), 0.12);
+}
+
+.mission-card-top {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    margin-bottom: 8px;
+}
+
+.mission-card-icon {
+    width: 30px;
+    height: 30px;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    display: grid;
+    place-items: center;
+    font-size: 13px;
+    flex-shrink: 0;
+}
+
+.mission-card-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text, #fff);
+    font-family: 'Outfit', sans-serif;
+    flex: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.agent-target-badge {
+    font-size: 9px;
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 700;
+    padding: 2px 5px;
+    border-radius: 4px;
+    letter-spacing: 0.4px;
+    flex-shrink: 0;
+}
+
+.agent-target-badge.cloud {
+    background: rgba(139, 92, 246, 0.15);
+    color: #c4b5fd;
+    border: 1px solid rgba(139, 92, 246, 0.3);
+}
+
+.agent-target-badge.desktop {
+    background: rgba(16, 185, 129, 0.15);
+    color: #6ee7b7;
+    border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.mission-card-desc {
+    font-size: 11.5px;
+    color: var(--text-dim, #94a3b8);
+    line-height: 1.45;
+    margin: 0 0 12px;
+    flex-grow: 1;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.mission-card-action {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 11px;
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 600;
+    color: var(--accent);
+    padding-top: 8px;
+    border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.agent-mission-card:hover .mission-card-action i {
+    transform: translateX(3px);
+    transition: transform 0.2s ease;
+}
+
+@media (max-width: 960px) {
+    .agent-missions-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media (max-width: 640px) {
+    .voice-prompts-grid {
+        grid-template-columns: 1fr;
+    }
+    .agent-missions-grid {
+        grid-template-columns: 1fr;
+    }
+    .agent-header-row {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    .bridge-banner-top-row {
+        flex-direction: column;
+        align-items: flex-start;
+    }
 }
 
     </style>

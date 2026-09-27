@@ -14,7 +14,9 @@
 
     {% include "chat/styles.html" %}
 
-    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500&family=Outfit:wght@300;400;600&display=swap" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Outfit:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <!-- Deferred third-party libraries for maximum initial render speed -->
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js" defer></script>
@@ -36,6 +38,11 @@
 
     <!-- Modals & Overlays (Lockdown, Image Viewer, Discovery, Shortcuts, Desktop Agent) -->
     {% include "chat/modals.html" %}
+
+    <div id="boot-screen" style="display: none;">
+        <div id="terminal-output"></div>
+        <div><span class="boot-cursor" id="boot-cursor" style="display: none;"></span></div>
+    </div>
 
     <input type="hidden" id="csrf-token" value="{{ csrf_token }}">
     <!-- Mobile overlay -->
@@ -104,10 +111,8 @@
             <span id="jumpToLatestText">Jump to latest</span>
         </button>
 
-        <!-- Command Composer Input Bar (Suppressed in Voice Mode) -->
-        {% if session_type != 'voice' %}
-            {% include "chat/composer.html" %}
-        {% endif %}
+        <!-- Command Composer Input Bar (Hidden in Voice Mode via CSS) -->
+        {% include "chat/composer.html" %}
     </div>
 
     <!-- Client-Side Runtime Engine Scripts -->
