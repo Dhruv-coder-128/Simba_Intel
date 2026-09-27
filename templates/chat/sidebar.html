@@ -1,0 +1,263 @@
+    <div id="sidebar">
+        <div class="sidebar-resize-handle" id="sidebarResizeHandle"></div>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+        <div class="brand">
+            <div class="text-wrapper">
+                <div>&gt;_&lt;</div>
+                <span>SIMBA_INTEL</span>
+                <div class="ai-status status-online" id="aiStatus">
+                    <span class="dot"></span>
+                    <span class="status-text">CORE ONLINE</span>
+                </div>
+            </div>
+            <button type="button" class="sidebar-collapse-btn" id="sidebarCollapseBtn" onclick="toggleSidebarCollapse()"
+                title="Collapse sidebar">
+                <i class="fa-solid fa-angles-left"></i>
+            </button>
+            <!-- Mobile close button -->
+            <button id="mobile-close-btn" class="mobile-close-btn">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+
+        <div class="sidebar-icon-rail">
+            <button type="button" class="rail-icon-btn rail-icon-primary" title="New session"
+                onclick="startNewConversation(event)"><i class="fa-solid fa-plus"></i></button>
+            <button type="button" class="rail-icon-btn" title="Search chats" onclick="expandSidebarAndFocusSearch()"><i
+                    class="fa-solid fa-magnifying-glass"></i></button>
+            <button type="button" class="rail-icon-btn" title="Bookmarks" onclick="openBookmarksPanel()"><i
+                    class="fa-solid fa-bookmark"></i></button>
+            <button type="button" class="rail-icon-btn" title="Prompt Library" onclick="openPromptLibrary()"><i
+                    class="fa-solid fa-book-bookmark"></i></button>
+            <a href="{% url 'analytics_dashboard' %}" class="rail-icon-btn" title="Analytics"
+                onclick="saveChatStateBeforeLeaving()"><i class="fa-solid fa-chart-line"></i></a>
+            <a href="{% url 'profile_settings' %}" class="rail-icon-btn" title="Settings"
+                onclick="saveChatStateBeforeLeaving()"><i class="fa-solid fa-gear"></i></a>
+            {% if can_access_admin_console %}
+            <a href="{% url 'admin_dashboard' %}" class="rail-icon-btn" title="Admin Console"><i
+                    class="fa-solid fa-shield-halved"></i></a>
+            {% endif %}
+        </div>
+
+        <button type="button" class="new-chat" id="sidebarNewChatBtn" onclick="startNewConversation(event)"
+            title="New Session (Ctrl+N)">
+            <i class="fa-solid fa-plus"></i> /new_session
+        </button>
+        {% if current_session %}
+        <button type="button" class="new-chat" data-chat-title="{{ current_session.title|escapejs }}"
+            onclick="exportChatAsPdf(this.dataset.chatTitle)">
+            <i class="fa-solid fa-file-pdf"></i> /export_pdf
+        </button>
+        {% endif %}
+
+        <div class="system-monitor">
+            <div class="mini-stats">
+                <div class="mini-stat">
+                    <div class="mini-stat-row"><span>CPU</span><span class="mini-stat-val" id="cpu-val">0%</span>
+                    </div>
+                    <div class="mini-stat-track">
+                        <div id="cpu-bar" class="mini-stat-fill"></div>
+                    </div>
+                </div>
+                <div class="mini-stat">
+                    <div class="mini-stat-row"><span>RAM</span><span class="mini-stat-val" id="ram-val">0%</span>
+                    </div>
+                    <div class="mini-stat-track">
+                        <div id="ram-bar" class="mini-stat-fill"></div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <div class="history-section">
+            <div class="history-section-header">
+                <span class="label">ARCHIVE_LOG</span>
+                <div class="history-view-toggle">
+                    <a href="/?view=active{% if folder_filter %}&folder={{ folder_filter|urlencode }}{% endif %}"
+                        class="view-toggle-btn {% if view_mode != 'archived' %}active{% endif %}">Active</a>
+                    <a href="/?view=archived{% if folder_filter %}&folder={{ folder_filter|urlencode }}{% endif %}"
+                        class="view-toggle-btn {% if view_mode == 'archived' %}active{% endif %}">Archived</a>
+                </div>
+            </div>
+
+            <div class="sidebar-search">
+                <i class="fa-solid fa-magnifying-glass"></i>
+                <input type="text" id="chat-search-input" placeholder="Search titles &amp; messages..."
+                    oninput="filterChatHistory()" aria-label="Search conversations">
+                <kbd class="cmd-palette-hint" onclick="openCommandPalette()" title="Open command palette">⌘K</kbd>
+            </div>
+            <div id="search-results-panel" class="search-results-panel"></div>
+
+            <button type="button" class="bookmarks-entry-btn" onclick="openBookmarksPanel()">
+                <i class="fa-solid fa-bookmark"></i> Bookmarks
+            </button>
+            <button type="button" class="bookmarks-entry-btn" onclick="openPromptLibrary()">
+                <i class="fa-solid fa-book-bookmark"></i> Prompt Library
+            </button>
+
+            <div class="folder-section">
+                <div class="folder-section-header">
+                    <span class="folder-section-label"><i class="fa-solid fa-folder-tree"></i> Folders</span>
+                    <button type="button" class="folder-add-btn" onclick="createFolderPrompt()" title="New folder"><i
+                            class="fa-solid fa-plus"></i></button>
+                </div>
+                {% if folders %}
+                <div class="folder-chips">
+                    <a href="/?view={{ view_mode }}" class="folder-chip {% if not folder_filter %}active{% endif %}"><i
+                            class="fa-solid fa-layer-group"></i> All</a>
+                    {% for f in folders %}
+                    <div class="folder-chip-wrap">
+                        <a href="/?view={{ view_mode }}&folder={{ f.name|urlencode }}"
+                            class="folder-chip {% if folder_filter == f.name %}active{% endif %}"
+                            oncontextmenu="return openFolderMenu(event, '{{ f.name|escapejs }}', '{{ f.color|escapejs }}')">
+                            <span
+                                class="folder-chip-dot {% if f.color %}chat-color-{{ f.color }}{% else %}folder-chip-dot-none{% endif %}"></span>
+                            {{ f.name }}
+                            {% if f.count %}<span class="folder-chip-count">{{ f.count }}</span>{% endif %}
+                        </a>
+                        <button type="button" class="folder-chip-menu-btn"
+                            onclick="openFolderMenuFromBtn(event, this, '{{ f.name|escapejs }}', '{{ f.color|escapejs }}')"
+                            title="Folder options"><i class="fa-solid fa-ellipsis"></i></button>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="folder-empty-hint">No folders yet. Use a chat's menu → Set Folder, or the + above.</div>
+                {% endif %}
+            </div>
+
+            <div class="bulk-select-row">
+                <button type="button" class="bulk-select-toggle" id="bulkSelectToggleBtn"
+                    onclick="toggleBulkSelectMode()">
+                    <i class="fa-solid fa-square-check"></i> Select
+                </button>
+            </div>
+            <div id="bulk-action-toolbar" class="bulk-action-toolbar">
+                <span id="bulk-selected-count">0 selected</span>
+                <button type="button" class="btn-mini" title="Archive" onclick="bulkAction('archive')"><i
+                        class="fa-solid fa-box-archive"></i></button>
+                <button type="button" class="btn-mini" title="Unarchive" onclick="bulkAction('unarchive')"><i
+                        class="fa-solid fa-box-open"></i></button>
+                <button type="button" class="btn-mini danger" title="Delete" onclick="bulkAction('delete')"><i
+                        class="fa-solid fa-trash"></i></button>
+                <button type="button" class="btn-mini" onclick="toggleBulkSelectMode()">Cancel</button>
+            </div>
+
+            <div id="pinned-chats">
+                {% for s in pinned_sessions %}{% include "partials/_chat_row.html" %}{% endfor %}
+            </div>
+
+            {% if favorite_sessions %}
+            <div class="chat-section-label"><i class="fa-solid fa-star"></i> FAVORITES</div>
+            <div id="favorite-chats">
+                {% for s in favorite_sessions %}{% include "partials/_chat_row.html" %}{% endfor %}
+            </div>
+            {% endif %}
+
+            <div id="live-chat-list">
+                {% if grouped_sessions.today %}
+                <div class="chat-date-group" data-group="today">
+                    <div class="chat-date-header">Today</div>
+                    {% for s in grouped_sessions.today %}{% include "partials/_chat_row.html" %}{% endfor %}
+                </div>
+                {% endif %}
+                {% if grouped_sessions.yesterday %}
+                <div class="chat-date-group" data-group="yesterday">
+                    <div class="chat-date-header">Yesterday</div>
+                    {% for s in grouped_sessions.yesterday %}{% include "partials/_chat_row.html" %}{% endfor %}
+                </div>
+                {% endif %}
+                {% if grouped_sessions.week %}
+                <div class="chat-date-group" data-group="week">
+                    <div class="chat-date-header">Last 7 Days</div>
+                    {% for s in grouped_sessions.week %}{% include "partials/_chat_row.html" %}{% endfor %}
+                </div>
+                {% endif %}
+                {% if grouped_sessions.month %}
+                <div class="chat-date-group" data-group="month">
+                    <div class="chat-date-header">Last 30 Days</div>
+                    {% for s in grouped_sessions.month %}{% include "partials/_chat_row.html" %}{% endfor %}
+                </div>
+                {% endif %}
+                {% if grouped_sessions.older %}
+                <div class="chat-date-group" data-group="older">
+                    <div class="chat-date-header">Older</div>
+                    {% for s in grouped_sessions.older %}{% include "partials/_chat_row.html" %}{% endfor %}
+                </div>
+                {% endif %}
+                {% if not grouped_sessions.today and not grouped_sessions.yesterday and not grouped_sessions.week and not grouped_sessions.month and not grouped_sessions.older and not pinned_sessions and not favorite_sessions %}
+                <div class="chat-list-empty">
+                    <i class="fa-solid {% if view_mode == 'archived' %}fa-box-open{% else %}fa-comments{% endif %}"></i>
+                    <span>{% if view_mode == 'archived' %}No archived conversations.{% else %}No conversations yet -
+                        start one below.{% endif %}</span>
+                </div>
+                {% endif %}
+            </div>
+
+            <div id="chatPagination" class="chat-pagination"></div>
+        </div>
+
+        <div class="auth-section">
+            {% if user.is_authenticated %}
+            <div class="profile-trigger-row">
+                <button type="button" class="profile-trigger" id="profileTriggerBtn" aria-haspopup="true"
+                    aria-expanded="false" title="Account menu">
+                    {% if user.socialaccount_set.all.0.get_avatar_url %}
+                    <img src="{{ user.socialaccount_set.all.0.get_avatar_url }}" alt="" class="profile-avatar-sm">
+                    {% else %}
+                    <img src="https://ui-avatars.com/api/?name={{ user.first_name|default:'User' }}+{{ user.last_name|default:'' }}&background=12161c&color=00e5ff&size=80"
+                        alt="" class="profile-avatar-sm">
+                    {% endif %}
+                    <span class="profile-trigger-name">{% if profile.display_name %}{{ profile.display_name }}{% else %}{{ user.get_full_name|default:user.username }}{% endif %}</span>
+                    <i class="fa-solid fa-chevron-up profile-trigger-chevron"></i>
+                </button>
+
+                <div class="profile-popover" id="profilePopover" role="menu">
+                    <div class="profile-card">
+                        {% if user.socialaccount_set.all.0.get_avatar_url %}
+                        <img src="{{ user.socialaccount_set.all.0.get_avatar_url }}" alt="Profile"
+                            class="profile-avatar">
+                        {% else %}
+                        <img src="https://ui-avatars.com/api/?name={{ user.first_name|default:'User' }}+{{ user.last_name|default:'' }}&background=12161c&color=00e5ff&size=80"
+                            alt="Profile" class="profile-avatar">
+                        {% endif %}
+                        <div class="profile-info">
+                            <p class="profile-name">{% if profile.display_name %}{{ profile.display_name }}{% else %}{{ user.get_full_name|default:user.username }}{% endif %}</p>
+                            <p class="profile-email">{{ user.email }}</p>
+                        </div>
+                    </div>
+                    <a href="{% url 'analytics_dashboard' %}" class="auth-btn" onclick="saveChatStateBeforeLeaving()">
+                        <i class="fa-solid fa-chart-line"></i>
+                        ANALYTICS
+                    </a>
+                    <a href="{% url 'profile_settings' %}" class="auth-btn" onclick="saveChatStateBeforeLeaving()">
+                        <i class="fa-solid fa-gear"></i>
+                        SETTINGS
+                    </a>
+                    {% if can_access_admin_console %}
+                    <div class="profile-menu-divider"></div>
+                    <a href="{% url 'admin_dashboard' %}" class="auth-btn">
+                        <i class="fa-solid fa-shield-halved"></i>
+                        ADMIN CONSOLE
+                    </a>
+                    <div class="profile-menu-divider"></div>
+                    {% endif %}
+                    <form method="post" action="{% url 'account_logout' %}" id="logout-form">
+                        {% csrf_token %}
+                        <button type="submit" class="auth-btn">
+                            <i class="fa-solid fa-sign-out-alt"></i>
+                            LOGOUT
+                        </button>
+                    </form>
+                </div>
+            </div>
+            {% else %}
+            <a href="{% url 'google_login' %}" class="auth-btn">
+                <i class="fa-brands fa-google"></i>
+                CONTINUE WITH GOOGLE
+            </a>
+            {% endif %}
+        </div>
+
+    </div>

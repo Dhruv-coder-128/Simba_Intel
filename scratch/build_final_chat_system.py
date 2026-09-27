@@ -1,4 +1,20 @@
-{% load static %}
+with open('templates/chat.html', 'r', encoding='utf-8') as f:
+    lines = f.readlines()
+
+# 1. Assistant workspace (lines 12872 to 13443, 0-indexed: 12871 to 13443)
+assistant_ws_content = "".join(lines[12871:13443])
+with open('templates/chat/assistant_workspace.html', 'w', encoding='utf-8') as f:
+    f.write(assistant_ws_content)
+print("Wrote templates/chat/assistant_workspace.html")
+
+# 2. Composer (lines 13453 to 13720, 0-indexed: 13452 to 13720)
+composer_content = "".join(lines[13452:13720])
+with open('templates/chat/composer.html', 'w', encoding='utf-8') as f:
+    f.write(composer_content)
+print("Wrote templates/chat/composer.html")
+
+# 3. Create the clean, modular templates/chat.html
+modular_chat_html = """{% load static %}
 <!DOCTYPE html>
 <html lang="en" data-theme="{{ profile.theme|default:'cyberpunk' }}"
     data-notifications="{{ profile.notifications_enabled|yesno:'on,off' }}" data-accent="{{ profile.accent_override }}"
@@ -115,3 +131,14 @@
 </body>
 
 </html>
+"""
+
+# Backup original chat.html first
+with open('templates/chat.html.bak', 'w', encoding='utf-8') as f:
+    f.writelines(lines)
+print("Created backup at templates/chat.html.bak")
+
+# Write the new modular chat.html
+with open('templates/chat.html', 'w', encoding='utf-8') as f:
+    f.write(modular_chat_html)
+print("Successfully generated clean modular templates/chat.html!")

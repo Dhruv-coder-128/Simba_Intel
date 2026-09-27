@@ -17,10 +17,12 @@ import platform
 import signal
 import socket
 import sys
+import threading
 import time
 import urllib.error
 import urllib.parse
 import urllib.request
+import webbrowser
 from pathlib import Path
 from typing import Any, Dict, Optional
 
@@ -63,6 +65,113 @@ class SimbaDesktopAgent:
 
         # Load tool registry
         self._init_tools()
+
+        # Start Windows system-wide global hotkey listener (Ctrl + Win)
+        self._start_global_hotkey_listener()
+
+    def _start_global_hotkey_listener(self):
+        """Starts a background daemon thread listening for global Ctrl+Windows hotkey."""
+        if platform.system() != "Windows":
+            return
+
+        def _hotkey_worker():
+            try:
+                import ctypes
+                from ctypes import wintypes
+
+                user32 = ctypes.windll.user32
+                kernel32 = ctypes.windll.kernel32
+
+                WH_KEYBOARD_LL = 13
+                WM_KEYDOWN = 0x0100
+                WM_SYSKEYDOWN = 0x0104
+                VK_LWIN = 0x5B
+                VK_RWIN = 0x5C
+                VK_CONTROL = 0x11
+                VK_LCONTROL = 0xA2
+                VK_RCONTROL = 0xA3
+
+                HOOKPROC = ctypes.WINFUNCTYPE(ctypes.c_long, ctypes.c_int, wintypes.WPARAM, wintypes.LPARAM)
+
+                class KBDLLHOOKSTRUCT(ctypes.Structure):
+                    _fields_ = [
+                        ("vkCode", wintypes.DWORD),
+                        ("scanCode", wintypes.DWORD),
+                        ("flags", wintypes.DWORD),
+                        ("time", wintypes.DWORD),
+                        ("dwExtraInfo", ctypes.c_ulong),
+                    ]
+
+                last_triggered = 0.0
+
+                def _hook_callback(nCode, wParam, lParam):
+                    nonlocal last_triggered
+                    if nCode >= 0 and wParam in (WM_KEYDOWN, WM_SYSKEYDOWN):
+                        try:
+                            kb = KBDLLHOOKSTRUCT.from_address(lParam)
+                            vk = kb.vkCode
+
+                            is_win_key = vk in (VK_LWIN, VK_RWIN)
+                            is_ctrl_key = vk in (VK_CONTROL, VK_LCONTROL, VK_RCONTROL)
+
+                            is_win_down = bool(
+                                (user32.GetAsyncKeyState(VK_LWIN) & 0x8000)
+                                or (user32.GetAsyncKeyState(VK_RWIN) & 0x8000)
+                            )
+                            is_ctrl_down = bool(user32.GetAsyncKeyState(VK_CONTROL) & 0x8000)
+
+                            hotkey_pressed = (is_win_key and is_ctrl_down) or (is_ctrl_key and is_win_down)
+
+                            if hotkey_pressed:
+                                now = time.time()
+                                if now - last_triggered > 1.2:
+                                    last_triggered = now
+                                    target_url = f"{self.server_url}/?type=voice&autolisten=1"
+                                    logger.info(
+                                        "%s[HOTKEY] Global Ctrl + Windows key detected! Activating SIMBA Voice Agent: %s%s",
+                                        CYAN,
+                                        target_url,
+                                        RESET,
+                                    )
+                                    webbrowser.open(target_url)
+                        except Exception as ex:
+                            logger.debug("Error in global hotkey hook: %s", ex)
+
+                    return user32.CallNextHookEx(None, nCode, wParam, lParam)
+
+                callback_proc = HOOKPROC(_hook_callback)
+                hook_id = user32.SetWindowsHookExW(
+                    WH_KEYBOARD_LL,
+                    callback_proc,
+                    kernel32.GetModuleHandleW(None),
+                    0,
+                )
+
+                if not hook_id:
+                    logger.debug("Could not register Windows low-level keyboard hook.")
+                    return
+
+                logger.info(
+                    "%s[HOTKEY ACTIVE] Global shortcut (Ctrl + Windows Key) enabled from any app.%s",
+                    GREEN,
+                    RESET,
+                )
+
+                msg = wintypes.MSG()
+                while self.running:
+                    # PM_REMOVE = 1, peek and process messages without blocking exit
+                    res = user32.PeekMessageW(ctypes.byref(msg), None, 0, 0, 1)
+                    if res:
+                        user32.TranslateMessage(ctypes.byref(msg))
+                        user32.DispatchMessageW(ctypes.byref(msg))
+                    time.sleep(0.02)
+
+                user32.UnhookWindowsHookEx(hook_id)
+            except Exception as e:
+                logger.debug("Global hotkey listener error: %s", e)
+
+        thread = threading.Thread(target=_hotkey_worker, name="SimbaGlobalHotkeyThread", daemon=True)
+        thread.start()
 
     def _init_tools(self):
         """Initializes the safe Windows tool registry."""

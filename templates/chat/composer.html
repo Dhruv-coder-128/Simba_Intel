@@ -1,0 +1,268 @@
+        <div id="input-wrapper">
+            <div class="composer-shell">
+                <div id="attachment-preview" style="display:none;"></div>
+                <div id="composerTaskContext" class="composer-task-context" style="display:none;">
+                    <span class="composer-task-tag" id="composerTaskTag">
+                        <i id="composerTaskIcon" class="fa-solid fa-code"></i>
+                        <span id="composerTaskLabel">Coding Mode</span>
+                    </span>
+                    <button type="button" class="composer-task-reset-btn" onclick="resetComposerTaskMode()"
+                        title="Back to Assistant (Reset Mode)" aria-label="Back to Assistant">
+                        <i class="fa-solid fa-xmark"></i> <span>Back to Assistant</span>
+                    </button>
+                </div>
+                <div class="command-box">
+
+                    <input type="file" id="attach-input" accept=".pdf,.csv,.txt,.jpg,.jpeg,.png,.webp,.gif,.bmp"
+                        multiple style="display:none;">
+
+                    <div class="plus-menu-wrapper">
+                        <button class="voice-btn" id="plusMenuBtn" type="button" title="Add attachment"
+                            aria-label="Add attachment" onclick="togglePlusMenu(event)">
+                            <i class="fa-solid fa-plus"></i>
+                        </button>
+                        <div class="plus-menu" id="plusMenu">
+                            <button type="button" onclick="closePlusMenu(); openCameraCapture();">
+                                <i class="fa-solid fa-camera"></i> Camera
+                            </button>
+                            <button type="button" onclick="closePlusMenu(); triggerFilePicker('image');">
+                                <i class="fa-solid fa-image"></i> Gallery
+                            </button>
+                            <button type="button" onclick="closePlusMenu(); triggerFilePicker('file');">
+                                <i class="fa-solid fa-file-arrow-up"></i> File Upload
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="cyber-select-wrapper" id="cyberSelectWrapper">
+
+                        <button type="button" class="cyber-select" id="cyberSelect" onclick="toggleModelDropdown(event)"
+                            aria-haspopup="listbox" aria-expanded="false" title="Select AI Model or Smart Routing Mode">
+                            <span class="model-trigger-content">
+                                <span id="selectedText" class="model-trigger-name">
+                                    {% if selected_model == 'auto' or not selected_model %}Auto
+                                    {% elif selected_model == 'fast' %}Fast Mode
+                                    {% elif selected_model == 'balanced' %}Balanced Mode
+                                    {% elif selected_model == 'powerful' %}Powerful (Deep)
+                                    {% elif selected_model == 'economical' %}Economical
+                                    {% else %}
+                                    {% for model in models %}
+                                    {% if model.id == selected_model %}{{ model.display_name }}{% endif %}
+                                    {% endfor %}
+                                    {% endif %}
+                                </span>
+                            </span>
+                            <span class="arrow"><i class="fa-solid fa-chevron-up"></i></span>
+                        </button>
+
+                        <div class="cyber-options" id="cyberOptions" role="listbox">
+                            <div class="model-dropdown-header">
+                                <div class="model-search-box">
+                                    <i class="fa-solid fa-magnifying-glass"></i>
+                                    <input type="text" id="modelSearchInput" placeholder="Search models or modes..."
+                                        autocomplete="off" oninput="filterModelDropdown(this.value)"
+                                        onclick="event.stopPropagation()">
+                                    <button type="button" class="model-search-clear" id="modelSearchClear"
+                                        onclick="clearModelSearch(event)" style="display:none;"><i
+                                            class="fa-solid fa-xmark"></i></button>
+                                </div>
+                            </div>
+
+                            <div class="model-dropdown-scroll" id="modelDropdownScroll">
+                                <!-- Group 1: Smart Routing Modes -->
+                                <div class="cyber-option-group" data-group="routing">
+                                    <div class="cyber-option-group-label"><i class="fa-solid fa-route"></i> SMART
+                                        ROUTING MODES</div>
+                                    <div class="cyber-option {% if selected_model == 'auto' or not selected_model %}active{% endif %}"
+                                        data-value="auto" data-name="Auto (Smart Task Routing)"
+                                        data-desc="Intelligently classifies query & code to pick ideal model">
+                                        <div class="model-option-main">
+                                            <div class="model-option-title">
+                                                <i class="fa-solid fa-wand-magic-sparkles"
+                                                    style="color:var(--accent);"></i>
+                                                <strong>AUTO</strong>
+                                                <span class="model-option-badge">Recommended</span>
+                                            </div>
+                                            <div class="model-option-desc">Intelligent auto-routing based on query depth
+                                            </div>
+                                        </div>
+                                        {% if selected_model == 'auto' or not selected_model %}<i
+                                            class="fa-solid fa-check model-active-check"></i>{% endif %}
+                                    </div>
+
+                                    <div class="cyber-option {% if selected_model == 'fast' %}active{% endif %}"
+                                        data-value="fast" data-name="Fast Mode"
+                                        data-desc="Optimized for rapid responses & speed">
+                                        <div class="model-option-main">
+                                            <div class="model-option-title">
+                                                <i class="fa-solid fa-bolt" style="color:#ffd93d;"></i>
+                                                <strong>FAST</strong>
+                                                <span class="model-option-badge"
+                                                    style="background:rgba(255,217,61,0.15); color:#ffd93d;">Speed</span>
+                                            </div>
+                                            <div class="model-option-desc">Low-latency instant generation via Nova Mind
+                                            </div>
+                                        </div>
+                                        {% if selected_model == 'fast' %}<i
+                                            class="fa-solid fa-check model-active-check"></i>{% endif %}
+                                    </div>
+
+                                    <div class="cyber-option {% if selected_model == 'balanced' %}active{% endif %}"
+                                        data-value="balanced" data-name="Balanced Mode"
+                                        data-desc="Balanced quality, reasoning & responsiveness">
+                                        <div class="model-option-main">
+                                            <div class="model-option-title">
+                                                <i class="fa-solid fa-scale-balanced" style="color:#4da3ff;"></i>
+                                                <strong>BALANCED</strong>
+                                                <span class="model-option-badge"
+                                                    style="background:rgba(77,163,255,0.15); color:#4da3ff;">General</span>
+                                            </div>
+                                            <div class="model-option-desc">Great balance of quality and execution speed
+                                            </div>
+                                        </div>
+                                        {% if selected_model == 'balanced' %}<i
+                                            class="fa-solid fa-check model-active-check"></i>{% endif %}
+                                    </div>
+
+                                    <div class="cyber-option {% if selected_model == 'powerful' %}active{% endif %}"
+                                        data-value="powerful" data-name="Powerful (Deep Reasoning)"
+                                        data-desc="Deep reasoning, complex logic & full code architecture">
+                                        <div class="model-option-main">
+                                            <div class="model-option-title">
+                                                <i class="fa-solid fa-brain" style="color:#b388ff;"></i>
+                                                <strong>POWERFUL</strong>
+                                                <span class="model-option-badge"
+                                                    style="background:rgba(179,136,255,0.15); color:#b388ff;">Reasoning</span>
+                                            </div>
+                                            <div class="model-option-desc">High-capacity reasoning for complex tasks
+                                            </div>
+                                        </div>
+                                        {% if selected_model == 'powerful' %}<i
+                                            class="fa-solid fa-check model-active-check"></i>{% endif %}
+                                    </div>
+
+                                    <div class="cyber-option {% if selected_model == 'economical' %}active{% endif %}"
+                                        data-value="economical" data-name="Economical Mode"
+                                        data-desc="Lightweight compute and maximum efficiency">
+                                        <div class="model-option-main">
+                                            <div class="model-option-title">
+                                                <i class="fa-solid fa-leaf" style="color:#39ff88;"></i>
+                                                <strong>ECONOMICAL</strong>
+                                                <span class="model-option-badge"
+                                                    style="background:rgba(57,255,136,0.15); color:#39ff88;">Eco</span>
+                                            </div>
+                                            <div class="model-option-desc">Lightweight compute & resource efficiency
+                                            </div>
+                                        </div>
+                                        {% if selected_model == 'economical' %}<i
+                                            class="fa-solid fa-check model-active-check"></i>{% endif %}
+                                    </div>
+                                </div>
+
+                                <!-- Group 2: Core / Direct AI Models -->
+                                <div class="cyber-option-group" data-group="direct">
+                                    <div class="cyber-option-group-label"><i class="fa-solid fa-microchip"></i> DIRECT
+                                        MODEL OVERRIDES</div>
+                                    {% for model in models %}
+                                    <div class="cyber-option {% if selected_model == model.id %}active{% endif %}"
+                                        data-value="{{ model.id }}" data-name="{{ model.display_name }}"
+                                        data-icon="{% if 'Image' in model.display_name %}{% elif 'vision' in model.display_name or 'Mini' in model.display_name %}{% elif 'Quantum' in model.display_name %}{% else %}{% endif %}"
+                                        data-desc="{% if model.supports_image_gen %}Image generation mode{% elif model.supports_vision %}Vision & multimodal analysis{% else %}Direct model execution{% endif %}">
+                                        <div class="model-option-main">
+                                            <div class="model-option-title">
+                                                <span>{% if 'Image' in model.display_name %}{% elif 'vision' in model.display_name or 'Mini' in model.display_name %}{% elif 'Quantum' in model.display_name %}{% else %}{% endif %}</span>
+                                                <strong>{{ model.display_name }}</strong>
+                                                {% if model.supports_vision %}<span class="model-option-badge"
+                                                    style="background:rgba(0,240,255,0.15); color:var(--accent);">Vision</span>{% endif %}
+                                                {% if model.supports_image_gen %}<span class="model-option-badge"
+                                                    style="background:rgba(255,166,77,0.15); color:#ffa64d;">Image</span>{% endif %}
+                                            </div>
+                                            <div class="model-option-desc">
+                                                {% if model.id == 'cyber-max' %}Flagship balanced model
+                                                {% elif model.id == 'ox-alpha' %}High-parameter deep reasoning
+                                                {% elif model.id == 'nova-mind' %}Low-latency fast execution
+                                                {% elif model.id == 'quantum-core' %}NVIDIA accelerated inference
+                                                {% elif model.id == 'sky-net-mini' %}Fast multimodal vision engine
+                                                {% elif model.id == 'image-studio' %}High quality image generation
+                                                {% else %}{{ model.provider|title }} model backend{% endif %}
+                                            </div>
+                                        </div>
+                                        {% if selected_model == model.id %}<i
+                                            class="fa-solid fa-check model-active-check"></i>{% endif %}
+                                    </div>
+                                    {% endfor %}
+                                </div>
+
+                                <div id="modelSearchEmpty" class="model-search-empty" style="display:none;">
+                                    <i class="fa-solid fa-magnifying-glass"></i> No matching models found.
+                                </div>
+                            </div>
+                        </div>
+
+                        <input type="hidden" name="model_choice" id="model-selector"
+                            value="{{ selected_model|default:'auto' }}">
+
+                    </div>
+
+                    <!-- Aspect Ratio Selector -->
+                    <div class="cyber-select-wrapper aspect-ratio-wrapper" id="aspectRatioWrapper"
+                        style="display: none;">
+                        <div class="cyber-select" id="aspectRatioSelect">
+                            <span id="aspectRatioText">1:1</span>
+                            <span class="arrow">▴</span>
+                        </div>
+                        <div class="cyber-options" id="aspectRatioOptions">
+                            <div class="cyber-option active" data-value="1:1">1:1</div>
+                            <div class="cyber-option" data-value="16:9">16:9</div>
+                            <div class="cyber-option" data-value="9:16">9:16</div>
+                        </div>
+                        <input type="hidden" id="aspect-ratio-selector" value="1:1">
+                    </div>
+
+
+                    <!-- SMART COMPOSER AUTOCOMPLETE -->
+                    <div id="composerAutocomplete" class="composer-autocomplete-menu" role="listbox"
+                        aria-label="Command suggestions">
+                        <div class="autocomplete-header" id="autocompleteHeader">Suggestions</div>
+                        <div id="autocompleteResults" class="autocomplete-results"></div>
+                    </div>
+
+                    <!-- MULTI LINE INPUT -->
+                    <textarea id="user-input"
+                        placeholder="{% if selected_model == 'image-studio' %}Describe the image you want to generate...{% elif session_type == 'agent' %}Describe the task you want SIMBA to perform...{% elif session_type == 'voice' %}Speak your request...{% else %}Ask SIMBA anything...{% endif %}"
+                        rows="1"></textarea>
+
+
+
+                    <!-- WAVE ANIMATION -->
+                    <div id="wave-container" style="display:none; gap:4px; margin-right:10px;">
+                        <div class="wave-bar"></div>
+                        <div class="wave-bar"></div>
+                        <div class="wave-bar"></div>
+                        <div class="wave-bar"></div>
+                        <div class="wave-bar"></div>
+                    </div>
+
+
+
+                    <!-- SAVE PROMPT BUTTON -->
+                    <button class="voice-btn" id="savePromptBtn" type="button" onclick="savePromptFromComposer()"
+                        title="Save this prompt to your library">
+                        <i class="fa-solid fa-bookmark"></i>
+                    </button>
+
+                    <!-- VOICE BUTTON -->
+                    <button class="voice-btn" id="micBtn" type="button" onclick="toggleVoiceUplink()">
+                        <i class="fa-solid fa-microphone"></i>
+                    </button>
+
+
+                    <!-- SEND / STOP BUTTON -->
+                    <button class="send-btn" type="button" title="Send" aria-label="Send" onclick="sendQuery(event)">
+                        <i class="fa-solid fa-chevron-right"></i>
+                    </button>
+
+                </div>
+            </div>
+            </div>
+        </div>

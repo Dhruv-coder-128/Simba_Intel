@@ -1,0 +1,266 @@
+    {% if active_broadcast %}
+    {% if active_broadcast.is_popup %}
+    <div id="broadcastPopupOverlay" class="broadcast-popup-overlay" data-broadcast-id="{{ active_broadcast.id }}">
+        <div class="broadcast-popup broadcast-{{ active_broadcast.level }}">
+            <i class="fa-solid {% if active_broadcast.level == 'critical' %}fa-triangle-exclamation{% elif active_broadcast.level == 'warning' %}fa-circle-exclamation{% else %}fa-circle-info{% endif %}"
+                style="font-size:28px; margin-bottom:12px;"></i>
+            <p>{{ active_broadcast.message }}</p>
+            {% if active_broadcast.dismissible %}
+            <button type="button" class="btn-back" style="justify-content:center; margin-top:14px;"
+                onclick="dismissBroadcast({{ active_broadcast.id }}, true)">Got it</button>
+            {% endif %}
+        </div>
+    </div>
+    {% else %}
+    <div id="broadcastBanner" class="broadcast-banner broadcast-{{ active_broadcast.level }}"
+        data-broadcast-id="{{ active_broadcast.id }}">
+        <i
+            class="fa-solid {% if active_broadcast.level == 'critical' %}fa-triangle-exclamation{% elif active_broadcast.level == 'warning' %}fa-circle-exclamation{% else %}fa-circle-info{% endif %}"></i>
+        <span>{{ active_broadcast.message }}</span>
+        {% if active_broadcast.dismissible %}
+        <button type="button" onclick="dismissBroadcast({{ active_broadcast.id }}, false)" aria-label="Dismiss"><i
+                class="fa-solid fa-xmark"></i></button>
+        {% endif %}
+    </div>
+    {% endif %}
+    <script>
+        // Dismissal is tracked client-side only (localStorage), keyed by
+        // broadcast id - there's no per-user DB row for "has this user
+        // seen broadcast #N", so a dismissal is per-browser, not
+        // per-account. A non-dismissible ("pinned") broadcast has no
+        // dismiss button at all and is never hidden this way.
+        (function () {
+            const id = {{ active_broadcast.id }}; const key = 'simba_dismissed_broadcast_' + id; if (localStorage.getItem(key)) { const banner = document.getElementById('broadcastBanner'); const popup = document.getElementById('broadcastPopupOverlay'); if (banner) banner.remove(); if (popup) popup.remove(); } }) (); function dismissBroadcast(id, isPopup) { localStorage.setItem('simba_dismissed_broadcast_' + id, '1'); const el = document.getElementById(isPopup ? 'broadcastPopupOverlay' : 'broadcastBanner'); if (el) el.remove(); } </script> {% endif %} <div id="lockdown-screen"> <div id="lock-container"> <i class="fa-solid fa-triangle-exclamation lock-icon" id="lock-icon-new"></i> <h1 id="system-locked">SYSTEM LOCKED</h1> <p id="omega-msg">PROTOCOL OMEGA ENGAGED. ENTER PASSCODE.</p> <input type="password" id="lock-pass" class="lock-input" placeholder="PASSCODE..." onkeydown="checkUnlock(event)"> </div> </div> <div id="camera-modal" style="display:none; position:fixed; inset:0; background:rgba(3,4,5,0.9); backdrop-filter:blur(15px); z-index:100000; flex-direction:column; align-items:center; justify-content:center; font-family:'JetBrains Mono',monospace;"> <div style="padding:24px; background:rgba(10,15,20,0.95); border:1px solid rgba(var(--accent-rgb),0.4); border-radius:8px; box-shadow:0 0 30px rgba(var(--accent-rgb),0.2); text-align:center; display:flex; flex-direction:column; align-items:center; gap:16px; max-width:90vw;"> <video id="camera-video" autoplay playsinline style="max-width:80vw; max-height:60vh; border-radius:6px; background:#000;"></video> <canvas id="camera-canvas" style="display:none;"></canvas> <div style="display:flex; gap:12px;"> <button class="copy-btn" onclick="capturePhoto()"><i class="fa-solid fa-camera"></i> Capture</button> <button class="copy-btn" onclick="closeCameraCapture()"><i class="fa-solid fa-xmark"></i> Cancel</button> </div> </div> </div> <div id="image-lightbox" onclick="closeImageLightbox()"> <button type="button" class="lightbox-close" onclick="closeImageLightbox(); event.stopPropagation();" aria-label="Close"> <i class="fa-solid fa-xmark"></i> </button> <img id="lightbox-img" src="" alt="Full size preview" onclick="event.stopPropagation();"> </div> <div id="commandPalette" class="command-palette-overlay" onclick="if(event.target===this) closeCommandPalette();" role="dialog" aria-modal="true" aria-label="Command Palette"> <div class="command-palette-box"> <div class="command-palette-input-row"> <i class="fa-solid fa-terminal"></i> <input type="text" id="cmdPaletteInput" placeholder="Type a command, action, or search..." autocomplete="off" spellcheck="false" aria-autocomplete="list" aria-controls="cmdPaletteResults"> <span class="palette-kbd-badge">ESC</span> </div> <div id="cmdPaletteResults" class="command-palette-results" role="listbox"></div> <div class="command-palette-footer"> <div class="palette-footer-hints"> <span><kbd class="palette-kbd-badge">↑</kbd><kbd class="palette-kbd-badge">↓</kbd> Navigate</span> <span><kbd class="palette-kbd-badge">↵</kbd> Execute</span> <span><kbd class="palette-kbd-badge">ESC</kbd> Close</span> </div> <span style="font-family:'JetBrains Mono',monospace; opacity:0.8;">SIMBA_INTEL 2.0</span> </div> </div> </div> <div id="bookmarksPanel" class="command-palette-overlay" onclick="if(event.target===this) closeBookmarksPanel();"> <div class="command-palette-box bookmarks-panel-box"> <div class="command-palette-input-row"> <i class="fa-solid fa-bookmark"></i> <input type="text" id="bookmarksSearchInput" placeholder="Search bookmarks..." autocomplete="off" spellcheck="false" oninput="filterBookmarks(this.value)"> <kbd onclick="closeBookmarksPanel()" style="cursor:pointer;">ESC</kbd> </div> <div id="bookmarksResults" class="bookmarks-results"></div> </div> </div> <div id="promptLibraryPanel" class="command-palette-overlay" onclick="if(event.target===this) closePromptLibrary();"> <div class="command-palette-box bookmarks-panel-box"> <div class="command-palette-input-row"> <i class="fa-solid fa-book-bookmark"></i> <input type="text" id="promptLibrarySearchInput" placeholder="Search saved prompts..." autocomplete="off" spellcheck="false" oninput="filterSavedPrompts(this.value)"> <button type="button" class="btn-mini" onclick="openNewPromptDialog()" title="Save a new prompt"><i class="fa-solid fa-plus"></i> New</button> <kbd onclick="closePromptLibrary()" style="cursor:pointer;">ESC</kbd> </div> <div class="prompt-library-tabs"> <button type="button" class="prompt-library-tab active" data-tab="all" onclick="switchPromptLibraryTab('all')">All</button> <button type="button" class="prompt-library-tab" data-tab="favorites" onclick="switchPromptLibraryTab('favorites')">Favorites</button> <button type="button" class="prompt-library-tab" data-tab="recent" onclick="switchPromptLibraryTab('recent')">Recent</button> </div> <div id="promptLibraryCategoryChips" class="folder-chips" style="padding: 0 12px;"></div> <div id="promptLibraryResults" class="bookmarks-results"></div> </div> </div> <div id="messageInfoOverlay" class="command-palette-overlay message-info-overlay" onclick="if(event.target===this) closeMessageInfo();"> <div class="command-palette-box message-info-box"> <div class="message-info-header"> <span><i class="fa-solid fa-circle-info"></i> Message Statistics</span> <button type="button" class="message-info-close" onclick="closeMessageInfo()" aria-label="Close"><i class="fa-solid fa-xmark"></i></button> </div> <div class="message-info-divider"></div> <div id="messageInfoBody" class="message-info-body"></div> </div> </div> <!-- Image Attachment Lightbox Modal --> <div id="attachmentImageViewerModal" class="attachment-modal-overlay" onclick="if(event.target===this) closeAttachmentModals();"> <div class="attachment-modal-box attachment-image-box"> <div class="attachment-modal-header"> <div class="attachment-modal-title"> <i class="fa-regular fa-image"></i> <span id="attachmentImageModalTitle">Image Preview</span> </div> <div class="attachment-modal-actions"> <a id="attachmentImageOpenTabBtn" class="attachment-modal-btn" href="#" target="_blank" rel="noopener"> <i class="fa-solid fa-arrow-up-right-from-square"></i> Open </a> <a id="attachmentImageDownloadBtn" class="attachment-modal-btn" href="#" download> <i class="fa-solid fa-download"></i> Download </a> <button type="button" class="attachment-modal-close" onclick="closeAttachmentModals()" aria-label="Close"><i class="fa-solid fa-xmark"></i></button> </div> </div> <div class="attachment-modal-body attachment-image-body"> <img id="attachmentImageModalImg" src="" alt="Attachment Image"> </div> </div> </div> <!-- Document / Code / File Reader Modal --> <div id="attachmentReaderModal" class="attachment-modal-overlay" onclick="if(event.target===this) closeAttachmentModals();"> <div class="attachment-modal-box attachment-reader-box"> <div class="attachment-modal-header"> <div class="attachment-modal-title"> <i id="attachmentReaderIcon" class="fa-regular fa-file-code"></i> <span id="attachmentReaderTitle">File Viewer</span> </div> <div class="attachment-modal-actions"> <button type="button" id="attachmentReaderCopyBtn" class="attachment-modal-btn" onclick="copyAttachmentReaderContent()"> <i class="fa-regular fa-copy"></i> Copy </button> <a id="attachmentReaderDownloadBtn" class="attachment-modal-btn" href="#" download> <i class="fa-solid fa-download"></i> Download </a> <button type="button" class="attachment-modal-close" onclick="closeAttachmentModals()" aria-label="Close"><i class="fa-solid fa-xmark"></i></button> </div> </div> <div id="attachmentReaderBody" class="attachment-modal-body attachment-code-body"></div> </div> </div> <!-- Folder context menu (Part 3) - positioned at cursor/button on open --> <div id="folderContextMenu" class="context-menu" data-folder-name="" data-folder-color=""> <button type="button" class="context-menu-item" onclick="folderMenuRename()"><i class="fa-solid fa-pen"></i> Rename</button> <div class="context-menu-divider"></div> <div class="context-menu-colors" id="folderMenuColors"></div> <div class="context-menu-divider"></div> <button type="button" class="context-menu-item danger" onclick="folderMenuDelete()"><i class="fa-solid fa-trash"></i> Delete folder</button> </div> <!-- Generic confirmation dialog (Part 3/10) - replaces native confirm() for destructive folder actions, styled to match the design system --> <div id="confirmDialogOverlay" class="confirm-overlay" onclick="if(event.target===this) closeConfirmDialog();"> <div class="confirm-dialog" role="alertdialog" aria-modal="true"> <div class="confirm-dialog-icon" id="confirmDialogIcon"><i class="fa-solid fa-triangle-exclamation"></i> </div> <h3 id="confirmDialogTitle">Are you sure?</h3> <p id="confirmDialogMessage"></p> <div class="confirm-dialog-actions"> <button type="button" class="confirm-btn confirm-btn-cancel" onclick="closeConfirmDialog()">Cancel</button> <button type="button" class="confirm-btn confirm-btn-confirm" id="confirmDialogConfirmBtn">Confirm</button> </div> </div> </div> <!-- Prompt Template Variables Modal (Phase 4) --> <div id="promptVarModal" class="command-palette-overlay" onclick="if(event.target===this) closePromptVarModal();"> <div class="command-palette-box" style="max-width: 520px; padding: 20px;"> <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; border-bottom:1px solid var(--border-subtle); padding-bottom:10px;"> <div style="display:flex; align-items:center; gap:8px; font-family:var(--font-mono); color:var(--accent); font-size:13px; font-weight:600;"> <i class="fa-solid fa-code"></i> <span id="promptVarModalTitle">Prompt Template Variables</span> </div> <button type="button" class="btn-mini" onclick="closePromptVarModal()"><i class="fa-solid fa-xmark"></i></button> </div> <p style="font-size:12px; color:var(--text-dim); margin-bottom:14px;">Fill in the parameters below to configure your prompt template:</p> <div id="promptVarFields" style="display:flex; flex-direction:column; gap:12px; margin-bottom:18px;"> <!-- Injected dynamically based on detected {{variables}} -->
+            </div>
+            <div style="display:flex; justify-content:flex-end; gap:10px;">
+                <button type="button" class="btn-mini" onclick="closePromptVarModal()">Cancel</button>
+                <button type="button" class="copy-btn" id="promptVarInsertBtn" onclick="applyPromptVariables()"
+                    style="background:var(--accent-dim); border-color:var(--accent); color:var(--accent);">
+                    <i class="fa-solid fa-arrow-down-to-bracket"></i> Insert into Composer
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Highlight / Note Creator Modal (Phase 4) -->
+    <div id="highlightModal" class="command-palette-overlay" onclick="if(event.target===this) closeHighlightModal();">
+        <div class="command-palette-box" style="max-width: 500px; padding: 20px;">
+            <div
+                style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; border-bottom:1px solid var(--border-subtle); padding-bottom:10px;">
+                <div
+                    style="display:flex; align-items:center; gap:8px; font-family:var(--font-mono); color:var(--accent); font-size:13px; font-weight:600;">
+                    <i class="fa-solid fa-bookmark"></i>
+                    <span>Save Key Moment / Highlight</span>
+                </div>
+                <button type="button" class="btn-mini" onclick="closeHighlightModal()"><i
+                        class="fa-solid fa-xmark"></i></button>
+            </div>
+            <form id="highlightForm" onsubmit="saveHighlightFromModal(event)">
+                <input type="hidden" id="highlightMessageId" value="">
+                <div style="display:flex; flex-direction:column; gap:12px;">
+                    <div>
+                        <label
+                            style="font-size:11px; font-family:var(--font-mono); color:var(--text-dim); margin-bottom:4px; display:block;">HIGHLIGHT
+                            TYPE</label>
+                        <select id="highlightTypeSelect" class="simba-select" style="width:100%;">
+                            <option value="answer">Key Answer</option>
+                            <option value="code">Code Snippet</option>
+                            <option value="decision">Architecture Decision</option>
+                            <option value="task">Action Item / Task</option>
+                            <option value="idea">Idea / Concept</option>
+                            <option value="note">Note</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label
+                            style="font-size:11px; font-family:var(--font-mono); color:var(--text-dim); margin-bottom:4px; display:block;">TITLE</label>
+                        <input type="text" id="highlightTitleInput" class="simba-input"
+                            placeholder="e.g. Django Connection Pool Fix" required
+                            style="width:100%; box-sizing:border-box;">
+                    </div>
+                    <div>
+                        <label
+                            style="font-size:11px; font-family:var(--font-mono); color:var(--text-dim); margin-bottom:4px; display:block;">CONTENT
+                            / SNIPPET</label>
+                        <textarea id="highlightContentInput" class="simba-input" rows="4"
+                            placeholder="Highlight snippet content..." required
+                            style="width:100%; box-sizing:border-box; resize:vertical;"></textarea>
+                    </div>
+                    <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:8px;">
+                        <button type="button" class="btn-mini" onclick="closeHighlightModal()">Cancel</button>
+                        <button type="submit" class="copy-btn"
+                            style="background:var(--accent-dim); border-color:var(--accent); color:var(--accent);">
+                            <i class="fa-solid fa-check"></i> Save Highlight
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    {% if verification_required and not email_verified %}
+    <div id="verifyEmailModal" class="verify-email-overlay">
+        <div class="verify-email-card">
+            <div class="verify-email-icon"><i class="fa-solid fa-envelope-circle-check"></i></div>
+            <h2>Verify Your Email</h2>
+            <p>
+                Image generation, Vision, and Settings are locked until you confirm your email address.
+                Check <strong>{{ request.user.email }}</strong> for a confirmation link.
+            </p>
+            <div class="verify-email-actions">
+                <button type="button" class="verify-email-btn primary" id="resendVerifyBtn"
+                    onclick="resendVerificationEmail()">
+                    <i class="fa-solid fa-paper-plane"></i> Resend Email
+                </button>
+                <button type="button" class="verify-email-btn" onclick="refreshVerificationStatus()">
+                    <i class="fa-solid fa-rotate"></i> I've Verified - Refresh
+                </button>
+            </div>
+            <button type="button" class="verify-email-dismiss" onclick="dismissVerifyModal()">
+                Continue with limited access <i class="fa-solid fa-chevron-right"></i>
+            </button>
+        </div>
+    </div>
+    {% endif %}
+
+    {% if session_type == 'agent' %}
+    <!-- Scoped Task History Overlay and Drawer (Strictly isolated to Agent Mode) -->
+    <div id="agentHistoryOverlay" class="agent-history-overlay" style="display:none;"
+        onclick="toggleAgentTaskHistory(false)"></div>
+    <div id="agentTaskHistoryDrawer" class="agent-history-drawer" role="dialog" aria-modal="true"
+        aria-label="Task Execution History">
+        <div class="drawer-header">
+            <span class="drawer-title"><i class="fa-solid fa-clock-rotate-left" style="color:var(--accent);"></i> TASK
+                EXECUTION HISTORY</span>
+            <button type="button" class="drawer-close-btn" onclick="toggleAgentTaskHistory(false)"
+                aria-label="Close Task History">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+        <div class="drawer-toolbar">
+            <div class="drawer-search-wrap">
+                <i class="fa-solid fa-magnifying-glass"></i>
+                <input type="text" id="taskHistorySearchInput" placeholder="Search tasks..."
+                    oninput="onTaskHistorySearchInput()" autocomplete="off">
+            </div>
+            <div class="drawer-filters-bar" id="taskHistoryFilterBar">
+                <button type="button" class="drawer-filter-btn active" data-status="all"
+                    onclick="filterTaskHistoryStatus('all')">All</button>
+                <button type="button" class="drawer-filter-btn" data-status="completed"
+                    onclick="filterTaskHistoryStatus('completed')"><i class="fa-solid fa-check"></i> Completed</button>
+                <button type="button" class="drawer-filter-btn" data-status="failed"
+                    onclick="filterTaskHistoryStatus('failed')"><i class="fa-solid fa-triangle-exclamation"></i>
+                    Failed</button>
+                <button type="button" class="drawer-filter-btn" data-status="running"
+                    onclick="filterTaskHistoryStatus('running')"><i class="fa-solid fa-gear fa-spin"></i>
+                    Running</button>
+            </div>
+        </div>
+        <div class="drawer-content" id="agentTaskHistoryList">
+            <!-- Dynamic task history cards loaded from /api/agent/task/history/ -->
+        </div>
+        <div class="simba-modal-footer" style="padding:10px 16px;">
+            <button type="button" class="btn-modal-secondary" style="width:100%; text-align:center;"
+                onclick="toggleAgentTaskHistory(false)">Close History</button>
+        </div>
+    </div>
+
+    <!-- Action Discovery Modal (Dynamic registry tools browser) -->
+    <div id="actionDiscoveryModal" class="simba-custom-modal-overlay" style="display:none;"
+        onclick="if(event.target===this)closeActionDiscoveryModal()">
+        <div class="simba-custom-modal discovery-modal" role="dialog" aria-modal="true"
+            aria-label="Agent Action Discovery">
+            <div class="simba-modal-header">
+                <div style="display:flex; align-items:center; gap:10px;">
+                    <span class="simba-modal-title"><i class="fa-solid fa-bolt-lightning"
+                            style="color:var(--accent);"></i> AGENT ACTION DISCOVERY</span>
+                    <span class="discovery-target-chip" id="discoveryTargetChip">
+                        <span class="pc-dot"></span> Checking Desktop...
+                    </span>
+                </div>
+                <button type="button" class="drawer-close-btn" onclick="closeActionDiscoveryModal()"
+                    aria-label="Close Discovery"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="discovery-modal-toolbar">
+                <div class="discovery-search-wrap">
+                    <i class="fa-solid fa-magnifying-glass"></i>
+                    <input type="text" id="discoverySearchInput"
+                        placeholder="Search registered tools, categories, or keywords..."
+                        oninput="filterDiscoveredTools()" autocomplete="off">
+                </div>
+                <div class="discovery-category-tabs" id="discoveryCategoryTabs">
+                    <button type="button" class="discovery-tab active" data-cat="all"
+                        onclick="filterDiscoveryCategory('all')">All</button>
+                    <button type="button" class="discovery-tab" data-cat="browser"
+                        onclick="filterDiscoveryCategory('browser')"><i class="fa-solid fa-globe"></i> Web &amp;
+                        Browser</button>
+                    <button type="button" class="discovery-tab" data-cat="system"
+                        onclick="filterDiscoveryCategory('system')"><i class="fa-solid fa-desktop"></i> Desktop &amp;
+                        OS</button>
+                    <button type="button" class="discovery-tab" data-cat="filesystem"
+                        onclick="filterDiscoveryCategory('filesystem')"><i class="fa-solid fa-folder"></i>
+                        Filesystem</button>
+                    <button type="button" class="discovery-tab" data-cat="utility"
+                        onclick="filterDiscoveryCategory('utility')"><i class="fa-solid fa-calculator"></i> Utility
+                        &amp; Math</button>
+                </div>
+            </div>
+            <div class="discovery-modal-body" id="discoveryToolsGrid">
+                <!-- Dynamically populated from /api/agent/tools/ -->
+            </div>
+            <div class="simba-modal-footer">
+                <button type="button" class="btn-modal-secondary" onclick="closeActionDiscoveryModal()">Close</button>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Desktop Agent Pairing & Status Modal -->
+    <div id="pcAgentInstructionsModal" class="simba-custom-modal-overlay" style="display:none;"
+        onclick="if(event.target===this)togglePcAgentModal()">
+        <div class="simba-custom-modal">
+            <div class="simba-modal-header">
+                <span class="simba-modal-title"><i class="fa-brands fa-windows" style="color:#00adef;"></i> SIMBA
+                    Desktop Agent Connection</span>
+                <button type="button" class="drawer-close-btn" onclick="togglePcAgentModal()"><i
+                        class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="simba-modal-body">
+                <div
+                    style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; padding:10px 12px; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08); border-radius:8px;">
+                    <div>
+                        <div style="font-size:11px; color:rgba(255,255,255,0.5);">Connection State:</div>
+                        <div id="modalPcStatusText" style="font-weight:700; font-size:13px; margin-top:2px;">
+                            {% if is_pc_connected %}<span style="color:#0edb2a;"><i
+                                    class="fa-solid fa-circle-check"></i> Connected & Online</span>{% else %}<span
+                                style="color:#f87171;"><i class="fa-solid fa-circle-xmark"></i> Offline</span>{% endif %}
+                        </div>
+                    </div>
+                    <div style="text-align:right;">
+                        <div style="font-size:11px; color:rgba(255,255,255,0.5);">Target Device:</div>
+                        <div id="modalPcDeviceText" style="font-weight:600; font-size:12px; margin-top:2px;">
+                            {{ pc_telemetry.hostname|default:"Windows PC" }}
+                        </div>
+                    </div>
+                </div>
+                <p style="margin:0 0 10px 0;">To execute actions on your Windows computer (launch apps, type text,
+                    manage files), start the local Desktop Agent on your PC:</p>
+                <div
+                    style="position:relative; background:#0a0e17; border:1px solid rgba(255,255,255,0.15); border-radius:6px; padding:10px 12px; font-family:'JetBrains Mono', monospace; font-size:12px; color:#0edb2a; display:flex; justify-content:space-between; align-items:center;">
+                    <code id="pcAgentRunCmd">python simba_agent.py{% if profile.agent_token %} --token {{ profile.agent_token }}{% endif %}</code>
+                    <button type="button" onclick="copyPcAgentCommand()"
+                        style="background:rgba(255,255,255,0.1); border:none; color:#fff; border-radius:4px; padding:4px 8px; cursor:pointer; font-size:11px;">
+                        <i class="fa-solid fa-copy"></i> Copy
+                    </button>
+                </div>
+                <div style="margin-top:14px; font-size:11px; color:rgba(255,255,255,0.5); line-height:1.4;">
+                    <i class="fa-solid fa-shield-halved" style="color:var(--accent);"></i> <strong>Security
+                        Guarantee:</strong> The Desktop Agent establishes an authenticated outbound TLS websocket
+                    connection to SIMBA. No external ports or inbound firewall holes are opened.
+                </div>
+            </div>
+            <div class="simba-modal-footer">
+                <button type="button" class="btn-modal-secondary" onclick="togglePcAgentModal()">Close</button>
+            </div>
+        </div>
+    </div>

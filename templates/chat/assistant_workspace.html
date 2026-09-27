@@ -1,0 +1,572 @@
+            <!-- Assistant Mode: Conversation-First -->
+            {% if not messages %}
+            <div class="welcome-container" id="qcHome">
+                <div class="qc-field" aria-hidden="true">
+                    <div class="qc-radial qc-radial-1" id="qcRadial1"></div>
+                    <div class="qc-radial qc-radial-2"></div>
+                    <div class="qc-grid"></div>
+                    <div class="qc-particles" id="qcParticles">
+                        <span></span><span></span><span></span><span></span><span></span>
+                        <span></span><span></span><span></span><span></span><span></span>
+                    </div>
+                </div>
+
+                <div class="qc-topbar">
+                    <span class="qc-topbar-item" id="qcTime">--:--:--</span>
+                    <span class="qc-topbar-sep">&bull;</span>
+                    <span class="qc-topbar-item" id="qcDate">-- --- ----</span>
+                    <span class="qc-topbar-sep">&bull;</span>
+
+                </div>
+
+                <div class="qc-main">
+                    <div class="qc-core-wrap" id="qcCoreWrap">
+                        <div class="qc-core" id="qcCore" aria-hidden="true">
+                            <div class="qc-core-ring qc-ring-outer"></div>
+                            <div class="qc-core-ring qc-ring-mid"></div>
+                            <div class="qc-core-ring qc-ring-inner"></div>
+                            <div class="qc-core-orbit"><span class="qc-orbit-node"></span></div>
+                            <div class="qc-core-orbit qc-orbit-reverse"><span class="qc-orbit-node"></span></div>
+                            <div class="qc-core-center">
+                                <div class="qc-core-logo" id="qcCoreIcon" aria-hidden="true">&gt;_&lt;</div>
+                            </div>
+                        </div>
+                    </div>
+                    <p class="qc-core-status" id="qcCoreStatus">IDLE</p>
+
+                    <h1 class="qc-title">SIMBA_INTEL</h1>
+                    <p class="qc-subtitle">Your Personal Artificial Intelligence Operating System. Standing by for
+                        commands, {{ profile.display_name|default:request.user.get_full_name|default:request.user.username|upper }}.
+                    </p>
+
+                    <div class="qc-category-bar" id="qcCategoryBar" role="tablist" aria-label="Quick Action Categories">
+                        <button type="button" class="qc-cat-btn active" data-category="all"
+                            onclick="filterQuickActions('all')" role="tab" aria-selected="true">All</button>
+                        <button type="button" class="qc-cat-btn" data-category="create"
+                            onclick="filterQuickActions('create')" role="tab" aria-selected="false">Create</button>
+                        <button type="button" class="qc-cat-btn" data-category="understand"
+                            onclick="filterQuickActions('understand')" role="tab"
+                            aria-selected="false">Understand</button>
+                        <button type="button" class="qc-cat-btn" data-category="develop"
+                            onclick="filterQuickActions('develop')" role="tab" aria-selected="false">Develop</button>
+                    </div>
+
+                    <div class="qc-commands" id="qcCommandsContainer" role="toolbar"
+                        aria-label="Contextual Quick Actions">
+                        <button type="button" class="qc-chip" data-action="explain-pdf" data-mode="document"
+                            onclick="activateQuickAction('explain-pdf')"
+                            title="Attach a PDF or ask questions about your document" aria-label="Explain PDF">
+                            <span class="qc-chip-icon"><i class="fa-solid fa-file-pdf"></i></span><span>Explain
+                                PDF</span>
+                        </button>
+                        <button type="button" class="qc-chip" data-action="analyze-image" data-mode="vision"
+                            onclick="activateQuickAction('analyze-image')"
+                            title="Attach an image for AI vision analysis" aria-label="Analyze Image">
+                            <span class="qc-chip-icon"><i class="fa-solid fa-image"></i></span><span>Analyze
+                                Image</span>
+                        </button>
+                        <button type="button" class="qc-chip" data-action="write-code" data-mode="coding"
+                            onclick="activateQuickAction('write-code')" title="Activate coding assistant mode"
+                            aria-label="Write Code">
+                            <span class="qc-chip-icon"><i class="fa-solid fa-code"></i></span><span>Write Code</span>
+                        </button>
+                        <button type="button" class="qc-chip" data-action="debug-code" data-mode="diagnostics"
+                            onclick="activateQuickAction('debug-code')" title="Activate code debugging & diagnostics"
+                            aria-label="Debug Code">
+                            <span class="qc-chip-icon"><i class="fa-solid fa-bug"></i></span><span>Debug Code</span>
+                        </button>
+                        <button type="button" class="qc-chip" data-action="generate-image" data-mode="image"
+                            onclick="activateQuickAction('generate-image')"
+                            title="Switch to Image Studio image generation" aria-label="Generate Image">
+                            <span class="qc-chip-icon"><i
+                                    class="fa-solid fa-wand-magic-sparkles"></i></span><span>Generate Image</span>
+                        </button>
+                        <button type="button" class="qc-chip" data-action="build-react-app" data-mode="frontend"
+                            onclick="activateQuickAction('build-react-app')"
+                            title="Activate frontend application builder" aria-label="Build React App">
+                            <span class="qc-chip-icon"><i class="fa-brands fa-react"></i></span><span>Build React
+                                App</span>
+                        </button>
+                        <button type="button" class="qc-chip" data-action="sql-query" data-mode="database"
+                            onclick="activateQuickAction('sql-query')" title="Activate SQL & database query assistant"
+                            aria-label="SQL Query">
+                            <span class="qc-chip-icon"><i class="fa-solid fa-database"></i></span><span>SQL Query</span>
+                        </button>
+                        <button type="button" class="qc-chip" data-action="summarize-notes" data-mode="memory"
+                            onclick="activateQuickAction('summarize-notes')" title="Summarize notes or documents"
+                            aria-label="Summarize Notes">
+                            <span class="qc-chip-icon"><i class="fa-solid fa-file-invoice"></i></span><span>Summarize
+                                Notes</span>
+                        </button>
+                        <button type="button" class="qc-chip qc-chip-more" onclick="toggleMoreQuickActions()"
+                            title="View all available assistant actions" aria-label="View all actions">
+                            <span class="qc-chip-icon"><i class="fa-solid fa-ellipsis"></i></span><span>More</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <script>
+                (function () {
+                    var core = document.getElementById('qcCore');
+                    var coreWrap = document.getElementById('qcCoreWrap');
+                    var statusEl = document.getElementById('qcCoreStatus');
+                    var homeEl = document.getElementById('qcHome');
+                    if (!core || !coreWrap) return;
+
+                    var reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+                        || document.documentElement.getAttribute('data-animation') === 'none'
+                        || document.documentElement.getAttribute('data-animation') === 'reduced';
+
+                    // Each command's own mode: color, orbit-speed multiplier
+                    // (relative to idle), and glow-pulse intensity multiplier.
+                    // The center glyph itself never changes (see .qc-core-logo -
+                    // it's the brand mark, not a per-mode icon) - only its glow
+                    // color follows the mode, same as everything else.
+                    var MODES = {
+                        document: { rgb: '110, 200, 255', label: 'DOCUMENT MODE', speed: 1.3, pulse: 1.0 },
+                        vision: { rgb: '255, 185, 80', label: 'VISION MODE', speed: 0.6, pulse: 1.15 },
+                        coding: { rgb: '110, 255, 160', label: 'CODING MODE', speed: 1.9, pulse: 1.0 },
+                        diagnostics: { rgb: '255, 95, 95', label: 'DIAGNOSTICS MODE', speed: 2.2, pulse: 1.25 },
+                        image: { rgb: '255, 105, 210', label: 'IMAGE STUDIO MODE', speed: 0.9, pulse: 1.3 },
+                        frontend: { rgb: '80, 230, 210', label: 'FRONTEND MODE', speed: 1.6, pulse: 1.05 },
+                        database: { rgb: '150, 140, 255', label: 'DATABASE MODE', speed: 1.0, pulse: 0.9 },
+                        memory: { rgb: '215, 170, 255', label: 'MEMORY MODE', speed: 0.7, pulse: 1.1 }
+                    };
+                    var IDLE_LABEL = 'IDLE';
+
+                    // ---- Staged, cinematic mode transition ----
+                    // Colors/glow are plain CSS transitions (see the .qc-* rules
+                    // in <style> - each layer has its own transition-delay so
+                    // glow -> rings -> particles -> pulse cascade in, matching
+                    // "glow gradually changes, then rings accelerate, then
+                    // particles shift color, then pulse grows"). Ring rotation
+                    // SPEED can't be smoothly interpolated by CSS at all
+                    // (animation-duration changes snap at the next cycle
+                    // instead of easing), so it's driven by the rAF loop below
+                    // instead, which eases toward a target speed every frame -
+                    // that's what actually satisfies "rings should never stop
+                    // instantly, smooth easing only." Status text can't be
+                    // transitioned either (text content isn't animatable), so
+                    // it gets a manual opacity crossfade timed to land last in
+                    // the sequence.
+                    var statusFadeTimer = null;
+
+                    function crossfadeStatus(label) {
+                        if (!statusEl) return;
+                        clearTimeout(statusFadeTimer);
+                        statusEl.style.opacity = '0';
+                        statusFadeTimer = setTimeout(function () {
+                            statusEl.textContent = label;
+                            requestAnimationFrame(function () {
+                                statusEl.style.opacity = '1';
+                            });
+                        }, 200);
+                    }
+
+                    function applyMode(modeKey) {
+                        var m = modeKey && MODES[modeKey];
+                        if (m) {
+                            core.style.setProperty('--mode-rgb', m.rgb);
+                            core.style.setProperty('--pulse-scale', m.pulse);
+                            ringSpeed.target = m.speed;
+                            crossfadeStatus(m.label);
+                        } else {
+                            core.style.removeProperty('--mode-rgb');
+                            core.style.removeProperty('--pulse-scale');
+                            ringSpeed.target = 1;
+                            crossfadeStatus(IDLE_LABEL);
+                        }
+                    }
+
+                    window.applyQcMode = applyMode;
+
+                    document.querySelectorAll('#qcHome .qc-chip[data-mode]').forEach(function (chip) {
+                        chip.addEventListener('mouseenter', function () { applyMode(chip.dataset.mode); });
+                        chip.addEventListener('focus', function () { applyMode(chip.dataset.mode); });
+                        chip.addEventListener('mouseleave', function () { applyMode(null); });
+                        chip.addEventListener('blur', function () { applyMode(null); });
+                    });
+
+                    // ---- Ring/orbit rotation, driven by requestAnimationFrame ----
+                    // Idle speed -> acceleration -> target speed -> deceleration
+                    // -> idle, with pure easing (exponential smoothing toward a
+                    // target multiplier every frame) instead of CSS keyframes,
+                    // which is the only way to get a genuinely smooth speed
+                    // change rather than a snap at the next animation cycle.
+                    // Skipped entirely under reduced motion - rings stay static.
+                    var ringEls = {
+                        outer: core.querySelector('.qc-ring-outer'),
+                        mid: core.querySelector('.qc-ring-mid'),
+                        orbit: core.querySelector('.qc-core-orbit:not(.qc-orbit-reverse)'),
+                        orbitRev: core.querySelector('.qc-orbit-reverse')
+                    };
+                    var ringBaseDegPerSec = { outer: 14, mid: -46, orbit: 62, orbitRev: -42 };
+                    var ringAngle = { outer: 0, mid: 0, orbit: 0, orbitRev: 0 };
+                    var ringSpeed = { current: 1, target: 1 };
+                    var lastFrameTime = null;
+
+                    function tickRings(now) {
+                        // Same self-stopping idea as the clock below - once
+                        // the welcome screen is hidden (first message sent),
+                        // there's no point still computing rotation angles for
+                        // an invisible element every frame for the rest of the
+                        // page's life.
+                        if (!homeEl || !homeEl.isConnected || homeEl.style.display === 'none') return;
+
+                        if (lastFrameTime === null) lastFrameTime = now;
+                        var dt = Math.min((now - lastFrameTime) / 1000, 0.05);
+                        lastFrameTime = now;
+
+                        ringSpeed.current += (ringSpeed.target - ringSpeed.current) * Math.min(dt * 3.2, 1);
+
+                        for (var key in ringEls) {
+                            var el = ringEls[key];
+                            if (!el) continue;
+                            ringAngle[key] = (ringAngle[key] + ringBaseDegPerSec[key] * ringSpeed.current * dt) % 360;
+                            el.style.transform = 'rotate(' + ringAngle[key].toFixed(2) + 'deg)';
+                        }
+
+                        requestAnimationFrame(tickRings);
+                    }
+                    if (!reducedMotion) {
+                        requestAnimationFrame(tickRings);
+                    }
+
+                    // Subtle mouse-tracking tilt - pointer devices only, and
+                    // never fires at all under reduced-motion preferences.
+                    if (!reducedMotion && window.matchMedia('(pointer: fine)').matches) {
+                        coreWrap.addEventListener('mousemove', function (e) {
+                            var rect = coreWrap.getBoundingClientRect();
+                            var px = (e.clientX - rect.left) / rect.width - 0.5;
+                            var py = (e.clientY - rect.top) / rect.height - 0.5;
+                            core.style.transform = 'rotateX(' + (-py * 10).toFixed(2) + 'deg) rotateY(' + (px * 10).toFixed(2) + 'deg)';
+                        });
+                        coreWrap.addEventListener('mouseleave', function () {
+                            core.style.transform = '';
+                        });
+                    }
+
+                    // Live status bar clock - stops itself once the welcome
+                    // screen is hidden (sendQuery() hides it via display:none
+                    // rather than removing it, since a returning user might
+                    // come back to an empty session later) so this doesn't
+                    // keep ticking in the background for the rest of the
+                    // page's life after the first message is sent.
+                    var timeEl = document.getElementById('qcTime');
+                    var dateEl = document.getElementById('qcDate');
+                    var clockInterval = setInterval(function () {
+                        if (!homeEl || !homeEl.isConnected || homeEl.style.display === 'none') {
+                            clearInterval(clockInterval);
+                            return;
+                        }
+                        var now = new Date();
+                        if (timeEl) timeEl.textContent = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+                        if (dateEl) dateEl.textContent = now.toLocaleDateString([], { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' });
+                    }, 1000);
+                    if (timeEl) timeEl.textContent = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+                    if (dateEl) dateEl.textContent = new Date().toLocaleDateString([], { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' });
+                })();
+            </script>
+            {% endif %}
+
+            {% for m in messages %}
+            <div class="chat-block user-block" data-message-id="{{ m.user_message_id }}">
+                <span class="msg-label">
+                    <div class="avatar user">{{ profile.display_name|default:request.user.first_name|default:request.user.username|slice:":1"|upper }}</div>{{ profile.display_name|default:request.user.get_full_name|default:request.user.username|upper }}_INPUT
+                </span>
+                <div class="content">{{ m.user_query }}{% if m.user_attachments %}<div
+                        class="message-attachments-container">{% for att in m.user_attachments %}{% if att.file_type == 'image' %}<div class="msg-attachment-card image-card"
+                            onclick="openAttachmentImageViewer('{{ att.url }}', '{{ att.name|escapejs }}', '{{ att.size }}')"
+                            title="{{ att.name }} (Click to view)">
+                            <div class="msg-attachment-thumb-wrapper"><img class="msg-attachment-thumb"
+                                    src="{{ att.url }}" alt="{{ att.name }}" loading="lazy"></div><span
+                                class="msg-attachment-name">{{ att.name }}</span>
+                        </div>{% else %}<div class="msg-attachment-card file-card"
+                            onclick="openAttachmentViewer('{{ att.id }}', '{{ att.name|escapejs }}', '{{ att.file_type }}', '{{ att.url }}')"
+                            title="{{ att.name }} (Click to read/view)">
+                            <div class="msg-attachment-icon">{% if att.file_type == 'pdf' %}<i
+                                    class="fa-solid fa-file-pdf"></i>{% elif att.file_type == 'code' %}<i
+                                    class="fa-solid fa-file-code"></i>{% else %}<i class="fa-solid fa-file-lines"></i>{% endif %}</div>
+                            <div class="msg-attachment-info"><span class="msg-attachment-name">{{ att.name }}</span><span class="msg-attachment-size">{{ att.size|filesizeformat }}</span>
+                            </div>
+                        </div>{% endif %}{% endfor %}</div>{% elif m.user_extra_data and m.user_extra_data.attachments %}<div class="message-attachments-container">{% for att in m.user_extra_data.attachments %}{% if att.file_type == 'image' %}<div class="msg-attachment-card image-card"
+                            onclick="openAttachmentImageViewer('{{ att.url }}', '{{ att.name|escapejs }}', '{{ att.size }}')"
+                            title="{{ att.name }} (Click to view)">
+                            <div class="msg-attachment-thumb-wrapper"><img class="msg-attachment-thumb"
+                                    src="{{ att.url }}" alt="{{ att.name }}" loading="lazy"></div><span
+                                class="msg-attachment-name">{{ att.name }}</span>
+                        </div>{% else %}<div class="msg-attachment-card file-card"
+                            onclick="openAttachmentViewer('{{ att.id }}', '{{ att.name|escapejs }}', '{{ att.file_type }}', '{{ att.url }}')"
+                            title="{{ att.name }} (Click to read/view)">
+                            <div class="msg-attachment-icon">{% if att.file_type == 'pdf' %}<i
+                                    class="fa-solid fa-file-pdf"></i>{% elif att.file_type == 'code' %}<i
+                                    class="fa-solid fa-file-code"></i>{% else %}<i class="fa-solid fa-file-lines"></i>{% endif %}</div>
+                            <div class="msg-attachment-info"><span class="msg-attachment-name">{{ att.name }}</span><span class="msg-attachment-size">{{ att.size|filesizeformat }}</span>
+                            </div>
+                        </div>{% endif %}{% endfor %}</div>{% endif %}</div>
+                <textarea class="raw-query" style="display:none;">{{ m.user_query }}</textarea>
+                {% if not m.extra_data %}
+                <button class="edit-msg-btn" onclick="editUserMessage(this)" title="Edit and regenerate"
+                    aria-label="Edit message">
+                    <i class="fa-solid fa-pen"></i>
+                </button>
+                {% endif %}
+                <button class="edit-msg-btn delete-msg-btn" onclick="deleteMessage(this)" title="Delete message"
+                    aria-label="Delete message" style="right: calc(100% + 42px);">
+                    <i class="fa-solid fa-trash"></i>
+                </button>
+                {% if m.user_sibling_count > 1 %}
+                <div class="branch-switcher" data-sibling-ids="{{ m.user_sibling_ids|join:',' }}"
+                    data-current-id="{{ m.user_message_id }}">
+                    <button class="branch-nav-btn" onclick="switchBranch(this, -1)" aria-label="Previous version"><i
+                            class="fa-solid fa-chevron-left"></i></button>
+                    <span class="branch-counter">{{ m.user_sibling_index }}/{{ m.user_sibling_count }}</span>
+                    <button class="branch-nav-btn" onclick="switchBranch(this, 1)" aria-label="Next version"><i
+                            class="fa-solid fa-chevron-right"></i></button>
+                </div>
+                {% endif %}
+                <div class="message-reactions" data-message-id="{{ m.user_message_id }}" data-message-role="user">
+                    {% if m.extra_data and m.extra_data.reactions %}
+                    {% for reaction, count in m.extra_data.reactions.items %}
+                    <button class="reaction-button" data-reaction="{{ reaction }}"
+                        onclick="toggleReaction(this, '{{ m.user_message_id }}', 'user', '{{ reaction }}')">
+                        {{ reaction|title }}
+                    </button>
+                    <span class="reaction-count">{{ count }}</span>
+                    {% endfor %}
+                    {% endif %}
+                </div>
+            </div>
+            {% if m.extra_data and m.extra_data.type == "image" %}
+            <div class="chat-block simba-block" data-message-id="{{ m.id }}">
+                <span class="msg-label">
+                    SIMBA_IMAGE
+                </span>
+                <div class="content">
+                    <div class="image-card"
+                        style="display:flex;flex-direction:column;gap:15px;align-items:center;padding:20px;background:rgba(15,21,28,0.5);border:1px solid rgba(var(--accent-rgb),0.2);border-radius:12px;">
+                        <img class="generated-image" crossorigin="anonymous" src="{{ m.extra_data.image_url }}"
+                            style="max-width:100%;border-radius:8px;box-shadow:0 0 30px rgba(var(--accent-rgb),0.1);"
+                            alt="Generated image">
+                        <div style="display:flex;flex-direction:column;gap:8px;width:100%;max-width:600px;">
+                            <div style="display:flex;justify-content:space-between;color:#a0aabf;font-size:14px;">
+                                <span>Resolution: {{ m.extra_data.width }}x{{ m.extra_data.height }}</span>
+                                <span>Model: {{ m.extra_data.model_used }}</span>
+                            </div>
+                            <div style="text-align:center;color:#0edb2a;font-size:14px;">
+                                Image generated
+                            </div>
+                        </div>
+                        <div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center;">
+                            <button class="copy-btn favorite-btn" data-message-id="{{ m.id }}"
+                                onclick="toggleFavoriteImage(this)">
+                                <i
+                                    class="fa-{% if m.extra_data.favorited %}solid{% else %}regular{% endif %} fa-star"></i>
+                                Favorite
+                            </button>
+                            <button class="copy-btn"
+                                onclick="downloadImage('{{ m.extra_data.image_url }}', 'simba-intel-image.jpg')">
+                                <i class="fa-solid fa-download"></i> Download
+                            </button>
+                            <button class="copy-btn"
+                                onclick="copyToClipboard('{{ m.extra_data.prompt|escapejs }}', this)">
+                                <i class="fa-solid fa-copy"></i> Copy Prompt
+                            </button>
+                            <button class="copy-btn"
+                                onclick="regenerateImage('{{ m.extra_data.prompt|escapejs }}', '{{ m.extra_data.prompt|escapejs }}')">
+                                <i class="fa-solid fa-rotate"></i> Regenerate
+                            </button>
+                            <button class="copy-btn" onclick="shareChat('{{ m.extra_data.prompt|escapejs }}')">
+                                <i class="fa-solid fa-share-nodes"></i> Share
+                            </button>
+                            <button class="copy-btn bookmark-btn {% if m.extra_data.bookmarked %}active{% endif %}"
+                                onclick="bookmarkMessage(this)" title="Bookmark this image">
+                                <i
+                                    class="fa-{% if m.extra_data.bookmarked %}solid{% else %}regular{% endif %} fa-bookmark"></i>
+                            </button>
+                            <button class="copy-btn info-btn" onclick="openMessageInfo(this)" title="Message info">
+                                <i class="fa-solid fa-circle-info"></i>
+                            </button>
+                            <button class="copy-btn danger" onclick="deleteMessage(this)" title="Delete this image">
+                                <i class="fa-solid fa-trash"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <div class="reply-mini-actions">
+                    <button class="reply-mini-btn" onclick="editPromptFromReply(this)"
+                        title="Edit the prompt that produced this image">
+                        <i class="fa-solid fa-pen"></i>
+                    </button>
+                </div>
+                <div class="message-reactions" data-message-id="{{ m.id }}" data-message-role="assistant">
+                    {% if m.extra_data and m.extra_data.reactions %}
+                    {% for reaction, count in m.extra_data.reactions.items %}
+                    <button class="reaction-button" data-reaction="{{ reaction }}"
+                        onclick="toggleReaction(this, '{{ m.id }}', 'assistant', '{{ reaction }}')">
+                        {{ reaction|title }}
+                    </button>
+                    <span class="reaction-count">{{ count }}</span>
+                    {% endfor %}
+                    {% endif %}
+                </div>
+            </div>
+            {% elif m.extra_data and m.extra_data.type == "vision" %}
+            <div class="chat-block simba-block" data-message-id="{{ m.id }}">
+                <span class="msg-label">
+                    SIMBA_VISION{% if m.latency %} • {{ m.latency }}s{% endif %}
+                </span>
+                {% if m.extra_data.image_previews %}
+                <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
+                    {% for preview in m.extra_data.image_previews %}
+                    <img src="{{ preview }}"
+                        onclick="openAttachmentImageViewer('{{ preview|escapejs }}', 'Vision Attached Image')"
+                        style="max-width:160px;max-height:160px;border-radius:8px;object-fit:cover;cursor:pointer;transition:transform 0.2s;"
+                        onmouseover="this.style.transform='scale(1.03)'" onmouseout="this.style.transform='none'"
+                        alt="Attached image">
+                    {% endfor %}
+                </div>
+                {% elif m.extra_data.image_preview %}
+                <img src="{{ m.extra_data.image_preview }}"
+                    onclick="openAttachmentImageViewer('{{ m.extra_data.image_preview|escapejs }}', 'Vision Attached Image')"
+                    style="max-width:200px;border-radius:8px;margin-bottom:10px;display:block;cursor:pointer;transition:transform 0.2s;"
+                    onmouseover="this.style.transform='scale(1.03)'" onmouseout="this.style.transform='none'"
+                    alt="Attached image">
+                {% endif %}
+                <textarea style="display:none;" class="raw-data">{{ m.ai_response }}</textarea>
+                <div class="content markdown-content">{{ m.ai_response }}</div>
+                <div class="reply-actions"
+                    style="display: flex; gap: 10px; margin-top: 5px; align-items: center; flex-wrap: wrap;">
+                    <button class="copy-btn"
+                        onclick="copyToClipboard(this.closest('.simba-block').querySelector('.raw-data').value, this)">
+                        <i class="fa-regular fa-copy"></i> COPY_INTEL
+                    </button>
+                    <button class="copy-btn"
+                        onclick="shareChat(this.closest('.simba-block').querySelector('.raw-data').value)">
+                        <i class="fa-solid fa-share-nodes"></i> SHARE
+                    </button>
+                    <button class="copy-btn" onclick="regenerateText(this)">
+                        <i class="fa-solid fa-rotate"></i> Regenerate
+                    </button>
+                    <button class="copy-btn" onclick="continueMessage(this)"
+                        title="Extend this reply if it got cut short">
+                        <i class="fa-solid fa-forward"></i> Continue
+                    </button>
+                    <button class="copy-btn bookmark-btn {% if m.extra_data.bookmarked %}active{% endif %}"
+                        onclick="bookmarkMessage(this)" title="Bookmark this reply">
+                        <i class="fa-{% if m.extra_data.bookmarked %}solid{% else %}regular{% endif %} fa-bookmark"></i>
+                    </button>
+                    <button class="copy-btn info-btn" onclick="openMessageInfo(this)" title="Message info">
+                        <i class="fa-solid fa-circle-info"></i>
+                    </button>
+                    <button class="copy-btn"
+                        onclick="openHighlightModal('{{ m.id }}', this.closest('.simba-block').querySelector('.raw-data')?.value, 'answer')"
+                        title="Save Key Highlight / Note">
+                        <i class="fa-solid fa-highlighter"></i> Highlight
+                    </button>
+                    <button class="copy-btn danger" onclick="deleteMessage(this)" title="Delete this reply">
+                        <i class="fa-solid fa-trash"></i>
+                    </button>
+                </div>
+                <div class="reply-mini-actions">
+                    <button class="reply-mini-btn" onclick="editPromptFromReply(this)"
+                        title="Edit the prompt that produced this reply">
+                        <i class="fa-solid fa-pen"></i> Edit Prompt
+                    </button>
+                    <button class="reply-mini-btn" onclick="copyPromptFromReply(this)"
+                        title="Copy the prompt that produced this reply">
+                        <i class="fa-solid fa-copy"></i> Copy Prompt
+                    </button>
+                </div>
+                <div class="followup-suggestions"></div>
+                <div class="message-reactions" data-message-id="{{ m.id }}" data-message-role="assistant">
+                    {% if m.extra_data and m.extra_data.reactions %}
+                    {% for reaction, count in m.extra_data.reactions.items %}
+                    <button class="reaction-button" data-reaction="{{ reaction }}"
+                        onclick="toggleReaction(this, '{{ m.id }}', 'assistant', '{{ reaction }}')">
+                        {{ reaction|title }}
+                    </button>
+                    <span class="reaction-count">{{ count }}</span>
+                    {% endfor %}
+                    {% endif %}
+                </div>
+            </div>
+            {% else %}
+            <div class="chat-block simba-block" data-message-id="{{ m.id }}">
+                <span class="msg-label">
+                    SIMBA_RESPONSE{% if m.latency %} • {{ m.latency }}s{% endif %}
+                </span>
+                <textarea style="display:none;" class="raw-data">{{ m.ai_response }}</textarea>
+                <div class="content markdown-content">{{ m.ai_response }}</div>
+
+                <div class="reply-actions"
+                    style="display: flex; gap: 10px; margin-top: 5px; align-items: center; flex-wrap: wrap;">
+                    <button class="copy-btn"
+                        onclick="copyToClipboard(this.closest('.simba-block').querySelector('.raw-data').value, this)">
+                        <i class="fa-regular fa-copy"></i> COPY_INTEL
+                    </button>
+                    <button class="copy-btn"
+                        onclick="shareChat(this.closest('.simba-block').querySelector('.raw-data').value)">
+                        <i class="fa-solid fa-share-nodes"></i> SHARE
+                    </button>
+                    <button class="copy-btn" onclick="regenerateText(this)">
+                        <i class="fa-solid fa-rotate"></i> Regenerate
+                    </button>
+                    <button class="copy-btn" onclick="continueMessage(this)"
+                        title="Extend this reply if it got cut short">
+                        <i class="fa-solid fa-forward"></i> Continue
+                    </button>
+                    <button class="copy-btn bookmark-btn {% if m.extra_data.bookmarked %}active{% endif %}"
+                        onclick="bookmarkMessage(this)" title="Bookmark this reply">
+                        <i class="fa-{% if m.extra_data.bookmarked %}solid{% else %}regular{% endif %} fa-bookmark"></i>
+                    </button>
+                    <button class="copy-btn"
+                        onclick="openHighlightModal('{{ m.id }}', this.closest('.simba-block').querySelector('.raw-data')?.value, 'answer')"
+                        title="Save Key Highlight / Note">
+                        <i class="fa-solid fa-highlighter"></i> Highlight
+                    </button>
+                    <button class="copy-btn info-btn" onclick="openMessageInfo(this)" title="Message info">
+                        <i class="fa-solid fa-circle-info"></i>
+                    </button>
+                    <button class="copy-btn danger" onclick="deleteMessage(this)" title="Delete this reply">
+                        <i class="fa-solid fa-trash"></i>
+                    </button>
+                    {% if m.assistant_sibling_count > 1 %}
+                    <div class="branch-switcher" data-sibling-ids="{{ m.assistant_sibling_ids|join:',' }}"
+                        data-current-id="{{ m.id }}">
+                        <button class="branch-nav-btn" onclick="switchBranch(this, -1)" aria-label="Previous version"><i
+                                class="fa-solid fa-chevron-left"></i></button>
+                        <span class="branch-counter">{{ m.assistant_sibling_index }}/{{ m.assistant_sibling_count }}</span>
+                        <button class="branch-nav-btn" onclick="switchBranch(this, 1)" aria-label="Next version"><i
+                                class="fa-solid fa-chevron-right"></i></button>
+                    </div>
+                    {% endif %}
+                </div>
+                <div class="reply-mini-actions">
+                    <button class="reply-mini-btn" onclick="editPromptFromReply(this)"
+                        title="Edit the prompt that produced this reply">
+                        <i class="fa-solid fa-pen"></i> Edit Prompt
+                    </button>
+                    <button class="reply-mini-btn" onclick="copyPromptFromReply(this)"
+                        title="Copy the prompt that produced this reply">
+                        <i class="fa-solid fa-copy"></i> Copy Prompt
+                    </button>
+                    <button class="reply-mini-btn" onclick="suggestFollowups(this)" title="Suggest what to ask next">
+                        <i class="fa-solid fa-wand-magic-sparkles"></i> Suggest Follow-ups
+                    </button>
+                </div>
+                <div class="message-reactions" data-message-id="{{ m.id }}" data-message-role="assistant">
+                    {% if m.extra_data and m.extra_data.reactions %}
+                    {% for reaction, count in m.extra_data.reactions.items %}
+                    <button class="reaction-button" data-reaction="{{ reaction }}"
+                        onclick="toggleReaction(this, '{{ m.id }}', 'assistant', '{{ reaction }}')">
+                        {{ reaction|title }}
+                    </button>
+                    <span class="reaction-count">{{ count }}</span>
+                    {% endfor %}
+                    {% endif %}
+                </div>
+                <div class="followup-suggestions"></div>
+            </div>
+            {% endif %}
+            {% endfor %}
