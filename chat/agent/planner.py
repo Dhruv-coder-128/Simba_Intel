@@ -8,8 +8,6 @@ import re
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, Optional
 
-from .tools.browser_tools import ENGINE_DISPLAY_NAMES, POPULAR_SITES, resolve_site_url
-from .tools.desktop_tools import ALLOWED_APPLICATIONS
 from .tools.registry import ToolRegistry, global_tool_registry
 
 logger = logging.getLogger("simba_intel.agent.planner")

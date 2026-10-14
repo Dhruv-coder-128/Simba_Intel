@@ -6,7 +6,7 @@ import os
 import subprocess
 import urllib.parse
 import webbrowser
-from typing import Dict, Optional
+from typing import Dict
 
 from .registry import ExecutionResult, Tool, ToolParameter, global_tool_registry
 

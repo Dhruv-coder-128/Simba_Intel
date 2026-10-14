@@ -9,9 +9,9 @@ from typing import Optional, Tuple, Any
 
 from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import login_required
-from django.http import JsonResponse, HttpRequest, HttpResponse
+from django.http import JsonResponse, HttpRequest
 from django.views.decorators.csrf import csrf_exempt
-from django.views.decorators.http import require_POST, require_GET, require_http_methods
+from django.views.decorators.http import require_POST, require_GET
 
 from .agent.agent_hub import default_agent_hub
 from .utils.request_info import client_ip

@@ -3,7 +3,7 @@ supporting explicit routing modes (AUTO, FAST, BALANCED, POWERFUL, ECONOMICAL)
 with reasoning metadata and automatic fallback resolution.
 """
 from typing import Tuple
-from chat.services.model_registry import MODEL_REGISTRY, list_available_models
+from chat.services.model_registry import MODEL_REGISTRY
 
 AUTO_MODEL_ID = "auto"
 

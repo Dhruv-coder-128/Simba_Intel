@@ -1,4 +1,3 @@
-import os
 from typing import Any, Callable, Dict, Generator, Optional
 
 from openai import OpenAI

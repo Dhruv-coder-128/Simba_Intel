@@ -4,7 +4,6 @@ input simulation (SendInput / mouse / keyboard hotkeys), system telemetry, and p
 import ctypes
 import os
 import platform
-import sys
 import time
 from ctypes import wintypes
 from typing import Any, Dict, List, Optional, Tuple, Union

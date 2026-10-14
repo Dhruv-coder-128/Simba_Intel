@@ -3,7 +3,6 @@ Executes real local desktop actions on the user's Windows operating system with 
 """
 import logging
 import os
-import re
 import shutil
 import subprocess
 import time
@@ -13,7 +12,6 @@ from .registry import ExecutionResult, RiskLevel, Tool, ToolParameter, global_to
 from .windows_utils import (
     close_window_or_process,
     empty_windows_recycle_bin,
-    find_window_by_process_name,
     find_window_by_title_substring,
     find_window_flexible,
     force_focus_window,
@@ -21,11 +19,8 @@ from .windows_utils import (
     get_clipboard_text,
     get_mouse_position,
     get_system_telemetry,
-    is_process_running,
     maximize_window,
-    maximize_window_by_hwnd,
     minimize_window,
-    minimize_window_by_hwnd,
     mouse_click,
     mouse_double_click,
     mouse_move,
@@ -33,13 +28,11 @@ from .windows_utils import (
     mouse_scroll,
     paste_clipboard,
     restore_window,
-    restore_window_by_hwnd,
     send_hotkey,
     send_key,
     send_keys_sequence,
     send_unicode_text,
     set_clipboard_text,
-    switch_to_window,
     system_power,
     wait_for_process,
     wait_for_window_by_title,

@@ -14,7 +14,7 @@ alongside exact recent turns, with ZERO unnecessary background LLM token consump
 """
 import logging
 import re
-from typing import Dict, List, Optional, Tuple, Any
+from typing import Dict, List, Any
 
 from chat.services.memory import messages_to_history_dicts
 from chat.services.message_tree import walk_active_chain

@@ -3,16 +3,15 @@ Detects and executes deterministic agent actions (apps, windows, keyboard, mouse
 immediately with 0ms LLM overhead, zero API tokens, and native Windows OS execution.
 """
 import logging
-import os
 import re
 import time
 from typing import Any, Callable, Dict, Generator, List, Optional, Tuple
 
 from .executor import LocalExecutor, default_executor
 from .planner import AgentPlan, PlannedStep, is_coding_or_question_prompt
-from .tools.browser_tools import ENGINE_DISPLAY_NAMES, POPULAR_SITES, SEARCH_ENGINES, resolve_site_url
+from .tools.browser_tools import ENGINE_DISPLAY_NAMES, resolve_site_url
 from .tools.desktop_tools import ALLOWED_APPLICATIONS
-from .tools.registry import ExecutionResult, RiskLevel
+from .tools.registry import ExecutionResult
 from .task_manager import TaskStatus, default_task_manager
 
 logger = logging.getLogger("simba_intel.agent.fast_router")

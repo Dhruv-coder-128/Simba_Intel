@@ -13,12 +13,22 @@ __pycache__/
 db.sqlite3
 *.sqlite3
 
+# Generated/static build output
+staticfiles/
+
+# User uploads and local media
+media/
+chat/uploads/
+
 # Data migration exports - contain real user data (emails, chat content,
 # security/session records); never commit these
 legacy_data.json
 
 # VS Code
 .vscode/
+
+# Local assistant/tool config
+.claude/
 
 # OS files
 .DS_Store

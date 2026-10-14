@@ -5,10 +5,9 @@ import datetime
 import fnmatch
 import logging
 import os
-import pathlib
 import shutil
 import time
-from typing import Any, Dict, List, Optional
+from typing import Optional
 
 from .registry import ExecutionResult, RiskLevel, Tool, ToolParameter, global_tool_registry
 

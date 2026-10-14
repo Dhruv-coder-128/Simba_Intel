@@ -7,7 +7,7 @@ import logging
 import threading
 import time
 import uuid
-from dataclasses import asdict, dataclass, field
+from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
 from django.core.cache import cache
